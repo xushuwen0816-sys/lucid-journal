@@ -276,8 +276,8 @@ const RitualView: React.FC<RitualViewProps> = ({ wishes = [], onAddJournalEntry,
                         </div>
                         
                         {/* Horizontal Scroll Container for Arc Spread */}
-                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 px-8 flex justify-center min-h-[500px]">
-                            <div className="flex items-end min-w-max h-40 relative" style={{ marginLeft: '-1rem' }}> 
+                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 px-8 min-h-[500px]">
+                            <div className="flex items-end min-w-max h-40 relative mx-auto" style={{ marginLeft: '-1rem' }}> 
                                 {deck.map((card, idx) => {
                                     const isSelected = selectedIndices.includes(idx);
                                     const selectedOrder = selectedIndices.indexOf(idx); // 0, 1, or 2
@@ -464,7 +464,7 @@ const RitualView: React.FC<RitualViewProps> = ({ wishes = [], onAddJournalEntry,
 
                         <Card className="flex items-start gap-4">
                             <div className="p-2 bg-emerald-900/20 rounded-full text-emerald-400 mt-1">
-                                <Sparkles className="w-5 h-5" />
+                                <Sun className="w-5 h-5" />
                             </div>
                             <div>
                                 <h4 className="text-base font-bold text-emerald-100 mb-1">今日微行动</h4>

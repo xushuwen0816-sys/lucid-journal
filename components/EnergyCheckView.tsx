@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { generateTarotReading, generateDailyPractice } from '../services/geminiService';
 import { TarotReading, DailyPractice, Wish } from '../types';
@@ -218,8 +217,8 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                             <p className="text-lucid-dim text-sm mt-1">{selectedIndices.length} / 3 已选择</p>
                         </div>
                         
-                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 px-8 flex justify-center min-h-[500px]">
-                            <div className="flex items-end min-w-max h-40 relative" style={{ marginLeft: '-1rem' }}> 
+                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 px-8 min-h-[500px]">
+                            <div className="flex items-end min-w-max h-40 relative mx-auto" style={{ marginLeft: '-1rem' }}> 
                                 {deck.map((card, idx) => {
                                     const isSelected = selectedIndices.includes(idx);
                                     const selectedOrder = selectedIndices.indexOf(idx); 
@@ -273,6 +272,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                             onClick={() => handleCardClick(idx)}
                                             style={{ 
                                                 ...style,
+                                                // Only apply negative margin if NOT revealing/selected
                                                 marginLeft: (isRevealing && isSelected) ? 0 : (idx === 0 ? '0' : '-1.8rem'),
                                             }}
                                             className={`
@@ -359,7 +359,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
             </div>
             )}
 
-            {/* 2. DAILY PRACTICE */}
+            {/* 2. DAILY PRACTICE (Dependant on Tarot) */}
             {activeTab === 'practice' && (
             <div className="max-w-xl mx-auto py-6 animate-fade-in">
                 {!practice ? (
