@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice } from './types';
+import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
 import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle } from 'lucide-react';
 
 // Components
@@ -28,7 +28,23 @@ const App: React.FC = () => {
 
   // Default view is now ENERGY Check
   const [currentView, setCurrentView] = useState<AppView>(AppView.ENERGY);
-  const [wishes, setWishes] = useState<Wish[]>([]);
+  
+  // --- GLOBAL STATE ---
+
+  // 1. Wishes (Persistent)
+  const [wishes, setWishes] = useState<Wish[]>(() => {
+    if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('lucid_wishes');
+        return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  
+  // Persist Wishes
+  useEffect(() => {
+    localStorage.setItem('lucid_wishes', JSON.stringify(wishes));
+  }, [wishes]);
+
   const [activeWishId, setActiveWishId] = useState<string | null>(null);
   
   // Check authorization on mount
@@ -40,7 +56,6 @@ const App: React.FC = () => {
 
   const handleStartSystem = () => {
     if (apiKeyInput.trim().length > 10) {
-      // Pass empty string for baseUrl since we removed the proxy input
       setAiConfig(apiKeyInput.trim(), userNameInput.trim(), '');
       setIsAuthorized(true);
     }
@@ -51,7 +66,6 @@ const App: React.FC = () => {
       setIsTesting(true);
       setTestResult(null);
       
-      // Temporarily set config to test (empty base URL)
       setAiConfig(apiKeyInput.trim(), userNameInput.trim(), '');
       
       const success = await checkConnection();
@@ -59,7 +73,7 @@ const App: React.FC = () => {
       setIsTesting(false);
   };
   
-  // Global Journal State for Archiving
+  // 2. Journal Entries (Persistent)
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
     const saved = localStorage.getItem('lucid_all_journals');
     return saved ? JSON.parse(saved) : [];
@@ -71,13 +85,13 @@ const App: React.FC = () => {
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
   };
 
-  // Global Ritual Archive State (Tarot & Practice)
+  // 3. Ritual Entries (Persistent)
   const [ritualEntries, setRitualEntries] = useState<RitualArchiveEntry[]>(() => {
     const saved = localStorage.getItem('lucid_ritual_archive');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Handler to merge ritual updates (Tarot or Practice) for the current day
+  // Handler to merge ritual updates
   const handleSaveRitual = (data: { date: number, reading?: TarotReading, practice?: DailyPractice }) => {
     setRitualEntries(prev => {
         const dateKey = new Date(data.date).toDateString();
@@ -85,7 +99,6 @@ const App: React.FC = () => {
         
         let updatedEntry: RitualArchiveEntry;
         if (existingIndex >= 0) {
-            // Merge with existing entry for today
             updatedEntry = {
                 ...prev[existingIndex],
                 ...data
@@ -94,7 +107,6 @@ const App: React.FC = () => {
             newArr[existingIndex] = updatedEntry;
             return newArr;
         } else {
-            // Create new entry
             updatedEntry = {
                 id: crypto.randomUUID(),
                 date: data.date,
@@ -106,10 +118,54 @@ const App: React.FC = () => {
     });
   };
 
-  // Persist ritual entries
   useEffect(() => {
     localStorage.setItem('lucid_ritual_archive', JSON.stringify(ritualEntries));
   }, [ritualEntries]);
+
+  // 4. Future Letters (Persistent)
+  const [letters, setLetters] = useState<FutureLetter[]>(() => {
+     try {
+       return JSON.parse(localStorage.getItem('lucid_future_letters') || '[]');
+     } catch { return []; }
+  });
+
+  const handleAddLetter = (letter: FutureLetter) => {
+    const updated = [letter, ...letters];
+    setLetters(updated);
+  };
+
+  useEffect(() => {
+      localStorage.setItem('lucid_future_letters', JSON.stringify(letters));
+  }, [letters]);
+
+
+  // --- DATA IMPORT HANDLER ---
+  const handleImportData = (data: any) => {
+      try {
+          if (data.data) {
+              const { wishes: w, journalEntries: j, ritualEntries: r, letters: l } = data.data;
+              
+              if (w) setWishes(w);
+              if (j) setJournalEntries(j);
+              if (r) setRitualEntries(r);
+              if (l) setLetters(l);
+              
+              // Force persistence immediately to be safe
+              if (w) localStorage.setItem('lucid_wishes', JSON.stringify(w));
+              if (j) localStorage.setItem('lucid_all_journals', JSON.stringify(j));
+              if (r) localStorage.setItem('lucid_ritual_archive', JSON.stringify(r));
+              if (l) localStorage.setItem('lucid_future_letters', JSON.stringify(l));
+              
+              alert('数据导入成功！您的时空记录已恢复。\nData imported successfully.');
+          } else {
+              throw new Error('Invalid data structure');
+          }
+      } catch (e) {
+          console.error(e);
+          alert('导入失败：文件格式不正确。\nFailed to import: Invalid file format.');
+      }
+  };
+
 
   // Persistent State for Intent View
   const [intentState, setIntentState] = useState<IntentState>({
@@ -123,14 +179,13 @@ const App: React.FC = () => {
   const handleWishCreated = (wish: Wish) => {
     setWishes(prev => [wish, ...prev]);
     setActiveWishId(wish.id);
-    setTimeout(() => setCurrentView(AppView.ARCHIVE), 0); // Redirect to Archive to see the library/wish
+    setTimeout(() => setCurrentView(AppView.ARCHIVE), 0);
   };
 
   const handleWishUpdate = (updatedWish: Wish) => {
     setWishes(prev => prev.map(w => w.id === updatedWish.id ? updatedWish : w));
   };
 
-  // New Navigation Order: Energy -> Journal -> Intent -> Archive
   const navItems = [
     { view: AppView.ENERGY, icon: Zap, label: '能量' },
     { view: AppView.JOURNAL, icon: BookOpen, label: '日记' },
@@ -138,11 +193,9 @@ const App: React.FC = () => {
     { view: AppView.ARCHIVE, icon: Hourglass, label: '时空' },
   ];
 
-  // --- API KEY GATEKEEPER VIEW ---
   if (!isAuthorized) {
     return (
       <div className="min-h-screen text-lucid-text font-serif bg-lucid-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
-         {/* Background Effects */}
          <div className="absolute inset-0 pointer-events-none">
              <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-[#3F2E26] rounded-full blur-[150px] opacity-30 animate-pulse-slow"></div>
              <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-[#4C3A35] rounded-full blur-[120px] opacity-20"></div>
@@ -224,11 +277,8 @@ const App: React.FC = () => {
     );
   }
 
-  // --- MAIN APP ---
   return (
     <div className="min-h-screen text-lucid-text font-serif selection:bg-lucid-glow/30 selection:text-white overflow-hidden relative bg-lucid-bg">
-      
-      {/* Healing Ethereal Background - Warm Tones */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
          <div className="absolute top-[-10%] left-[-10%] w-[80%] h-[80%] bg-[#3F2E26] rounded-full blur-[120px] opacity-40 animate-pulse-slow"></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#4C3A35] rounded-full blur-[100px] opacity-30 animate-float" style={{ animationDuration: '25s' }}></div>
@@ -237,10 +287,8 @@ const App: React.FC = () => {
 
       <main className="relative z-10 h-screen flex flex-col md:flex-row">
         
-        {/* Navigation Sidebar */}
         <nav className="order-2 md:order-1 w-full md:w-28 flex md:flex-col items-center md:items-center justify-between md:justify-start py-4 md:py-8 z-50 transition-all duration-300 md:border-r border-white/5 bg-white/[0.01] backdrop-blur-md flex-shrink-0">
            
-           {/* Logo - Clickable to reset Auth */}
            <div 
              className="hidden md:flex flex-col items-center mb-10 opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
              onClick={() => setIsAuthorized(false)}
@@ -252,7 +300,6 @@ const App: React.FC = () => {
              <span className="text-xs font-serif tracking-[0.3em] font-light text-white">LUCID</span>
            </div>
            
-           {/* Mobile Logo - Clickable */}
            <div 
              className="md:hidden flex items-center gap-2 ml-6 cursor-pointer"
              onClick={() => setIsAuthorized(false)}
@@ -262,7 +309,6 @@ const App: React.FC = () => {
              <span className="text-sm font-serif tracking-[0.2em] text-white">LUCID</span>
            </div>
 
-           {/* Mobile Nav Items: Compact and Right-aligned */}
            <div className="flex md:flex-col gap-3 md:gap-3 mr-9 md:mr-0 md:mt-16">
              {navItems.map((item) => (
                <button
@@ -281,7 +327,6 @@ const App: React.FC = () => {
            </div>
         </nav>
 
-        {/* Main Content Area */}
         <div className="order-1 md:order-2 flex-1 relative overflow-hidden flex flex-col">
            <div className="flex-1 w-full h-full p-2 md:p-6 max-w-6xl mx-auto flex flex-col">
               {currentView === AppView.INTENT && (
@@ -306,7 +351,10 @@ const App: React.FC = () => {
                     wishes={wishes} 
                     journalEntries={journalEntries} 
                     ritualEntries={ritualEntries}
-                    onUpdateWish={handleWishUpdate} 
+                    letters={letters}
+                    onUpdateWish={handleWishUpdate}
+                    onAddLetter={handleAddLetter}
+                    onImportData={handleImportData}
                 />
               )}
            </div>

@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { X, Disc, Volume2, SkipBack, Play, Pause, SkipForward } from 'lucide-react';
 
@@ -117,8 +118,12 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: R
 export const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
   if (!content) return null;
 
+  // Pre-process content: handle escaped newlines (\n) that might come from JSON responses
+  // and ensure they are treated as real newlines for splitting.
+  const processedContent = content.replace(/\\n/g, '\n');
+
   // Split content by newlines to handle line-by-line processing
-  const lines = content.split('\n');
+  const lines = processedContent.split('\n');
 
   const parseLine = (line: string, index: number) => {
       // 1. Headers

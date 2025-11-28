@@ -1,16 +1,18 @@
 
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
-import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck } from 'lucide-react';
+import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload } from 'lucide-react';
 import { generateFutureLetterReply, generateWeeklyReport } from '../services/geminiService';
 
 interface ArchiveViewProps {
   wishes: Wish[];
   journalEntries: JournalEntry[];
   ritualEntries: RitualArchiveEntry[];
+  letters: FutureLetter[];
   onUpdateWish: (wish: Wish) => void;
+  onAddLetter: (letter: FutureLetter) => void;
+  onImportData: (data: any) => void;
 }
 
 type DetailsType = 'wishes' | 'journals' | 'blocks' | 'traits' | 'emotions' | null;
@@ -46,7 +48,7 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, onUpdateWish }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onAddLetter, onImportData }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
   const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
   
@@ -71,13 +73,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       return localStorage.getItem('lucid_weekly_report_content');
   });
   const [detailsModal, setDetailsModal] = useState<DetailsType>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // --- Letters State ---
-  const [letters, setLetters] = useState<FutureLetter[]>(() => {
-     try {
-       return JSON.parse(localStorage.getItem('lucid_future_letters') || '[]');
-     } catch { return []; }
-  });
   const [letterInput, setLetterInput] = useState('');
   const [letterDelay, setLetterDelay] = useState<number>(30); // days
   const [isSending, setIsSending] = useState(false);
@@ -227,7 +225,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       setReportLoading(false);
   };
 
-  const handleExport = () => {
+  const handleExportJSON = () => {
       const data = {
         meta: {
             app: "LUCID Journal",
@@ -254,6 +252,187 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       URL.revokeObjectURL(url);
   };
 
+  const handleExportHTML = () => {
+      const userName = localStorage.getItem('lucid_user_name') || "Traveler";
+      const now = new Date();
+      
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUCID 灵魂档案 | ${userName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&display=swap');
+  body { 
+    background-color: #1C1917; 
+    color: #E7E5E4; 
+    font-family: 'Noto Serif SC', 'Georgia', serif; 
+    padding: 40px 20px; 
+    max-width: 800px; 
+    margin: 0 auto; 
+    line-height: 1.8; 
+  }
+  a { color: #FDBA74; text-decoration: none; }
+  .header { text-align: center; margin-bottom: 60px; border-bottom: 1px solid #333; padding-bottom: 40px; }
+  h1 { color: #FDBA74; font-weight: 300; letter-spacing: 0.2em; margin-bottom: 10px; }
+  .meta { color: #78716C; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.1em; }
+  
+  h2 { 
+    color: #E7E5E4; 
+    font-weight: 400;
+    margin-top: 60px; 
+    margin-bottom: 30px; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    border-left: 3px solid #FDBA74; 
+    padding-left: 15px; 
+  }
+  
+  .card { 
+    background: rgba(255,255,255,0.03); 
+    border: 1px solid rgba(255,255,255,0.05); 
+    padding: 25px; 
+    border-radius: 12px; 
+    margin-bottom: 25px; 
+    page-break-inside: avoid;
+  }
+  
+  .card-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
+  .date { color: #78716C; font-size: 0.8em; font-family: sans-serif; letter-spacing: 0.05em; }
+  .status { background: rgba(253,186,116,0.1); color: #FDBA74; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; }
+  
+  .wish-content { font-size: 1.2em; color: #FFF; margin-bottom: 15px; }
+  .affirmations { margin-top: 15px; padding-left: 15px; border-left: 2px solid rgba(253,186,116,0.2); }
+  .affirmation-text { color: #A8A29E; font-style: italic; font-size: 0.9em; margin-bottom: 5px; }
+  
+  .journal-content { white-space: pre-wrap; color: #D6D3D1; }
+  .ai-insight { margin-top: 20px; padding: 15px; background: rgba(253,186,116,0.05); border-radius: 8px; font-size: 0.9em; color: #D6D3D1; }
+  .insight-label { color: #FDBA74; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 5px; }
+
+  .letter-content { white-space: pre-wrap; color: #D6D3D1; }
+  .reply { margin-top: 20px; color: #FDBA74; font-style: italic; padding-left: 20px; border-left: 1px solid #FDBA74; }
+
+  .tarot-cards { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+  .tarot-card { border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px; font-size: 0.9em; color: #E7E5E4; background: rgba(0,0,0,0.2); }
+
+  .footer { text-align: center; margin-top: 80px; font-size: 0.8em; color: #444; border-top: 1px solid #222; padding-top: 20px; }
+  
+  @media print {
+    body { background: #FFF; color: #000; }
+    .card { background: #FFF; border: 1px solid #EEE; color: #000; }
+    h1, h2, a { color: #000; }
+    .status { background: #EEE; color: #000; }
+    .ai-insight { background: #F9F9F9; color: #333; }
+    .tarot-card { border: 1px solid #CCC; color: #000; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>LUCID 灵魂档案</h1>
+    <div class="meta">Owner: ${userName} · Exported on ${now.toLocaleDateString()}</div>
+  </div>
+
+  <h2>✨ 愿望清单 (Wishes)</h2>
+  ${wishes.length > 0 ? wishes.map(w => `
+    <div class="card">
+      <div class="card-header">
+        <span class="date">创建于 ${new Date(w.createdAt).toLocaleDateString()}</span>
+        <span class="status">${w.status === 'manifested' ? '已显化 MANIFESTED' : '进行中 ACTIVE'}</span>
+      </div>
+      <div class="wish-content">${w.content}</div>
+      <div class="affirmations">
+        ${w.affirmations.map(a => `<div class="affirmation-text">" ${a.text} "</div>`).join('')}
+      </div>
+    </div>
+  `).join('') : '<p style="text-align:center; color:#555;">暂无愿望记录</p>'}
+
+  <h2>🔮 灵感塔罗 (Tarot Readings)</h2>
+  ${ritualEntries.filter(r => r.reading).length > 0 ? ritualEntries.filter(r => r.reading).map(r => `
+    <div class="card">
+      <div class="card-header">
+        <span class="date">${new Date(r.date).toLocaleString()}</span>
+      </div>
+      <div class="tarot-cards">
+         ${r.reading?.cards.map(c => `
+            <div class="tarot-card">
+               ${c.position}: ${c.name} (${c.isReversed ? '逆' : '正'})
+            </div>
+         `).join('')}
+      </div>
+      <div class="journal-content" style="font-style: italic; color: #FDBA74;">
+         " ${r.reading?.guidance} "
+      </div>
+    </div>
+  `).join('') : '<p style="text-align:center; color:#555;">暂无塔罗记录</p>'}
+
+  <h2>📖 觉察日记 (Journal Highlights)</h2>
+  ${journalEntries.length > 0 ? journalEntries.slice(0, 50).map(j => `
+    <div class="card">
+      <div class="card-header">
+        <span class="date">${new Date(j.date).toLocaleString()}</span>
+      </div>
+      <div class="journal-content">${j.content}</div>
+      ${j.aiAnalysis ? `<div class="ai-insight"><span class="insight-label">LUCID 洞见</span>${j.aiAnalysis.summary.replace(/\\n/g, '<br/>').replace(/\n/g, '<br/>')}</div>` : ''}
+    </div>
+  `).join('') : '<p style="text-align:center; color:#555;">暂无日记记录</p>'}
+
+  <h2>📮 时空信箱 (Time Capsule)</h2>
+  ${letters.length > 0 ? letters.map(l => `
+    <div class="card">
+      <div class="card-header">
+        <span class="date">书写于 ${new Date(l.createdAt).toLocaleDateString()}</span>
+        <span class="status">解锁日期: ${new Date(l.sendDate).toLocaleDateString()}</span>
+      </div>
+      <div class="letter-content">${l.content}</div>
+      ${l.aiReply ? `<div class="reply">Future Self:<br/>${l.aiReply.replace(/\n/g, '<br/>')}</div>` : ''}
+    </div>
+  `).join('') : '<p style="text-align:center; color:#555;">暂无信件记录</p>'}
+  
+  <div class="footer">
+    <p>Generated by LUCID Journal<br/>潜意识操作系统</p>
+  </div>
+</body>
+</html>
+      `;
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LUCID_Report_${userName}_${now.toISOString().split('T')[0]}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          try {
+              const result = event.target?.result as string;
+              const parsed = JSON.parse(result);
+              onImportData(parsed);
+          } catch (err) {
+              alert("文件解析失败，请确保上传的是有效的 JSON 备份文件。");
+          }
+      };
+      reader.readAsText(file);
+      // Reset input value so same file can be selected again
+      e.target.value = '';
+  };
+
   const handleSendLetter = async () => {
     if(!letterInput.trim()) return;
     setIsSending(true);
@@ -273,9 +452,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       isLocked: true 
     };
 
-    const updated = [newLetter, ...letters];
-    setLetters(updated);
-    localStorage.setItem('lucid_future_letters', JSON.stringify(updated));
+    onAddLetter(newLetter);
     
     setLetterInput('');
     setIsSending(false);
@@ -585,7 +762,6 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                      <Zap className="w-5 h-5 text-lucid-glow" />
                                      <h3 className="text-lg font-serif text-white">LUCID 能量报告</h3>
                                  </div>
-                                 {/* Added Schedule Note */}
                                  <p className="text-[10px] text-stone-500 mt-2 font-sans flex items-center gap-1">
                                      <Clock className="w-3 h-3" /> 每周日 20:00 自动生成
                                  </p>
@@ -687,19 +863,39 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     </div>
 
                     {/* DATA BACKUP & SAFETY */}
-                    <Card className="flex items-center justify-between border-stone-800 bg-stone-900/30">
-                         <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                                 <ShieldCheck className="w-5 h-5 text-stone-400" />
-                             </div>
-                             <div>
-                                 <h4 className="text-sm font-serif text-stone-300">数据安全备份</h4>
-                                 <p className="text-xs text-stone-600 mt-1">将您的所有记录（日记、愿望、信件）下载保存到本地。</p>
+                    <Card className="border-stone-800 bg-stone-900/30">
+                         <div className="flex items-start justify-between mb-6">
+                             <div className="flex items-center gap-4">
+                                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                                     <ShieldCheck className="w-5 h-5 text-stone-400" />
+                                 </div>
+                                 <div>
+                                     <h4 className="text-sm font-serif text-stone-300">数据安全备份</h4>
+                                     <p className="text-xs text-stone-600 mt-1">本地数据存储，请定期备份。</p>
+                                 </div>
                              </div>
                          </div>
-                         <Button onClick={handleExport} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white">
-                             <Download className="w-4 h-4 mr-2" /> 导出备份
-                         </Button>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                             <Button onClick={handleExportJSON} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white justify-center">
+                                 <Download className="w-4 h-4 mr-2" /> 导出备份 (JSON)
+                             </Button>
+                             
+                             <Button onClick={handleExportHTML} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white hover:border-lucid-glow/30 justify-center">
+                                 <FileText className="w-4 h-4 mr-2" /> 导出报告 (HTML)
+                             </Button>
+
+                             <Button onClick={handleImportClick} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white hover:bg-white/5 justify-center">
+                                 <Upload className="w-4 h-4 mr-2" /> 导入数据 (同步)
+                             </Button>
+                             <input 
+                                 type="file" 
+                                 ref={fileInputRef} 
+                                 onChange={handleFileChange} 
+                                 className="hidden" 
+                                 accept=".json"
+                             />
+                         </div>
                     </Card>
                 </div>
             )}
