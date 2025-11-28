@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Globe, Wifi, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle } from 'lucide-react';
 
 // Components
 import IntentView from './components/IntentView';
@@ -20,9 +20,6 @@ const App: React.FC = () => {
   );
   const [userNameInput, setUserNameInput] = useState(() => 
     typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '' : ''
-  );
-  const [baseUrlInput, setBaseUrlInput] = useState(() => 
-    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || '' : ''
   );
   
   // Connection Test State
@@ -43,7 +40,8 @@ const App: React.FC = () => {
 
   const handleStartSystem = () => {
     if (apiKeyInput.trim().length > 10) {
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), baseUrlInput.trim());
+      // Pass empty string for baseUrl since we removed the proxy input
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), '');
       setIsAuthorized(true);
     }
   };
@@ -53,17 +51,12 @@ const App: React.FC = () => {
       setIsTesting(true);
       setTestResult(null);
       
-      // Temporarily set config to test
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), baseUrlInput.trim());
+      // Temporarily set config to test (empty base URL)
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), '');
       
       const success = await checkConnection();
       setTestResult(success ? 'success' : 'error');
       setIsTesting(false);
-      
-      // If failed, clear the instance so subsequent attempts use fresh config
-      if (!success) {
-          // No op, setAiConfig already resets it.
-      }
   };
   
   // Global Journal State for Archiving
@@ -190,43 +183,32 @@ const App: React.FC = () => {
                         placeholder="在此粘贴 AIzaSy... 开头的密钥"
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
+                     <p className="text-[10px] text-stone-500 pt-1 pl-1">
+                        * 在中国大陆使用时，请确保已开启 VPN 等网络工具。
+                     </p>
                  </div>
 
-                 <div className="space-y-2">
-                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
-                         <Globe className="w-3 h-3" /> 代理地址 (中国大陆必填)
-                     </label>
-                     <input 
-                        type="text"
-                        value={baseUrlInput}
-                        onChange={(e) => setBaseUrlInput(e.target.value)}
-                        placeholder="请粘贴“桥梁”地址，例如 https://xxx.workers.dev"
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
-                     />
-                     <div className="flex justify-between items-start">
-                         <p className="text-[10px] text-stone-500 w-[60%] leading-relaxed">
-                             如果您在中国大陆，必须填写此项才能连通 AI。请参考使用说明搭建“桥梁”。
-                         </p>
-                         <button 
-                            onClick={handleTestConnection}
-                            disabled={isTesting || apiKeyInput.length < 10}
-                            className="text-[10px] flex items-center gap-1 bg-white/5 px-2 py-1 rounded hover:bg-white/10 text-stone-400 hover:text-white transition-colors disabled:opacity-50"
-                         >
-                            {isTesting ? <LoadingSpinner /> : <Wifi className="w-3 h-3" />}
-                            {isTesting ? '连接中...' : '测试连通性'}
-                         </button>
-                     </div>
-                     {testResult === 'success' && (
-                         <div className="text-[10px] text-emerald-400 flex items-center gap-1 animate-fade-in">
-                             <CheckCircle className="w-3 h-3" /> 连接成功！信号满格，可以启动。
-                         </div>
-                     )}
-                     {testResult === 'error' && (
-                         <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in">
-                             <AlertTriangle className="w-3 h-3" /> 连接失败。请检查密钥或代理地址是否正确。
-                         </div>
-                     )}
+                 <div className="flex justify-end mt-2">
+                     <button 
+                        onClick={handleTestConnection}
+                        disabled={isTesting || apiKeyInput.length < 10}
+                        className="text-[10px] flex items-center gap-1 bg-white/5 px-2 py-1 rounded hover:bg-white/10 text-stone-400 hover:text-white transition-colors disabled:opacity-50"
+                     >
+                        {isTesting ? <LoadingSpinner /> : <Wifi className="w-3 h-3" />}
+                        {isTesting ? '连接中...' : '测试连通性'}
+                     </button>
                  </div>
+
+                 {testResult === 'success' && (
+                     <div className="text-[10px] text-emerald-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-emerald-500/10 py-1 rounded">
+                         <CheckCircle className="w-3 h-3" /> 连接成功！信号满格，可以启动。
+                     </div>
+                 )}
+                 {testResult === 'error' && (
+                     <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-rose-500/10 py-1 rounded">
+                         <AlertTriangle className="w-3 h-3" /> 连接失败。请检查网络或密钥。
+                     </div>
+                 )}
                  
                  <Button 
                     onClick={handleStartSystem} 
@@ -236,10 +218,6 @@ const App: React.FC = () => {
                  >
                     启动 LUCID 系统 <ArrowRight className="w-4 h-4 ml-2" />
                  </Button>
-
-                 <p className="text-[10px] text-stone-600 font-sans text-center">
-                     您的密钥仅保存在您的浏览器中，非常安全。
-                 </p>
              </div>
          </div>
       </div>
