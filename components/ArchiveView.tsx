@@ -182,15 +182,25 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
             const lastGenTimestamp = localStorage.getItem('lucid_weekly_report_date');
             let shouldGenerate = false;
 
+            const hasEntries = journalEntries.length > 0;
+            const isSundayEvening = day === 0 && hour >= 20;
+
             if (!lastGenTimestamp) {
-                if (journalEntries.length > 0) shouldGenerate = true;
+                // 修复逻辑：严格限制首次生成时间。
+                // 只有在周日晚上20:00之后，且有日记数据时，才允许首次生成。
+                if (hasEntries && isSundayEvening) {
+                    shouldGenerate = true;
+                }
             } else {
                 const lastGen = new Date(parseInt(lastGenTimestamp));
                 const oneWeek = 7 * 24 * 60 * 60 * 1000;
                 
-                if (now.getTime() - lastGen.getTime() > oneWeek && journalEntries.length > 0) {
+                // 逻辑1：如果距离上次生成超过一周（用户错过了周日，补发）
+                if (now.getTime() - lastGen.getTime() > oneWeek && hasEntries) {
                      shouldGenerate = true;
-                } else if (day === 0 && hour >= 20 && now.toDateString() !== lastGen.toDateString() && journalEntries.length > 0) {
+                } 
+                // 逻辑2：正常的周日晚间触发（且今天还没生成过）
+                else if (isSundayEvening && now.toDateString() !== lastGen.toDateString() && hasEntries) {
                      shouldGenerate = true;
                 }
             }
@@ -199,7 +209,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                 setReportLoading(true);
                 const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
                 const recentEntries = journalEntries.filter(e => e.date > oneWeekAgo);
-                const report = await generateWeeklyReport(recentEntries.length > 0 ? recentEntries : journalEntries.slice(0,5));
+                
+                // 如果有近期日记则使用近期的，否则使用最近5篇（避免空数据分析）
+                const entriesToAnalyze = recentEntries.length > 0 ? recentEntries : journalEntries.slice(0, 5);
+                
+                const report = await generateWeeklyReport(entriesToAnalyze);
                 setAiReport(report);
                 localStorage.setItem('lucid_weekly_report_content', report);
                 localStorage.setItem('lucid_weekly_report_date', Date.now().toString());
