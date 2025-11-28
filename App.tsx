@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen } from 'lucide-react';
+import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Globe, Wifi, AlertTriangle, CheckCircle } from 'lucide-react';
 
 // Components
 import IntentView from './components/IntentView';
 import EnergyCheckView from './components/EnergyCheckView';
 import JournalView from './components/JournalView';
 import ArchiveView from './components/ArchiveView';
-import { Button } from './components/Shared';
+import { Button, LoadingSpinner } from './components/Shared';
 
 // Services
-import { setDynamicApiKey, hasApiKey, setUserName } from './services/geminiService';
+import { setAiConfig, hasApiKey, setUserName, checkConnection } from './services/geminiService';
 
 const App: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -21,6 +21,13 @@ const App: React.FC = () => {
   const [userNameInput, setUserNameInput] = useState(() => 
     typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '' : ''
   );
+  const [baseUrlInput, setBaseUrlInput] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || '' : ''
+  );
+  
+  // Connection Test State
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
 
   // Default view is now ENERGY Check
   const [currentView, setCurrentView] = useState<AppView>(AppView.ENERGY);
@@ -36,12 +43,27 @@ const App: React.FC = () => {
 
   const handleStartSystem = () => {
     if (apiKeyInput.trim().length > 10) {
-      setDynamicApiKey(apiKeyInput.trim());
-      if (userNameInput.trim()) {
-        setUserName(userNameInput.trim());
-      }
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), baseUrlInput.trim());
       setIsAuthorized(true);
     }
+  };
+
+  const handleTestConnection = async () => {
+      if (apiKeyInput.trim().length < 10) return;
+      setIsTesting(true);
+      setTestResult(null);
+      
+      // Temporarily set config to test
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), baseUrlInput.trim());
+      
+      const success = await checkConnection();
+      setTestResult(success ? 'success' : 'error');
+      setIsTesting(false);
+      
+      // If failed, clear the instance so subsequent attempts use fresh config
+      if (!success) {
+          // No op, setAiConfig already resets it.
+      }
   };
   
   // Global Journal State for Archiving
@@ -146,9 +168,8 @@ const App: React.FC = () => {
                  
                  <div className="space-y-2">
                      <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
-                         <User className="w-3 h-3" /> Your Name
+                         <User className="w-3 h-3" /> 您的名字 Your Name
                      </label>
-                     <p className="text-xs text-lucid-dim">LUCID 将如何称呼您？</p>
                      <input 
                         type="text"
                         value={userNameInput}
@@ -160,16 +181,51 @@ const App: React.FC = () => {
 
                  <div className="space-y-2">
                      <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
-                         <Key className="w-3 h-3" /> API Access Key
+                         <Key className="w-3 h-3" /> API 密钥 (Gemini Key)
                      </label>
-                     <p className="text-xs text-lucid-dim">请输入您的 Google Gemini API Key 以激活能量场。</p>
                      <input 
                         type="password"
                         value={apiKeyInput}
                         onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder="AIzaSy..."
+                        placeholder="在此粘贴 AIzaSy... 开头的密钥"
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
+                 </div>
+
+                 <div className="space-y-2">
+                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
+                         <Globe className="w-3 h-3" /> 代理地址 (中国大陆必填)
+                     </label>
+                     <input 
+                        type="text"
+                        value={baseUrlInput}
+                        onChange={(e) => setBaseUrlInput(e.target.value)}
+                        placeholder="请粘贴“桥梁”地址，例如 https://xxx.workers.dev"
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
+                     />
+                     <div className="flex justify-between items-start">
+                         <p className="text-[10px] text-stone-500 w-[60%] leading-relaxed">
+                             如果您在中国大陆，必须填写此项才能连通 AI。请参考使用说明搭建“桥梁”。
+                         </p>
+                         <button 
+                            onClick={handleTestConnection}
+                            disabled={isTesting || apiKeyInput.length < 10}
+                            className="text-[10px] flex items-center gap-1 bg-white/5 px-2 py-1 rounded hover:bg-white/10 text-stone-400 hover:text-white transition-colors disabled:opacity-50"
+                         >
+                            {isTesting ? <LoadingSpinner /> : <Wifi className="w-3 h-3" />}
+                            {isTesting ? '连接中...' : '测试连通性'}
+                         </button>
+                     </div>
+                     {testResult === 'success' && (
+                         <div className="text-[10px] text-emerald-400 flex items-center gap-1 animate-fade-in">
+                             <CheckCircle className="w-3 h-3" /> 连接成功！信号满格，可以启动。
+                         </div>
+                     )}
+                     {testResult === 'error' && (
+                         <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in">
+                             <AlertTriangle className="w-3 h-3" /> 连接失败。请检查密钥或代理地址是否正确。
+                         </div>
+                     )}
                  </div>
                  
                  <Button 
@@ -178,11 +234,11 @@ const App: React.FC = () => {
                     variant="primary" 
                     className="w-full rounded-xl py-4 text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
                  >
-                    启动系统 <ArrowRight className="w-4 h-4 ml-2" />
+                    启动 LUCID 系统 <ArrowRight className="w-4 h-4 ml-2" />
                  </Button>
 
                  <p className="text-[10px] text-stone-600 font-sans text-center">
-                     Key 仅存储于您的本地浏览器，我们无法访问。
+                     您的密钥仅保存在您的浏览器中，非常安全。
                  </p>
              </div>
          </div>
@@ -210,7 +266,7 @@ const App: React.FC = () => {
            <div 
              className="hidden md:flex flex-col items-center mb-10 opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
              onClick={() => setIsAuthorized(false)}
-             title="点击修改 API Key 和 昵称"
+             title="点击修改设置"
            >
              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-lucid-glow/20 to-transparent flex items-center justify-center mb-3">
                  <Sparkles className="w-5 h-5 text-lucid-glow" />
@@ -222,7 +278,7 @@ const App: React.FC = () => {
            <div 
              className="md:hidden flex items-center gap-2 ml-6 cursor-pointer"
              onClick={() => setIsAuthorized(false)}
-             title="点击修改 API Key 和 昵称"
+             title="点击修改设置"
            >
              <Sparkles className="w-5 h-5 text-lucid-glow" />
              <span className="text-sm font-serif tracking-[0.2em] text-white">LUCID</span>

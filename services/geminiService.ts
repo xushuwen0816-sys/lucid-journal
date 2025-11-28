@@ -6,14 +6,33 @@ import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntr
 // This prevents the app from crashing at startup if process.env.API_KEY is not immediately available or configured
 let aiInstance: GoogleGenAI | null = null;
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
+let dynamicBaseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || '' : '';
 let userName = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '旅行者' : '旅行者';
 
+export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
+  dynamicApiKey = key;
+  userName = name || '旅行者';
+  dynamicBaseUrl = baseUrl || '';
+  
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('lucid_api_key', key);
+    localStorage.setItem('lucid_user_name', userName);
+    if (baseUrl) {
+      localStorage.setItem('lucid_base_url', baseUrl);
+    } else {
+      localStorage.removeItem('lucid_base_url');
+    }
+  }
+  aiInstance = null; // Reset instance to apply new config
+};
+
+// Keep specific setters for backward compatibility if needed, but internally they should update storage
 export const setDynamicApiKey = (key: string) => {
   dynamicApiKey = key;
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('lucid_api_key', key);
   }
-  aiInstance = null; // Reset instance
+  aiInstance = null;
 };
 
 export const setUserName = (name: string) => {
@@ -31,11 +50,36 @@ export const hasApiKey = () => {
 const getAi = () => {
     if (!aiInstance) {
         const key = process.env.API_KEY || dynamicApiKey;
-        // We use a fallback empty string to ensure the constructor doesn't throw, 
-        // though actual API calls will fail if the key is missing.
-        aiInstance = new GoogleGenAI({ apiKey: key || '' });
+        const config: any = { apiKey: key || '' };
+        
+        // If a custom Base URL is set (e.g., for proxying from China), use it.
+        // Otherwise, the SDK defaults to the official endpoint.
+        if (dynamicBaseUrl) {
+            config.baseUrl = dynamicBaseUrl;
+        }
+
+        aiInstance = new GoogleGenAI(config);
     }
     return aiInstance;
+};
+
+// --- Connection Check ---
+
+export const checkConnection = async (): Promise<boolean> => {
+    try {
+        // Use a lightweight call to test connectivity
+        await getAi().models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: "ping",
+            config: {
+                maxOutputTokens: 1,
+            }
+        });
+        return true;
+    } catch (error) {
+        console.error("Connection check failed:", error);
+        return false;
+    }
 };
 
 // --- Text & Analysis ---
@@ -87,7 +131,7 @@ export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]):
     return response.text || "正在连接你的潜意识频率...";
   } catch (error) {
     console.error("Deep dive error:", error);
-    return "信号受到了干扰，请深呼吸，再试一次。";
+    return "信号受到了干扰，请检查网络连接或代理设置。";
   }
 };
 
