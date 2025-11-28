@@ -1,8 +1,9 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
-import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X } from 'lucide-react';
+import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck } from 'lucide-react';
 import { generateFutureLetterReply, generateWeeklyReport } from '../services/geminiService';
 
 interface ArchiveViewProps {
@@ -226,6 +227,33 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       setReportLoading(false);
   };
 
+  const handleExport = () => {
+      const data = {
+        meta: {
+            app: "LUCID Journal",
+            version: "1.0",
+            exportDate: new Date().toISOString(),
+            user: localStorage.getItem('lucid_user_name') || "Traveler"
+        },
+        data: {
+            wishes,
+            journalEntries,
+            ritualEntries,
+            letters,
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LUCID_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  };
+
   const handleSendLetter = async () => {
     if(!letterInput.trim()) return;
     setIsSending(true);
@@ -371,7 +399,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                   {selectedEntry.journal.aiAnalysis && (
                                       <div className="pt-4 border-t border-white/5 mt-4">
                                           <h4 className="text-[10px] text-lucid-dim uppercase mb-2">AI Insight</h4>
-                                          <p className="text-xs text-stone-400 leading-relaxed">{selectedEntry.journal.aiAnalysis.summary}</p>
+                                          <div className="text-xs text-stone-400 leading-relaxed">
+                                             <SimpleMarkdown content={selectedEntry.journal.aiAnalysis.summary} />
+                                          </div>
                                       </div>
                                   )}
                               </div>
@@ -549,10 +579,16 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
                     {/* AI Weekly Report */}
                     <Card className="relative overflow-hidden border-lucid-glow/20 bg-white/[0.03]">
-                         <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
-                             <div className="flex items-center gap-2">
-                                 <Zap className="w-5 h-5 text-lucid-glow" />
-                                 <h3 className="text-lg font-serif text-white">LUCID 能量报告</h3>
+                         <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+                             <div className="flex flex-col">
+                                 <div className="flex items-center gap-2">
+                                     <Zap className="w-5 h-5 text-lucid-glow" />
+                                     <h3 className="text-lg font-serif text-white">LUCID 能量报告</h3>
+                                 </div>
+                                 {/* Added Schedule Note */}
+                                 <p className="text-[10px] text-stone-500 mt-2 font-sans flex items-center gap-1">
+                                     <Clock className="w-3 h-3" /> 每周日 20:00 自动生成
+                                 </p>
                              </div>
                              {aiReport && (
                                  <span className="text-[10px] text-stone-500 uppercase tracking-widest border border-stone-800 px-2 py-1 rounded bg-black/20">
@@ -563,9 +599,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                          
                          {!aiReport ? (
                              <div className="flex flex-col items-center justify-center py-10 space-y-4">
-                                 <p className="text-stone-400 text-sm">持续记录日记，生成你的深度能量分析。</p>
+                                 <p className="text-stone-400 text-sm">持续记录日记，系统将自动为您生成深度能量周报。</p>
                                  <Button onClick={handleGenerateReport} disabled={reportLoading} variant="glass" className="rounded-full px-8 text-sm">
-                                    {reportLoading ? <LoadingSpinner/> : '生成最新报告'}
+                                    {reportLoading ? <LoadingSpinner/> : '立即手动生成'}
                                  </Button>
                              </div>
                          ) : (
@@ -649,6 +685,22 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                              )}
                         </Card>
                     </div>
+
+                    {/* DATA BACKUP & SAFETY */}
+                    <Card className="flex items-center justify-between border-stone-800 bg-stone-900/30">
+                         <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                                 <ShieldCheck className="w-5 h-5 text-stone-400" />
+                             </div>
+                             <div>
+                                 <h4 className="text-sm font-serif text-stone-300">数据安全备份</h4>
+                                 <p className="text-xs text-stone-600 mt-1">将您的所有记录（日记、愿望、信件）下载保存到本地。</p>
+                             </div>
+                         </div>
+                         <Button onClick={handleExport} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white">
+                             <Download className="w-4 h-4 mr-2" /> 导出备份
+                         </Button>
+                    </Card>
                 </div>
             )}
             
@@ -658,18 +710,28 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     
                     {!showLetterInput && (
                         <div className={`flex justify-center py-8 ${letters.length === 0 ? 'min-h-[50vh] flex-col items-center justify-center space-y-4' : ''}`}>
-                            {letters.length === 0 && (
-                                <div className="p-6 bg-white/5 rounded-full mb-4">
-                                    <Clock className="w-10 h-10 opacity-50 text-lucid-glow" />
-                                </div>
-                            )}
                             
-                            <Button 
-                                onClick={() => setShowLetterInput(true)} 
-                                className="rounded-full px-12 py-4 text-base tracking-widest bg-white/5 border border-white/10 hover:bg-white/10 hover:border-lucid-glow/30 text-lucid-glow transition-all duration-500 shadow-lg hover:shadow-lucid-glow/10 backdrop-blur-md"
+                            {/* REDESIGNED BUTTON: TIME CAPSULE CARD */}
+                            <button
+                               onClick={() => setShowLetterInput(true)}
+                               className="relative group w-full max-w-sm px-8 py-6 rounded-3xl overflow-hidden transition-all duration-700 hover:scale-[1.02] active:scale-95"
                             >
-                                <Mail className="w-5 h-5 mr-2 opacity-80" /> 写给未来的自己
-                            </Button>
+                               {/* Backgrounds */}
+                               <div className="absolute inset-0 bg-gradient-to-br from-stone-800 to-stone-950 border border-white/10 opacity-90 backdrop-blur-xl group-hover:border-lucid-glow/30 transition-colors" />
+                               <div className="absolute -inset-1 bg-gradient-to-r from-lucid-glow/0 via-lucid-glow/10 to-lucid-glow/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-1000" />
+                               
+                               {/* Content */}
+                               <div className="relative z-10 flex flex-col items-center gap-3">
+                                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-lucid-glow/10 group-hover:border-lucid-glow/30 transition-colors duration-500">
+                                     <Mail className="w-5 h-5 text-stone-300 group-hover:text-lucid-glow transition-colors" />
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                      <span className="block font-serif text-white tracking-widest text-lg mb-1 group-hover:text-lucid-glow transition-colors">写给未来的自己</span>
+                                      <span className="block text-[10px] text-stone-500 uppercase tracking-[0.2em] group-hover:text-stone-400 transition-colors">Time Capsule</span>
+                                  </div>
+                               </div>
+                            </button>
 
                             {letters.length === 0 && (
                                 <p className="text-stone-500 font-serif text-sm">暂无信件，开启第一封时空通信</p>
@@ -1035,9 +1097,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                               <span className="text-xs text-lucid-dim">Immediate Resonance</span>
                           </div>
                       </div>
-                      <p className="text-white/90 font-serif leading-loose text-base relative z-10 italic">
-                          "{selectedLetter.aiReply}"
-                      </p>
+                      <div className="text-white/90 font-serif leading-loose text-base relative z-10 italic">
+                          <SimpleMarkdown content={selectedLetter.aiReply || ''} />
+                      </div>
                   </div>
 
                   <div className="relative">
@@ -1071,9 +1133,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                        <Unlock className="w-3 h-3 mr-2" />
                                        <span>来自过去的信件已送达</span>
                                    </div>
-                                   <p className="text-stone-300 font-serif leading-loose whitespace-pre-wrap">
-                                       {selectedLetter.content}
-                                   </p>
+                                   <div className="text-stone-300 font-serif leading-loose whitespace-pre-wrap">
+                                       <SimpleMarkdown content={selectedLetter.content} />
+                                   </div>
                                </>
                            )}
                        </div>

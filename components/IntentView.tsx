@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Sparkles, Check } from 'lucide-react';
+import { Send, Sparkles, Check, ArrowRight } from 'lucide-react';
 import { Wish, ChatMessage, IntentState } from '../types';
 import { analyzeWishDeepDive, generateBeliefMapAndTags, generateAffirmations } from '../services/geminiService';
 import { Button, Card, SectionTitle, LoadingSpinner } from './Shared';
@@ -115,8 +115,8 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
         <div className="max-w-4xl mx-auto w-full h-full">
             {/* STEP 1: INPUT */}
             {state.step === 'input' && (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-fade-in">
-                <div className="w-full max-w-2xl text-center space-y-5">
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
+                <div className="w-full max-w-2xl text-center space-y-6">
                     <h3 className="text-3xl font-serif text-white/90 tracking-wide">此刻，<br/>你想显化什么？</h3>
                     
                     {/* Centered Input Container */}
@@ -143,13 +143,29 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                     </div>
                 </div>
                 
-                <Button 
-                    onClick={handleStartDeepDive} 
-                    disabled={!state.wishInput} 
-                    className="rounded-full px-12 py-3 text-base tracking-widest bg-white/5 border border-white/10 hover:bg-white/10 hover:border-lucid-glow/30 text-lucid-glow transition-all duration-500 shadow-lg hover:shadow-lucid-glow/10 backdrop-blur-md"
+                {/* Redesigned Button - Improved Visibility */}
+                <button
+                  onClick={handleStartDeepDive}
+                  disabled={!state.wishInput}
+                  className={`
+                    group relative overflow-hidden rounded-full px-12 py-4 transition-all duration-700 ease-out
+                    ${!state.wishInput ? 'opacity-70 cursor-not-allowed brightness-90' : 'hover:scale-105 hover:shadow-[0_0_40px_rgba(253,186,116,0.2)]'}
+                  `}
                 >
-                    开启对话 <Sparkles className="w-4 h-4 ml-2 opacity-80" />
-                </Button>
+                  {/* Subtle Glow Background */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-rose-500/20 to-orange-500/10 opacity-100 group-hover:opacity-80 transition-opacity duration-700 blur-md" />
+                  
+                  {/* Border ring */}
+                  <div className="absolute inset-0 border border-lucid-glow/30 rounded-full opacity-50 group-hover:border-lucid-glow/60 transition-colors" />
+
+                  {/* Content */}
+                  <span className="relative z-10 flex items-center gap-3 text-lg font-serif text-lucid-glow tracking-[0.2em] group-hover:text-white transition-colors">
+                    <Sparkles className="w-4 h-4 opacity-70 group-hover:animate-pulse" />
+                    开启对话
+                    <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500" />
+                  </span>
+                </button>
+
             </div>
             )}
 

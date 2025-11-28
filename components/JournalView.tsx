@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { analyzeJournalEntry } from '../services/geminiService';
 import { JournalEntry } from '../types';
-import { Button, Card, SectionTitle, LoadingSpinner } from './Shared';
+import { Button, Card, SectionTitle, LoadingSpinner, SimpleMarkdown } from './Shared';
 import { BookOpen, Send } from 'lucide-react';
 
 interface JournalViewProps {
@@ -74,7 +75,7 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
                     </div>
                     
                     <textarea
-                        className="flex-1 w-full bg-transparent p-6 md:p-8 text-lg md:text-xl font-serif focus:outline-none text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide custom-scrollbar"
+                        className="flex-1 w-full bg-transparent p-6 md:p-8 text-base md:text-lg font-serif focus:outline-none text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide custom-scrollbar"
                         placeholder="在此刻的静谧中，写下你的情绪、念头或梦境..."
                         value={journalInput}
                         onChange={(e) => setJournalInput(e.target.value)}
@@ -123,9 +124,9 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
                                 <span className="w-1.5 h-1.5 rounded-full bg-lucid-glow"></span>
                                 LUCID 洞见
                             </h4>
-                            <p className="text-stone-300 font-serif text-base md:text-lg leading-loose text-justify">
-                                {journalAnalysis.summary}
-                            </p>
+                            <div className="text-stone-300 font-serif text-base md:text-lg leading-loose text-justify">
+                                <SimpleMarkdown content={journalAnalysis.summary} />
+                            </div>
                         </Card>
 
                         <Card className="bg-emerald-900/10 border-emerald-500/10 p-6 md:p-8">
@@ -133,9 +134,9 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                     明日建议
                                 </h4>
-                                <p className="text-stone-300 font-serif text-base md:text-lg leading-loose text-justify">
-                                    {journalAnalysis.tomorrowsAdvice}
-                                </p>
+                                <div className="text-stone-300 font-serif text-base md:text-lg leading-loose text-justify">
+                                    <SimpleMarkdown content={journalAnalysis.tomorrowsAdvice} />
+                                </div>
                         </Card>
                     </div>
                 )}

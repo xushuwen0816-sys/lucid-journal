@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage } from "../types";
 
@@ -360,11 +361,11 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
     分析以下用户(${userName})的觉察日记：
     "${text}"
 
-    请返回 JSON:
+    请返回 JSON，请确保内容有良好的可读性，适当使用换行符(\\n\\n)分段：
     1. blocksIdentified: 识别出的限制性信念或思维模式 (Array of strings).
     2. emotionalState: 用户当下的情绪状态关键词 (Array of strings, e.g. ["焦虑", "期待"]).
-    3. summary: 一段富有洞察力的心理分析和反馈 (Deep Insight)，不要过于简短，如果用户情绪低落/激动，应该更注重共情.
-    4. tomorrowsAdvice: 给明天的建议.
+    3. summary: 一段富有洞察力的心理分析和反馈 (Deep Insight)。请像一位智慧的导师一样，如果内容较长，请分段落（使用 \\n\\n），不要写成一大块。
+    4. tomorrowsAdvice: 给明天的建议。请提供具体的指引，并分段落（使用 \\n\\n）使其清晰易读。
     5. highSelfTraits: 从日记中发现的用户的高我特质/优点 (Array of strings, e.g. ["诚实", "勇敢"]).
   `;
 
@@ -436,11 +437,16 @@ export const generateFutureLetterReply = async (userLetter: string): Promise<str
       You are the "Higher Self" or "Future Self" of ${userName}.
       Please write a reply.
       
+      Important Formatting Rules:
+      1. Use standard letter format. Start with a warm salutation (e.g., "亲爱的${userName}").
+      2. Use paragraph breaks (\n\n) often. Do not write a single block of text. Break ideas into separate paragraphs.
+      3. End with a warm closing (e.g., "爱你的未来", "永远陪伴你的...").
+      
       Guidelines:
       1. Tone: Deeply empathetic, wise, unconditional love, comforting, and empowering.
       2. If the user seems distressed, anxious, or self-critical, prioritize emotional validation and comfort. Tell them it's okay, and that this too shall pass.
       3. If the user is happy, celebrate with them.
-      4. Length: meaningful and substantial (approx 150-200 words). Do not be too brief.
+      4. Length: meaningful and substantial (approx 150-200 words).
       5. Language: Chinese.
       6. Context: You are speaking from a timeline where everything has already worked out.
     `;
