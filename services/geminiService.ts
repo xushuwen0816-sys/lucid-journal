@@ -327,7 +327,7 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
     "${readingContext}"
     
     请生成今日的修行练习(JSON):
-    1. energyStatus: 用一个词或短语形容今日能量场 (如: 蓄势待发, 内在整合).
+    1. energyStatus: 用一个富有画面感、诗意或力量感的短语形容今日能量场 (例如: 破茧成蝶, 暖阳融雪, 乘风破浪, 静水流深). 请尽量避免使用“整合”、“平稳”等过于抽象或重复的词汇，给出一个独特的能量隐喻.
     2. todaysAffirmation: 一句简短有力的肯定语.
     3. actionStep: 一个具体可执行的微行动 (Micro-Action).
   `;
@@ -351,7 +351,7 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
     });
     return JSON.parse(response.text || "{}");
   } catch (error) {
-    return { energyStatus: "平静", todaysAffirmation: "我与当下同在。", actionStep: "深呼吸三次。" };
+    return { energyStatus: "平静如水", todaysAffirmation: "我与当下同在。", actionStep: "深呼吸三次。" };
   }
 };
 
