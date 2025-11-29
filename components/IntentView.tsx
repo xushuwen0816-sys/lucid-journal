@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Sparkles, Check, ArrowRight } from 'lucide-react';
+import { Send, Sparkles, Check, ArrowRight, AlertCircle, Fingerprint, Lock, ShieldAlert, ArrowDown } from 'lucide-react';
 import { Wish, ChatMessage, IntentState } from '../types';
 import { analyzeWishDeepDive, generateBeliefMapAndTags, generateAffirmations } from '../services/geminiService';
 import { Button, Card, SectionTitle, LoadingSpinner } from './Shared';
@@ -46,20 +46,20 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
     setState(prev => ({ ...prev, messages: [...prev.messages, { role: 'model', text: response }], isTyping: false }));
   };
 
-  // 2. TRIGGER WIZARD (Generates Beliefs & Affirmations)
-  const handleStartWizard = async () => {
+  // 2. STAGE A: ANALYZE BLOCKS (Generates Belief Map only)
+  const handleAnalyzeBlocks = async () => {
     setIsLoading(true);
     try {
         const context = state.messages.map(m => `${m.role}: ${m.text}`).join('\n');
         const coreWish = state.messages[0].text;
         
         const { beliefs, tags } = await generateBeliefMapAndTags(coreWish, context);
-        const affirmations = await generateAffirmations(coreWish, beliefs);
         
         setState(prev => ({
             ...prev,
-            step: 'affirmation-select',
-            generatedAffirmations: affirmations,
+            step: 'belief-reveal',
+            generatedBeliefs: beliefs,
+            generatedTags: tags,
         }));
     } catch (e) {
         console.error(e);
@@ -68,16 +68,45 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
     }
   };
 
-  // 3. FINAL SAVE (Create Wish immediately)
+  // 3. STAGE B: GENERATE SCRIPT (Generates Affirmations based on Beliefs)
+  const handleGenerateScript = async () => {
+      setIsLoading(true);
+      try {
+          const coreWish = state.messages[0].text;
+          const beliefs = state.generatedBeliefs;
+
+          if (!beliefs) {
+              // Fallback safety
+              await handleAnalyzeBlocks(); // Retry analysis if missing
+              return;
+          }
+
+          const affirmations = await generateAffirmations(coreWish, beliefs);
+
+          setState(prev => ({
+              ...prev,
+              step: 'affirmation-select',
+              generatedAffirmations: affirmations
+          }));
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  // 4. FINAL SAVE
   const handleSave = async () => {
      setIsLoading(true);
 
-     const context = state.messages.map(m => `${m.role}: ${m.text}`).join('\n');
      const coreWish = state.messages[0].text;
+     const beliefs = state.generatedBeliefs;
+     const tags = state.generatedTags;
      
-     // Re-fetch beliefs/tags if needed, but we used them in wizard. 
-     // We generate a robust wish structure.
-     const { beliefs, tags } = await generateBeliefMapAndTags(coreWish, context);
+     if (!beliefs || !tags) {
+         setIsLoading(false);
+         return; // Should not happen in normal flow
+     }
 
      const newWish: Wish = {
         id: crypto.randomUUID(),
@@ -96,7 +125,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
          // Reset
          setState({
              step: 'input', wishInput: '', messages: [], isTyping: false,
-             generatedAffirmations: [], 
+             generatedAffirmations: [], generatedBeliefs: undefined, generatedTags: undefined
          });
      }, 800);
   };
@@ -107,6 +136,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
         <SectionTitle title="我的愿望" subtitle={
            state.step === 'input' ? 'INTENT · 播种意图' :
            state.step === 'deep-dive' ? 'DEEP DIVE · 潜意识对话' :
+           state.step === 'belief-reveal' ? 'AWARENESS · 觉察限制' :
            'ALIGNMENT · 能量校准'
         } />
       </div>
@@ -188,15 +218,15 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                 {state.messages.length > 1 && (
                     <div className="flex justify-center py-8 mb-40 animate-fade-in">
                         <Button 
-                            onClick={handleStartWizard} 
+                            onClick={handleAnalyzeBlocks} 
                             disabled={isLoading}
                             variant="glass" 
-                            className="rounded-full px-6 py-2 text-sm border-lucid-glow/30 text-lucid-glow hover:bg-lucid-glow/10 min-w-[240px]"
+                            className="rounded-full px-8 py-3 text-sm border-lucid-glow/30 text-lucid-glow hover:bg-lucid-glow/10 min-w-[240px] shadow-[0_0_20px_rgba(253,186,116,0.1)]"
                         >
                         {isLoading ? (
-                            <><LoadingSpinner /> <span className="ml-2">正在生成显化蓝图...</span></>
+                            <><LoadingSpinner /> <span className="ml-2">正在深度扫描潜意识...</span></>
                         ) : (
-                            <>✨ 意图已清晰？点击确认</>
+                            <>✨ 意图已清晰？点击进行深度觉察</>
                         )}
                         </Button>
                     </div>
@@ -222,11 +252,101 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
             </div>
             )}
 
-            {/* STEP 3: AFFIRMATION SELECT */}
+            {/* STEP 3: BELIEF REVEAL (NEW STEP) */}
+            {state.step === 'belief-reveal' && state.generatedBeliefs && (
+                <div className="flex flex-col gap-8 animate-fade-in pb-32 max-w-2xl mx-auto pt-6">
+                    <div className="text-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 animate-pulse-slow">
+                            <Fingerprint className="w-8 h-8 text-lucid-glow" />
+                        </div>
+                        <h3 className="text-2xl font-serif text-white tracking-wide">潜意识模式识别</h3>
+                        <p className="text-lucid-dim text-sm font-serif tracking-wider max-w-lg mx-auto">
+                            "看见即是疗愈的开始。在植入新的肯定语之前，我们需要先识别并释放那些不再服务于你的旧模式。"
+                        </p>
+                    </div>
+
+                    <div className="space-y-6">
+                        {/* 1. Blocks & Fears (Red/Orange Tone) */}
+                        <Card className="border-rose-500/20 bg-gradient-to-br from-rose-900/10 to-transparent relative overflow-hidden">
+                             <div className="flex items-center gap-2 mb-4 text-rose-300">
+                                 <AlertCircle className="w-5 h-5" />
+                                 <span className="text-xs uppercase tracking-widest font-bold">识别阻碍 Blocks Detected</span>
+                             </div>
+                             
+                             <div className="space-y-4">
+                                 <div>
+                                     <span className="text-[10px] text-rose-400/70 uppercase tracking-widest block mb-2">限制性信念 Limiting Beliefs</span>
+                                     <ul className="space-y-2">
+                                         {state.generatedBeliefs.limitingBeliefs.map((b, i) => (
+                                             <li key={i} className="flex items-start gap-3 text-stone-300 font-serif text-sm">
+                                                 <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500/50 flex-shrink-0"></span>
+                                                 "{b}"
+                                             </li>
+                                         ))}
+                                     </ul>
+                                 </div>
+                                 
+                                 <div className="h-[1px] bg-rose-500/10 w-full"></div>
+
+                                 <div>
+                                     <span className="text-[10px] text-rose-400/70 uppercase tracking-widest block mb-2">情绪卡点 Emotional Barriers</span>
+                                      <div className="flex flex-wrap gap-2">
+                                         {state.generatedBeliefs.emotionalBlocks.map((b, i) => (
+                                             <span key={i} className="px-3 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full text-xs text-rose-200 font-serif">
+                                                 {b}
+                                             </span>
+                                         ))}
+                                      </div>
+                                 </div>
+                             </div>
+                        </Card>
+
+                        <div className="flex justify-center">
+                            <ArrowDown className="w-6 h-6 text-stone-600 animate-bounce" />
+                        </div>
+
+                        {/* 2. New Identity (Emerald/Gold Tone) */}
+                        <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-900/10 to-transparent relative overflow-hidden">
+                             <div className="absolute top-0 right-0 p-4 opacity-10">
+                                 <Sparkles className="w-24 h-24" />
+                             </div>
+                             
+                             <div className="flex items-center gap-2 mb-4 text-emerald-300">
+                                 <ShieldAlert className="w-5 h-5" />
+                                 <span className="text-xs uppercase tracking-widest font-bold">身份重塑 Identity Shift</span>
+                             </div>
+
+                             <div className="text-center py-4">
+                                 <p className="text-stone-400 text-xs uppercase tracking-widest mb-3">From Old Self To...</p>
+                                 <h4 className="text-xl md:text-2xl font-serif text-white leading-relaxed text-shadow-sm">
+                                     "{state.generatedBeliefs.newIdentity}"
+                                 </h4>
+                             </div>
+                        </Card>
+                    </div>
+
+                    <div className="flex justify-center pt-8">
+                         <Button 
+                             onClick={handleGenerateScript} 
+                             disabled={isLoading}
+                             variant="primary" 
+                             className="rounded-full px-10 py-4 text-base shadow-[0_0_30px_rgba(253,186,116,0.2)]"
+                         >
+                             {isLoading ? (
+                                 <><LoadingSpinner /> <span className="ml-2">正在重写潜意识脚本...</span></>
+                             ) : (
+                                 <>确认重塑，生成肯定语 <ArrowRight className="w-4 h-4 ml-2" /></>
+                             )}
+                         </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* STEP 4: AFFIRMATION SELECT */}
             {state.step === 'affirmation-select' && (
-            <div className="flex flex-col gap-4 animate-fade-in pb-32 max-w-2xl mx-auto">
+            <div className="flex flex-col gap-4 animate-fade-in pb-32 max-w-2xl mx-auto pt-6">
                 <div className="text-center mb-6">
-                    <h3 className="text-xl font-serif text-white">人生脚本已生成</h3>
+                    <h3 className="text-xl font-serif text-white">人生脚本已重写</h3>
                     <p className="text-lucid-dim text-sm mt-2 font-serif tracking-wider">确认你的新身份，我们将把这些频率植入潜意识。</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -255,7 +375,8 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
              <div className="max-w-4xl mx-auto flex justify-between items-center w-full">
                 <Button 
                     onClick={() => {
-                        if(state.step === 'affirmation-select') setState(prev => ({...prev, step: 'deep-dive'}));
+                        if (state.step === 'belief-reveal') setState(prev => ({...prev, step: 'deep-dive'}));
+                        if (state.step === 'affirmation-select') setState(prev => ({...prev, step: 'belief-reveal'}));
                     }} 
                     variant="ghost"
                 >
@@ -264,7 +385,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
 
                 {state.step === 'affirmation-select' && (
                     <Button onClick={handleSave} disabled={isLoading} variant="primary" className="rounded-full px-8">
-                        {isLoading ? <LoadingSpinner /> : <><Check className="w-4 h-4 mr-2" /> 永久保存愿望</>}
+                        {isLoading ? <LoadingSpinner /> : <><Check className="w-4 h-4 mr-2" /> 保存愿望</>}
                     </Button>
                 )}
              </div>

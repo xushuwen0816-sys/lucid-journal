@@ -9,12 +9,14 @@ export enum AppView {
 
 // Updated State for the new Intent Wizard Workflow (Simplified)
 export interface IntentState {
-  step: 'input' | 'deep-dive' | 'affirmation-select';
+  step: 'input' | 'deep-dive' | 'belief-reveal' | 'affirmation-select';
   wishInput: string;
   messages: ChatMessage[];
   isTyping: boolean;
   
   // Wizard Data
+  generatedBeliefs?: BeliefMap;
+  generatedTags?: WishTags;
   generatedAffirmations: Affirmation[];
 }
 
