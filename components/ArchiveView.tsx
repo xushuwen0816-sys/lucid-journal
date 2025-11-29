@@ -13,6 +13,7 @@ interface ArchiveViewProps {
   onUpdateWish: (wish: Wish) => void;
   onAddLetter: (letter: FutureLetter) => void;
   onImportData: (data: any) => void;
+  initialTab?: 'milestones' | 'letters' | 'wishes' | 'library';
 }
 
 type DetailsType = 'wishes' | 'journals' | 'blocks' | 'traits' | 'emotions' | null;
@@ -48,9 +49,16 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onAddLetter, onImportData }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onAddLetter, onImportData, initialTab = 'milestones' }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
-  const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
+  const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>(initialTab);
+  
+  // Sync tab if initialTab prop changes (e.g. redirected from creating a wish)
+  useEffect(() => {
+      if (initialTab) {
+          setTab(initialTab);
+      }
+  }, [initialTab]);
   
   // --- Wish State ---
   const [selectedWish, setSelectedWish] = useState<Wish | null>(null);

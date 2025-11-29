@@ -264,7 +264,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
 
                 {state.step === 'affirmation-select' && (
                     <Button onClick={handleSave} disabled={isLoading} variant="primary" className="rounded-full px-8">
-                        {isLoading ? <LoadingSpinner /> : <><Check className="w-4 h-4 mr-2" /> 确认并完成</>}
+                        {isLoading ? <LoadingSpinner /> : <><Check className="w-4 h-4 mr-2" /> 永久保存愿望</>}
                     </Button>
                 )}
              </div>

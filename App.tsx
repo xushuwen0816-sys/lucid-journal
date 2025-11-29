@@ -29,20 +29,60 @@ const App: React.FC = () => {
   // Default view is now ENERGY Check
   const [currentView, setCurrentView] = useState<AppView>(AppView.ENERGY);
   
+  // Controls which tab inside ArchiveView is active. 
+  // Used to direct user to 'wishes' tab immediately after creating a wish.
+  const [archiveInitialTab, setArchiveInitialTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
+
   // --- GLOBAL STATE ---
 
   // 1. Wishes (Persistent)
+  // Grandma-Proof Update: Added robust "Health Check" during initialization
   const [wishes, setWishes] = useState<Wish[]>(() => {
     if (typeof localStorage !== 'undefined') {
-        const saved = localStorage.getItem('lucid_wishes');
-        return saved ? JSON.parse(saved) : [];
+        try {
+            const saved = localStorage.getItem('lucid_wishes');
+            if (saved) {
+                let parsed = JSON.parse(saved);
+                
+                // Safety check: Ensure it's an array
+                if (!Array.isArray(parsed)) parsed = [];
+
+                // DATA MIGRATION & HEALTH CHECK
+                // We iterate through every loaded wish to ensure it has an ID card.
+                const sanitizedWishes = parsed.map((w: any) => ({
+                    ...w,
+                    // If an old wish is missing an ID, issue a new one immediately.
+                    id: w.id || crypto.randomUUID(),
+                    // Ensure creation time exists
+                    createdAt: w.createdAt || Date.now(),
+                    // Ensure status is valid
+                    status: w.status || 'active',
+                    // Preserve other fields
+                    content: w.content || '',
+                    tags: w.tags || {},
+                    affirmations: w.affirmations || []
+                }));
+
+                return sanitizedWishes;
+            }
+        } catch (e) {
+            console.error("Failed to load wishes safely:", e);
+            // In case of error, return empty array rather than crashing, 
+            // but in a real app we might want to backup the corrupted string first.
+            return [];
+        }
     }
     return [];
   });
   
-  // Persist Wishes
+  // Persist Wishes with Error Handling (Grandma-proof)
   useEffect(() => {
-    localStorage.setItem('lucid_wishes', JSON.stringify(wishes));
+    try {
+        localStorage.setItem('lucid_wishes', JSON.stringify(wishes));
+    } catch (e) {
+        console.error("Storage failed", e);
+        alert("⚠️ 警告：设备存储空间不足，您的愿望可能未成功保存！请清理空间后重试。");
+    }
   }, [wishes]);
 
   const [activeWishId, setActiveWishId] = useState<string | null>(null);
@@ -75,8 +115,10 @@ const App: React.FC = () => {
   
   // 2. Journal Entries (Persistent)
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
-    const saved = localStorage.getItem('lucid_all_journals');
-    return saved ? JSON.parse(saved) : [];
+    try {
+        const saved = localStorage.getItem('lucid_all_journals');
+        return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const handleAddJournalEntry = (entry: JournalEntry) => {
@@ -87,8 +129,10 @@ const App: React.FC = () => {
 
   // 3. Ritual Entries (Persistent)
   const [ritualEntries, setRitualEntries] = useState<RitualArchiveEntry[]>(() => {
-    const saved = localStorage.getItem('lucid_ritual_archive');
-    return saved ? JSON.parse(saved) : [];
+    try {
+        const saved = localStorage.getItem('lucid_ritual_archive');
+        return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   // Handler to merge ritual updates
@@ -177,8 +221,14 @@ const App: React.FC = () => {
   });
 
   const handleWishCreated = (wish: Wish) => {
+    // 1. Add new wish to top of list (Standard React Pattern, won't overwrite existing)
     setWishes(prev => [wish, ...prev]);
     setActiveWishId(wish.id);
+    
+    // 2. Set Archive tab to 'wishes' so user sees it immediately
+    setArchiveInitialTab('wishes');
+    
+    // 3. Navigate to Archive
     setTimeout(() => setCurrentView(AppView.ARCHIVE), 0);
   };
 
@@ -313,7 +363,12 @@ const App: React.FC = () => {
              {navItems.map((item) => (
                <button
                  key={item.view}
-                 onClick={() => setCurrentView(item.view)}
+                 onClick={() => {
+                     setCurrentView(item.view);
+                     // If user clicks Archive manually, generally default to Milestones or keep current?
+                     // Let's reset to milestones to be safe unless we are in deep navigation.
+                     if (item.view === AppView.ARCHIVE) setArchiveInitialTab('milestones');
+                 }}
                  className={`group flex flex-col items-center gap-1.5 relative transition-all duration-500 outline-none p-1 md:p-2 rounded-xl ${
                    currentView === item.view ? 'opacity-100' : 'opacity-40 hover:opacity-70'
                  }`}
@@ -355,6 +410,7 @@ const App: React.FC = () => {
                     onUpdateWish={handleWishUpdate}
                     onAddLetter={handleAddLetter}
                     onImportData={handleImportData}
+                    initialTab={archiveInitialTab}
                 />
               )}
            </div>
