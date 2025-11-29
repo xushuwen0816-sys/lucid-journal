@@ -42,6 +42,37 @@ const getSentimentScore = (emotion: string): number => {
     return 5; 
 };
 
+// Helper: Get Heatmap Color Class based on emotions
+const getMoodStyle = (emotions: string[] = []): string => {
+    if (!emotions || emotions.length === 0) return 'bg-white/[0.05] border-white/10 text-stone-400';
+
+    const e = emotions.join(' ').toLowerCase();
+    
+    // 1. High Energy / Joy (Orange/Amber)
+    if (e.match(/joy|happy|excited|confident|proud|喜悦|快乐|兴奋|自信|自豪|inspired|灵感/)) {
+        return 'bg-orange-500/30 border-orange-500/40 text-orange-100 shadow-[0_0_10px_rgba(249,115,22,0.2)]';
+    }
+    // 2. Love / Gratitude (Rose/Pink)
+    if (e.match(/love|grateful|hope|爱|感恩|希望|touch|感动/)) {
+        return 'bg-rose-500/30 border-rose-500/40 text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+    }
+    // 3. Peace / Calm (Emerald/Teal)
+    if (e.match(/peace|calm|content|relieved|平静|安宁|满足|释然|safe|安全/)) {
+        return 'bg-emerald-500/30 border-emerald-500/40 text-emerald-100 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+    }
+    // 4. Low Energy / Sadness (Indigo/Blue)
+    if (e.match(/sad|lonely|tired|bored|hopeless|悲伤|孤独|疲惫|无聊|绝望|depress/)) {
+        return 'bg-indigo-500/30 border-indigo-500/40 text-indigo-200';
+    }
+    // 5. Intense Negative / Anger (Red/Stone)
+    if (e.match(/angry|frustrated|anxious|fear|guilty|愤怒|挫败|焦虑|恐惧|内疚|压力/)) {
+        return 'bg-stone-700/80 border-rose-500/30 text-rose-200';
+    }
+
+    // Default active but unknown emotion
+    return 'bg-stone-700 border-white/20 text-stone-200';
+};
+
 // Helper: Sort map by value desc
 const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
     return Object.entries(map)
@@ -194,8 +225,6 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
             const isSundayEvening = day === 0 && hour >= 20;
 
             if (!lastGenTimestamp) {
-                // 修复逻辑：严格限制首次生成时间。
-                // 只有在周日晚上20:00之后，且有日记数据时，才允许首次生成。
                 if (hasEntries && isSundayEvening) {
                     shouldGenerate = true;
                 }
@@ -203,11 +232,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                 const lastGen = new Date(parseInt(lastGenTimestamp));
                 const oneWeek = 7 * 24 * 60 * 60 * 1000;
                 
-                // 逻辑1：如果距离上次生成超过一周（用户错过了周日，补发）
                 if (now.getTime() - lastGen.getTime() > oneWeek && hasEntries) {
                      shouldGenerate = true;
                 } 
-                // 逻辑2：正常的周日晚间触发（且今天还没生成过）
                 else if (isSundayEvening && now.toDateString() !== lastGen.toDateString() && hasEntries) {
                      shouldGenerate = true;
                 }
@@ -218,7 +245,6 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                 const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
                 const recentEntries = journalEntries.filter(e => e.date > oneWeekAgo);
                 
-                // 如果有近期日记则使用近期的，否则使用最近5篇（避免空数据分析）
                 const entriesToAnalyze = recentEntries.length > 0 ? recentEntries : journalEntries.slice(0, 5);
                 
                 const report = await generateWeeklyReport(entriesToAnalyze);
@@ -498,44 +524,69 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   // --- Sub-components ---
   
   const JournalCalendar = () => {
-      const [currentDate, setCurrentDate] = useState(new Date());
-      const [selectedEntry, setSelectedEntry] = useState<{ journal?: JournalEntry, ritual?: RitualArchiveEntry } | null>(null);
+      const [selectedEntry, setSelectedEntry] = useState<{ journals: JournalEntry[], ritual?: RitualArchiveEntry, dateStr: string } | null>(null);
 
-      const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-      const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-
-      const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-      const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-
-      // Map entries to days
+      // Map entries to days string key "YYYY-MM-DD"
+      // CHANGED: Support array of journals for each day
       const entriesByDay = useMemo(() => {
-          const map: Record<number, { journal?: JournalEntry, ritual?: RitualArchiveEntry }> = {};
+          const map: Record<string, { journals: JournalEntry[], ritual?: RitualArchiveEntry }> = {};
+          
           journalEntries.forEach(e => {
-              const d = new Date(e.date);
-              if (d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear()) {
-                  map[d.getDate()] = { ...map[d.getDate()], journal: e };
+              const d = new Date(e.date).toDateString();
+              if (!map[d]) {
+                  map[d] = { journals: [], ritual: undefined };
               }
+              map[d].journals.push(e);
           });
+          
+          // Ensure journals are sorted (newest first for display, or oldest first for timeline)
+          // Let's do newest first
+          Object.keys(map).forEach(key => {
+              map[key].journals.sort((a,b) => b.date - a.date);
+          });
+
           ritualEntries.forEach(r => {
-              const d = new Date(r.date);
-              if (d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear()) {
-                  map[d.getDate()] = { ...map[d.getDate()], ritual: r };
+              const d = new Date(r.date).toDateString();
+              if (!map[d]) {
+                  map[d] = { journals: [], ritual: undefined };
               }
+              // Merge ritual if exists (assuming one per day, or latest overwrite)
+              map[d] = { ...map[d], ritual: r };
           });
           return map;
-      }, [currentDate, journalEntries, ritualEntries]);
+      }, [journalEntries, ritualEntries]);
+
+      // Determine range of months to display
+      // Default to last 12 months if no data, otherwise from first entry to today
+      const monthsToDisplay = useMemo(() => {
+          const now = new Date();
+          const dates = journalEntries.map(e => e.date).concat(ritualEntries.map(e => e.date));
+          const minDate = dates.length > 0 ? new Date(Math.min(...dates)) : new Date(now.getFullYear(), now.getMonth() - 11, 1);
+          
+          const result: Date[] = [];
+          const current = new Date(now.getFullYear(), now.getMonth(), 1);
+          
+          while (current >= new Date(minDate.getFullYear(), minDate.getMonth(), 1)) {
+              result.push(new Date(current));
+              current.setMonth(current.getMonth() - 1);
+          }
+          // Ensure at least one month
+          if (result.length === 0) result.push(new Date());
+          
+          return result;
+      }, [journalEntries, ritualEntries]);
 
       return (
           <div className="flex flex-col h-full">
               {selectedEntry ? (
                   <div className="animate-fade-in space-y-6">
                       <button onClick={() => setSelectedEntry(null)} className="flex items-center text-xs text-lucid-dim hover:text-white mb-2">
-                          <ChevronLeft className="w-4 h-4 mr-1"/> Back to Calendar
+                          <ChevronLeft className="w-4 h-4 mr-1"/> 返回日历
                       </button>
                       
                       <div className="flex items-center justify-between">
                           <span className="text-xl text-white font-serif tracking-wide">
-                              {selectedEntry.journal ? new Date(selectedEntry.journal.date).toLocaleDateString() : (selectedEntry.ritual ? new Date(selectedEntry.ritual.date).toLocaleDateString() : '')}
+                              {selectedEntry.dateStr}
                           </span>
                       </div>
 
@@ -580,74 +631,135 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                           </div>
                       )}
 
-                      {/* Journal Section */}
-                      {selectedEntry.journal && (
-                          <div className="space-y-2 pt-4 border-t border-white/10">
-                              <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2 text-stone-400 text-xs uppercase tracking-widest font-bold">
-                                      <CalendarIcon className="w-3 h-3" /> Journal
-                                  </div>
-                                  <div className="flex gap-1">
-                                      {Array.isArray(selectedEntry.journal.aiAnalysis?.emotionalState) && selectedEntry.journal.aiAnalysis?.emotionalState.map((e, i) => (
-                                          <span key={i} className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-stone-300">{e}</span>
-                                      ))}
-                                  </div>
+                      {/* Journals Section (Now supports list) */}
+                      {selectedEntry.journals.length > 0 && (
+                          <div className="space-y-4 pt-4 border-t border-white/10">
+                              <div className="flex items-center gap-2 text-stone-400 text-xs uppercase tracking-widest font-bold">
+                                  <CalendarIcon className="w-3 h-3" /> Journal Entries ({selectedEntry.journals.length})
                               </div>
-                              <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                                  <p className="text-stone-200 font-serif leading-relaxed text-sm whitespace-pre-wrap">{selectedEntry.journal.content}</p>
-                                  {selectedEntry.journal.aiAnalysis && (
-                                      <div className="pt-4 border-t border-white/5 mt-4">
-                                          <h4 className="text-[10px] text-lucid-dim uppercase mb-2">AI Insight</h4>
-                                          <div className="text-xs text-stone-400 leading-relaxed">
-                                             <SimpleMarkdown content={selectedEntry.journal.aiAnalysis.summary} />
+                              
+                              <div className="relative pl-2 space-y-6">
+                                  {/* Vertical Line */}
+                                  <div className="absolute top-2 bottom-2 left-[11px] w-[1px] bg-white/10"></div>
+                                  
+                                  {selectedEntry.journals.map((journal, idx) => (
+                                      <div key={journal.id} className="relative pl-6">
+                                          {/* Timeline dot */}
+                                          <div className="absolute left-[7px] top-1.5 w-2.5 h-2.5 rounded-full bg-stone-600 border border-stone-900 z-10"></div>
+                                          
+                                          <div className="flex justify-between items-start mb-2">
+                                              <span className="text-xs text-stone-500 font-sans tracking-wide">
+                                                  {new Date(journal.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                              </span>
+                                              <div className="flex gap-1 flex-wrap justify-end">
+                                                  {Array.isArray(journal.aiAnalysis?.emotionalState) && journal.aiAnalysis?.emotionalState.map((e, i) => (
+                                                      <span key={i} className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-stone-300">{e}</span>
+                                                  ))}
+                                              </div>
+                                          </div>
+                                          
+                                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                              <p className="text-stone-200 font-serif leading-relaxed text-sm whitespace-pre-wrap">{journal.content}</p>
+                                              {journal.aiAnalysis && (
+                                                  <div className="pt-4 border-t border-white/5 mt-4">
+                                                      <h4 className="text-[10px] text-lucid-dim uppercase mb-2">AI Insight</h4>
+                                                      <div className="text-xs text-stone-400 leading-relaxed">
+                                                         <SimpleMarkdown content={journal.aiAnalysis.summary} />
+                                                      </div>
+                                                  </div>
+                                              )}
                                           </div>
                                       </div>
-                                  )}
+                                  ))}
                               </div>
                           </div>
                       )}
                   </div>
               ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-6 px-2">
-                        <button onClick={prevMonth} className="p-1 hover:bg-white/10 rounded-full"><ChevronLeft className="w-5 h-5 text-lucid-dim"/></button>
-                        <span className="text-lg font-serif text-white">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-                        <button onClick={nextMonth} className="p-1 hover:bg-white/10 rounded-full"><ChevronRight className="w-5 h-5 text-lucid-dim"/></button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-2 text-center mb-2">
-                        {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[10px] text-lucid-dim font-sans">{d}</span>)}
-                    </div>
-                    <div className="grid grid-cols-7 gap-2">
-                        {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`}></div>)}
-                        {Array.from({ length: daysInMonth }).map((_, i) => {
-                            const day = i + 1;
-                            const entry = entriesByDay[day];
-                            const hasJournal = !!entry?.journal;
-                            const hasRitual = !!entry?.ritual;
-                            const hasEntry = hasJournal || hasRitual;
-                            
-                            return (
-                                <button
-                                    key={day}
-                                    onClick={() => entry && setSelectedEntry(entry)}
-                                    disabled={!entry}
-                                    className={`
-                                        aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-serif transition-all relative gap-1
-                                        ${hasEntry
-                                            ? 'bg-white/[0.05] hover:bg-white/10 border border-white/10 cursor-pointer' 
-                                            : 'bg-transparent text-stone-600 cursor-default'}
-                                    `}
-                                >
-                                    <span className={hasEntry ? 'text-white' : ''}>{day}</span>
-                                    <div className="flex gap-1">
-                                        {hasRitual && <div className="w-1 h-1 bg-lucid-glow rounded-full"></div>}
-                                        {hasJournal && <div className="w-1 h-1 bg-stone-400 rounded-full"></div>}
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                  </>
+                  <div className="space-y-8 pb-4">
+                      {/* Vertical Scroll List of Months */}
+                      {monthsToDisplay.map((dateObj, monthIdx) => {
+                          const year = dateObj.getFullYear();
+                          const month = dateObj.getMonth();
+                          const daysInMonth = new Date(year, month + 1, 0).getDate();
+                          const firstDayOfMonth = new Date(year, month, 1).getDay();
+                          
+                          return (
+                              <div key={monthIdx} className="animate-fade-in">
+                                  <div className="flex items-center gap-3 mb-3">
+                                      <h3 className="text-lg font-serif text-white/90">{year}年 {month + 1}月</h3>
+                                      <div className="h-[1px] flex-1 bg-white/5"></div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                                      {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[10px] text-lucid-dim font-sans opacity-50">{d}</span>)}
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-7 gap-2">
+                                      {/* Empty cells for offset */}
+                                      {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`}></div>)}
+                                      
+                                      {/* Days */}
+                                      {Array.from({ length: daysInMonth }).map((_, i) => {
+                                          const day = i + 1;
+                                          const currentDayDate = new Date(year, month, day);
+                                          const dateKey = currentDayDate.toDateString();
+                                          const entry = entriesByDay[dateKey];
+                                          
+                                          const hasJournal = entry && entry.journals.length > 0;
+                                          const hasRitual = !!entry?.ritual;
+                                          const hasEntry = hasJournal || hasRitual;
+                                          
+                                          // Calculate mood style based on ALL journals for that day
+                                          let moodStyle = 'bg-transparent text-stone-700 hover:bg-white/5';
+                                          
+                                          if (hasJournal) {
+                                              // Aggregate all emotions from all entries
+                                              const allEmotions = entry.journals.flatMap(j => 
+                                                  Array.isArray(j.aiAnalysis?.emotionalState) 
+                                                  ? j.aiAnalysis?.emotionalState 
+                                                  : (typeof j.aiAnalysis?.emotionalState === 'string' ? [j.aiAnalysis.emotionalState] : [])
+                                              ).filter(Boolean) as string[];
+                                              
+                                              moodStyle = getMoodStyle(allEmotions);
+                                          } else if (hasRitual) {
+                                              moodStyle = 'bg-indigo-900/30 border-indigo-500/20 text-indigo-300';
+                                          }
+
+                                          // Aggregate title
+                                          const title = hasJournal 
+                                            ? `${entry.journals.length} entries` 
+                                            : '';
+
+                                          return (
+                                              <button
+                                                  key={day}
+                                                  onClick={() => hasEntry && setSelectedEntry({ 
+                                                      journals: entry?.journals || [], 
+                                                      ritual: entry?.ritual,
+                                                      dateStr: currentDayDate.toLocaleDateString()
+                                                  })}
+                                                  disabled={!hasEntry}
+                                                  className={`
+                                                      aspect-square rounded-lg flex flex-col items-center justify-center text-xs font-serif transition-all relative border border-transparent
+                                                      ${moodStyle}
+                                                      ${hasEntry ? 'cursor-pointer hover:scale-105' : 'cursor-default'}
+                                                  `}
+                                                  title={title}
+                                              >
+                                                  <span className={hasEntry ? 'font-medium' : ''}>{day}</span>
+                                                  {/* Show dot if multiple entries */}
+                                                  {entry && entry.journals.length > 1 && (
+                                                      <div className="absolute top-1 right-1 w-1 h-1 bg-white/50 rounded-full"></div>
+                                                  )}
+                                              </button>
+                                          );
+                                      })}
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
               )}
           </div>
       );
