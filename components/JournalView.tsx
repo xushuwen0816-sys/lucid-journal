@@ -88,7 +88,7 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
             <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-10">
                 
                 {/* Writing Area */}
-                <Card className="border-white/10 bg-gradient-to-b from-stone-800/20 to-transparent !p-0 overflow-hidden flex flex-col min-h-[40vh]">
+                <Card className="border-white/10 bg-gradient-to-b from-stone-800/20 to-transparent !p-0 overflow-hidden flex flex-col min-h-[60vh]">
                     <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
                         <div className="flex items-center gap-2 text-lucid-dim">
                             <BookOpen className="w-4 h-4" />
