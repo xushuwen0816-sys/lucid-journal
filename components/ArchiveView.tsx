@@ -1382,7 +1382,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                               </ul>
                           </div>
                           <div>
-                              <span className="text-xs text-emerald-300 block mb-2">重塑信念</span>
+                              <span className="text-xs text-emerald-300 block mb-2">需要重塑的信念</span>
                               <ul className="list-disc list-inside text-stone-400 text-sm space-y-1">
                                   {selectedWish.beliefs.limitingBeliefs.map((b,i) => <li key={i}>{b}</li>)}
                               </ul>
