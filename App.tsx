@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
 import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle } from 'lucide-react';
@@ -117,12 +116,26 @@ const App: React.FC = () => {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
     try {
         const saved = localStorage.getItem('lucid_all_journals');
-        return saved ? JSON.parse(saved) : [];
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // Safety Check: Ensure IDs are present to prevent delete bugs
+            return Array.isArray(parsed) ? parsed.map((j: any) => ({
+                ...j,
+                id: j.id || crypto.randomUUID()
+            })) : [];
+        }
+        return [];
     } catch { return []; }
   });
 
   const handleAddJournalEntry = (entry: JournalEntry) => {
     const updated = [entry, ...journalEntries];
+    setJournalEntries(updated);
+    localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
+  };
+
+  const handleDeleteJournalEntry = (id: string) => {
+    const updated = journalEntries.filter(j => j.id !== id);
     setJournalEntries(updated);
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
   };
@@ -410,6 +423,7 @@ const App: React.FC = () => {
                     onUpdateWish={handleWishUpdate}
                     onAddLetter={handleAddLetter}
                     onImportData={handleImportData}
+                    onDeleteJournalEntry={handleDeleteJournalEntry}
                     initialTab={archiveInitialTab}
                 />
               )}

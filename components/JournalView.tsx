@@ -120,23 +120,33 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
                 {journalAnalysis && (
                     <div className="space-y-4 animate-fade-in pt-4">
                         {/* Tags Row */}
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="flex-1 bg-white/5 rounded-2xl p-5 border border-white/5">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
                                 <span className="text-xs uppercase text-stone-500 tracking-wider block mb-2">情绪状态 Emotional State</span>
                                 <div className="flex flex-wrap gap-2">
                                     {Array.isArray(journalAnalysis.emotionalState) && journalAnalysis.emotionalState.map((e, i) => (
-                                        <span key={i} className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-sm border border-indigo-500/20 font-serif">
+                                        <span key={i} className="inline-block px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-xs border border-blue-500/20 font-serif">
                                             {e}
                                         </span>
                                     ))}
                                 </div>
                             </div>
-                            <div className="flex-1 bg-white/5 rounded-2xl p-5 border border-white/5">
+                            <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
                                 <span className="text-xs uppercase text-stone-500 tracking-wider block mb-2">识别信念 Blocks & Beliefs</span>
                                 <div className="flex flex-wrap gap-2">
                                     {journalAnalysis.blocksIdentified?.map((b, i) => (
                                         <span key={i} className="text-xs bg-rose-500/10 text-rose-300 px-2 py-1 rounded border border-rose-500/20">
                                             {b}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
+                                <span className="text-xs uppercase text-stone-500 tracking-wider block mb-2">高我特质 High Self Traits</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {journalAnalysis.highSelfTraits?.map((t, i) => (
+                                        <span key={i} className="text-xs bg-indigo-500/10 text-indigo-300 px-2 py-1 rounded border border-indigo-500/20">
+                                            {t}
                                         </span>
                                     ))}
                                 </div>

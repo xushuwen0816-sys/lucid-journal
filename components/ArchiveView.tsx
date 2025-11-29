@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
-import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload } from 'lucide-react';
+import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload, Trash2, Check } from 'lucide-react';
 import { generateFutureLetterReply, generateWeeklyReport } from '../services/geminiService';
 
 interface ArchiveViewProps {
@@ -13,6 +13,7 @@ interface ArchiveViewProps {
   onUpdateWish: (wish: Wish) => void;
   onAddLetter: (letter: FutureLetter) => void;
   onImportData: (data: any) => void;
+  onDeleteJournalEntry?: (id: string) => void;
   initialTab?: 'milestones' | 'letters' | 'wishes' | 'library';
 }
 
@@ -80,7 +81,7 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onAddLetter, onImportData, initialTab = 'milestones' }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onAddLetter, onImportData, onDeleteJournalEntry, initialTab = 'milestones' }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
   const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>(initialTab);
   
@@ -525,6 +526,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   
   const JournalCalendar = () => {
       const [selectedEntry, setSelectedEntry] = useState<{ journals: JournalEntry[], ritual?: RitualArchiveEntry, dateStr: string } | null>(null);
+      const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
       // Map entries to days string key "YYYY-MM-DD"
       // CHANGED: Support array of journals for each day
@@ -651,7 +653,55 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                               <span className="text-xs text-stone-500 font-sans tracking-wide">
                                                   {new Date(journal.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                               </span>
-                                              <div className="flex gap-1 flex-wrap justify-end">
+                                              <div className="flex gap-1 flex-wrap justify-end items-center">
+                                                  {/* DELETE BUTTON WITH CONFIRMATION */}
+                                                  {onDeleteJournalEntry && (
+                                                      <div className="relative z-20 flex items-center">
+                                                          {confirmDeleteId === journal.id ? (
+                                                              <div className="flex items-center gap-1 bg-stone-800 rounded-full px-1 py-0.5 border border-rose-500/30 animate-fade-in">
+                                                                  <span className="text-[9px] text-rose-300 pl-1">删除?</span>
+                                                                  <button 
+                                                                      onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          onDeleteJournalEntry(journal.id);
+                                                                          // Update local UI immediately so it disappears
+                                                                          setSelectedEntry(prev => prev ? ({
+                                                                              ...prev,
+                                                                              journals: prev.journals.filter(j => j.id !== journal.id)
+                                                                          }) : null);
+                                                                          setConfirmDeleteId(null);
+                                                                      }}
+                                                                      className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                                                      title="确认删除"
+                                                                  >
+                                                                      <Check className="w-3 h-3" />
+                                                                  </button>
+                                                                  <button 
+                                                                      onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          setConfirmDeleteId(null);
+                                                                      }}
+                                                                      className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
+                                                                      title="取消"
+                                                                  >
+                                                                      <X className="w-3 h-3" />
+                                                                  </button>
+                                                              </div>
+                                                          ) : (
+                                                              <button
+                                                                  onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setConfirmDeleteId(journal.id);
+                                                                  }}
+                                                                  className="text-stone-600 hover:text-rose-400 transition-colors p-1.5 rounded-full hover:bg-rose-500/10 active:scale-95"
+                                                                  title="删除"
+                                                              >
+                                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                              </button>
+                                                          )}
+                                                      </div>
+                                                  )}
+
                                                   {Array.isArray(journal.aiAnalysis?.emotionalState) && journal.aiAnalysis?.emotionalState.map((e, i) => (
                                                       <span key={i} className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-stone-300">{e}</span>
                                                   ))}
@@ -660,6 +710,23 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                           
                                           <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                                               <p className="text-stone-200 font-serif leading-relaxed text-sm whitespace-pre-wrap">{journal.content}</p>
+                                              
+                                              {/* Traits & Blocks in Calendar */}
+                                              {journal.aiAnalysis && (
+                                                  <div className="flex flex-wrap gap-2 mt-3 mb-2">
+                                                      {journal.aiAnalysis.highSelfTraits?.map((t, i) => (
+                                                          <span key={`trait-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-300 font-serif">
+                                                              <Sparkles className="w-3 h-3 opacity-70" /> {t}
+                                                          </span>
+                                                      ))}
+                                                      {journal.aiAnalysis.blocksIdentified?.map((b, i) => (
+                                                          <span key={`block-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 font-serif">
+                                                              <AlertCircle className="w-3 h-3 opacity-70" /> {b}
+                                                          </span>
+                                                      ))}
+                                                  </div>
+                                              )}
+
                                               {journal.aiAnalysis && (
                                                   <div className="pt-4 border-t border-white/5 mt-4">
                                                       <h4 className="text-[10px] text-lucid-dim uppercase mb-2">AI Insight</h4>
@@ -1439,7 +1506,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                            </div>
                            <div>
                                <span className="text-xs uppercase text-stone-400 tracking-widest block font-bold">Your Letter</span>
-                               <span className="text-[10px] text-stone-600">Written on {new Date(selectedLetter.createdAt).toLocaleDateString()}</span>
+                               <span className="text-xs text-stone-600">Written on {new Date(selectedLetter.createdAt).toLocaleDateString()}</span>
                            </div>
                        </div>
                        
