@@ -1,6 +1,8 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon } from 'lucide-react';
 
 // Components
 import IntentView from './components/IntentView';
@@ -20,6 +22,10 @@ const App: React.FC = () => {
   const [userNameInput, setUserNameInput] = useState(() => 
     typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '' : ''
   );
+  // Default to custom domain proxy for Grandma-friendly experience
+  const [proxyUrlInput, setProxyUrlInput] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || 'https://lucidjournal.space' : 'https://lucidjournal.space'
+  );
   
   // Connection Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -31,6 +37,17 @@ const App: React.FC = () => {
   // Controls which tab inside ArchiveView is active. 
   // Used to direct user to 'wishes' tab immediately after creating a wish.
   const [archiveInitialTab, setArchiveInitialTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
+
+  // Check URL Params for Proxy auto-fill
+  useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const proxyParam = params.get('proxy');
+      if (proxyParam) {
+          // Decode in case it's encoded, though browser usually handles basic chars
+          const decodedProxy = decodeURIComponent(proxyParam);
+          setProxyUrlInput(decodedProxy);
+      }
+  }, []);
 
   // --- GLOBAL STATE ---
 
@@ -95,7 +112,7 @@ const App: React.FC = () => {
 
   const handleStartSystem = () => {
     if (apiKeyInput.trim().length > 10) {
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), '');
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), proxyUrlInput.trim());
       setIsAuthorized(true);
     }
   };
@@ -105,7 +122,7 @@ const App: React.FC = () => {
       setIsTesting(true);
       setTestResult(null);
       
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), '');
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), proxyUrlInput.trim());
       
       const success = await checkConnection();
       setTestResult(success ? 'success' : 'error');
@@ -299,8 +316,23 @@ const App: React.FC = () => {
                         placeholder="在此粘贴 AIzaSy... 开头的密钥"
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
-                     <p className="text-[10px] text-stone-500 pt-1 pl-1">
-                        * 在中国大陆使用时，请确保已开启 VPN 等网络工具。
+                 </div>
+
+                 {/* New Proxy URL Input - Enhanced Visibility */}
+                 <div className="space-y-2 bg-white/[0.03] p-3 rounded-xl border border-white/5">
+                     <label className="text-xs text-stone-400 uppercase tracking-wider font-bold flex items-center gap-2 group cursor-help mb-2">
+                         <Globe className="w-3 h-3" /> 国内用户专用通道 (Proxy)
+                     </label>
+                     <input 
+                        type="text"
+                        value={proxyUrlInput}
+                        onChange={(e) => setProxyUrlInput(e.target.value)}
+                        placeholder="例: https://lucidjournal.space"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide placeholder-white/20"
+                     />
+                     <p className="text-[10px] text-stone-500 pt-1 leading-relaxed">
+                        * 已为您自动填好默认通道，国内朋友可直接使用。<br/>
+                        * 默认地址: <b>https://lucidjournal.space</b>
                      </p>
                  </div>
 
@@ -322,7 +354,7 @@ const App: React.FC = () => {
                  )}
                  {testResult === 'error' && (
                      <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-rose-500/10 py-1 rounded">
-                         <AlertTriangle className="w-3 h-3" /> 连接失败。请检查网络或密钥。
+                         <AlertTriangle className="w-3 h-3" /> 连接失败。请检查密钥或代理地址。
                      </div>
                  )}
                  

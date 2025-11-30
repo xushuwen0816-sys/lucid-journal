@@ -1,25 +1,44 @@
-
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage } from "../types";
 
 // Initialize Gemini Client Lazily
 // This prevents the app from crashing at startup if process.env.API_KEY is not immediately available or configured
 let aiInstance: GoogleGenAI | null = null;
+const DEFAULT_PROXY = 'https://lucidjournal.space';
+
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
-let dynamicBaseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || '' : '';
+// Grandma-friendly update: Default to the custom domain proxy if no other setting exists
+let dynamicBaseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || DEFAULT_PROXY : DEFAULT_PROXY;
 let userName = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '旅行者' : '旅行者';
 
 export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
   dynamicApiKey = key;
   userName = name || '旅行者';
-  dynamicBaseUrl = baseUrl || '';
+  
+  // Robust URL formatting for Proxy
+  // If baseUrl is provided (user typed something), use it.
+  // If baseUrl is empty string (user cleared it), use empty string (direct connection).
+  // If baseUrl is undefined (initial setup), default to DEFAULT_PROXY.
+  if (baseUrl !== undefined && baseUrl !== null) {
+      if (baseUrl.trim().length > 0) {
+          let cleanUrl = baseUrl.trim();
+          // 1. Remove trailing slash
+          cleanUrl = cleanUrl.replace(/\/+$/, '');
+          // 2. Ensure protocol exists. If missing, default to https://
+          if (!/^https?:\/\//i.test(cleanUrl)) {
+              cleanUrl = `https://${cleanUrl}`;
+          }
+          dynamicBaseUrl = cleanUrl;
+      } else {
+          dynamicBaseUrl = '';
+      }
+  }
   
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('lucid_api_key', key);
     localStorage.setItem('lucid_user_name', userName);
-    if (baseUrl) {
-      localStorage.setItem('lucid_base_url', baseUrl);
+    if (dynamicBaseUrl) {
+      localStorage.setItem('lucid_base_url', dynamicBaseUrl);
     } else {
       localStorage.removeItem('lucid_base_url');
     }
