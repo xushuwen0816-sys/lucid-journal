@@ -15,7 +15,7 @@ import { Button, LoadingSpinner } from './components/Shared';
 import { setAiConfig, hasApiKey, setUserName, checkConnection } from './services/geminiService';
 
 const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
-const DEFAULT_PUBLIC_KEY = 'AIzaSyDISN6HSXz0bQij9--dCaQwKhio0DWkP3A';
+const DEFAULT_PUBLIC_KEY = 'AIzaSyDRyD6Vws-an_fGv5TqILtj2PcX7bhp1kw';
 
 const App: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
