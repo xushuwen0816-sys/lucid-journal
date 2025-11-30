@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon } from 'lucide-react';
+import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight } from 'lucide-react';
 
 // Components
 import IntentView from './components/IntentView';
@@ -14,18 +14,31 @@ import { Button, LoadingSpinner } from './components/Shared';
 // Services
 import { setAiConfig, hasApiKey, setUserName, checkConnection } from './services/geminiService';
 
+const DEFAULT_PROXY = 'https://api.lucidjournal.space';
+const DEFAULT_PUBLIC_KEY = 'AIzaSyDISN6HSXz0bQij9--dCaQwKhio0DWkP3A';
+
 const App: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
+  
+  // Default API Key Logic: Use stored key, or fallback to the Grandma's Public Key
   const [apiKeyInput, setApiKeyInput] = useState(() => 
-    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : ''
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || DEFAULT_PUBLIC_KEY : DEFAULT_PUBLIC_KEY
   );
+  
   const [userNameInput, setUserNameInput] = useState(() => 
     typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '' : ''
   );
-  // Default to custom domain proxy for Grandma-friendly experience
-  const [proxyUrlInput, setProxyUrlInput] = useState(() => 
-    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || 'https://api.lucidjournal.space' : 'https://api.lucidjournal.space'
-  );
+  
+  // Grandma-friendly: Boolean toggle instead of text input
+  // Default to true (using proxy) unless explicitly set to empty string (direct) in storage
+  const [useProxy, setUseProxy] = useState(() => {
+    if (typeof localStorage === 'undefined') return true;
+    const stored = localStorage.getItem('lucid_base_url');
+    // If stored is explicitly empty string, it means user wants direct connection
+    if (stored === '') return false;
+    // Otherwise use proxy (default)
+    return true;
+  });
   
   // Connection Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -35,45 +48,34 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.ENERGY);
   
   // Controls which tab inside ArchiveView is active. 
-  // Used to direct user to 'wishes' tab immediately after creating a wish.
   const [archiveInitialTab, setArchiveInitialTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
 
-  // Check URL Params for Proxy auto-fill
+  // Check URL Params just in case, but map to boolean
   useEffect(() => {
       const params = new URLSearchParams(window.location.search);
       const proxyParam = params.get('proxy');
       if (proxyParam) {
-          // Decode in case it's encoded, though browser usually handles basic chars
-          const decodedProxy = decodeURIComponent(proxyParam);
-          setProxyUrlInput(decodedProxy);
+          // If a specific proxy is forced via URL, enable proxy mode
+          setUseProxy(true);
       }
   }, []);
 
   // --- GLOBAL STATE ---
 
   // 1. Wishes (Persistent)
-  // Grandma-Proof Update: Added robust "Health Check" during initialization
   const [wishes, setWishes] = useState<Wish[]>(() => {
     if (typeof localStorage !== 'undefined') {
         try {
             const saved = localStorage.getItem('lucid_wishes');
             if (saved) {
                 let parsed = JSON.parse(saved);
-                
-                // Safety check: Ensure it's an array
                 if (!Array.isArray(parsed)) parsed = [];
 
-                // DATA MIGRATION & HEALTH CHECK
-                // We iterate through every loaded wish to ensure it has an ID card.
                 const sanitizedWishes = parsed.map((w: any) => ({
                     ...w,
-                    // If an old wish is missing an ID, issue a new one immediately.
                     id: w.id || crypto.randomUUID(),
-                    // Ensure creation time exists
                     createdAt: w.createdAt || Date.now(),
-                    // Ensure status is valid
                     status: w.status || 'active',
-                    // Preserve other fields
                     content: w.content || '',
                     tags: w.tags || {},
                     affirmations: w.affirmations || []
@@ -83,27 +85,22 @@ const App: React.FC = () => {
             }
         } catch (e) {
             console.error("Failed to load wishes safely:", e);
-            // In case of error, return empty array rather than crashing, 
-            // but in a real app we might want to backup the corrupted string first.
             return [];
         }
     }
     return [];
   });
   
-  // Persist Wishes with Error Handling (Grandma-proof)
   useEffect(() => {
     try {
         localStorage.setItem('lucid_wishes', JSON.stringify(wishes));
     } catch (e) {
         console.error("Storage failed", e);
-        alert("⚠️ 警告：设备存储空间不足，您的愿望可能未成功保存！请清理空间后重试。");
     }
   }, [wishes]);
 
   const [activeWishId, setActiveWishId] = useState<string | null>(null);
   
-  // Check authorization on mount
   useEffect(() => {
     if (hasApiKey()) {
       setIsAuthorized(true);
@@ -112,7 +109,8 @@ const App: React.FC = () => {
 
   const handleStartSystem = () => {
     if (apiKeyInput.trim().length > 10) {
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), proxyUrlInput.trim());
+      // Logic: If useProxy is true, send the CONSTANT url. If false, send empty string.
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), useProxy ? DEFAULT_PROXY : '');
       setIsAuthorized(true);
     }
   };
@@ -122,7 +120,7 @@ const App: React.FC = () => {
       setIsTesting(true);
       setTestResult(null);
       
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), proxyUrlInput.trim());
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), useProxy ? DEFAULT_PROXY : '');
       
       const success = await checkConnection();
       setTestResult(success ? 'success' : 'error');
@@ -135,7 +133,6 @@ const App: React.FC = () => {
         const saved = localStorage.getItem('lucid_all_journals');
         if (saved) {
             const parsed = JSON.parse(saved);
-            // Safety Check: Ensure IDs are present to prevent delete bugs
             return Array.isArray(parsed) ? parsed.map((j: any) => ({
                 ...j,
                 id: j.id || crypto.randomUUID()
@@ -165,7 +162,6 @@ const App: React.FC = () => {
     } catch { return []; }
   });
 
-  // Handler to merge ritual updates
   const handleSaveRitual = (data: { date: number, reading?: TarotReading, practice?: DailyPractice }) => {
     setRitualEntries(prev => {
         const dateKey = new Date(data.date).toDateString();
@@ -224,7 +220,6 @@ const App: React.FC = () => {
               if (r) setRitualEntries(r);
               if (l) setLetters(l);
               
-              // Force persistence immediately to be safe
               if (w) localStorage.setItem('lucid_wishes', JSON.stringify(w));
               if (j) localStorage.setItem('lucid_all_journals', JSON.stringify(j));
               if (r) localStorage.setItem('lucid_ritual_archive', JSON.stringify(r));
@@ -251,14 +246,9 @@ const App: React.FC = () => {
   });
 
   const handleWishCreated = (wish: Wish) => {
-    // 1. Add new wish to top of list (Standard React Pattern, won't overwrite existing)
     setWishes(prev => [wish, ...prev]);
     setActiveWishId(wish.id);
-    
-    // 2. Set Archive tab to 'wishes' so user sees it immediately
     setArchiveInitialTab('wishes');
-    
-    // 3. Navigate to Archive
     setTimeout(() => setCurrentView(AppView.ARCHIVE), 0);
   };
 
@@ -306,8 +296,15 @@ const App: React.FC = () => {
                  </div>
 
                  <div className="space-y-2">
-                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
-                         <Key className="w-3 h-3" /> API 密钥 (Gemini Key)
+                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                            <Key className="w-3 h-3" /> API 密钥 (Gemini Key)
+                         </div>
+                         {apiKeyInput === DEFAULT_PUBLIC_KEY && (
+                             <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                 已预填免费额度
+                             </span>
+                         )}
                      </label>
                      <input 
                         type="password"
@@ -316,24 +313,43 @@ const App: React.FC = () => {
                         placeholder="在此粘贴 AIzaSy... 开头的密钥"
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
+                     <p className="text-[10px] text-stone-500 leading-relaxed">
+                         * 默认使用开发者提供的免费额度。如需更高稳定性，建议<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline mx-1">申请自己的 Key</a>并在此替换。
+                     </p>
                  </div>
 
-                 {/* New Proxy URL Input - Enhanced Visibility */}
-                 <div className="space-y-2 bg-white/[0.03] p-3 rounded-xl border border-white/5">
-                     <label className="text-xs text-stone-400 uppercase tracking-wider font-bold flex items-center gap-2 group cursor-help mb-2">
-                         <Globe className="w-3 h-3" /> 国内用户专用通道 (Proxy)
-                     </label>
-                     <input 
-                        type="text"
-                        value={proxyUrlInput}
-                        onChange={(e) => setProxyUrlInput(e.target.value)}
-                        placeholder="例: https://api.lucidjournal.space"
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide placeholder-white/20"
-                     />
-                     <p className="text-[10px] text-stone-500 pt-1 leading-relaxed">
-                        * 已为您自动填好默认通道，国内朋友可直接使用。<br/>
-                        * 默认地址: <b>https://api.lucidjournal.space</b>
-                     </p>
+                 {/* New Grandma-Friendly Proxy Toggle */}
+                 <div 
+                    onClick={() => setUseProxy(!useProxy)}
+                    className={`
+                        relative flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer group
+                        ${useProxy 
+                            ? 'bg-gradient-to-r from-orange-900/20 to-rose-900/20 border-lucid-glow/30' 
+                            : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.05]'
+                        }
+                    `}
+                 >
+                     <div className="flex items-center gap-3">
+                         <div className={`p-2 rounded-full ${useProxy ? 'bg-lucid-glow text-black' : 'bg-white/10 text-stone-400'}`}>
+                             <Globe className="w-4 h-4" />
+                         </div>
+                         <div className="flex flex-col">
+                             <span className={`text-sm font-serif tracking-wide ${useProxy ? 'text-white' : 'text-stone-400'}`}>
+                                 {useProxy ? '国内访问加速 (已开启)' : '海外直连模式'}
+                             </span>
+                             <span className="text-[10px] text-stone-500 font-sans">
+                                 {useProxy ? 'Auto-Proxy Active' : 'Direct Connection'}
+                             </span>
+                         </div>
+                     </div>
+                     
+                     <div>
+                         {useProxy ? (
+                             <ToggleRight className="w-8 h-8 text-lucid-glow transition-all" />
+                         ) : (
+                             <ToggleLeft className="w-8 h-8 text-stone-600 transition-all" />
+                         )}
+                     </div>
                  </div>
 
                  <div className="flex justify-end mt-2">
@@ -354,7 +370,7 @@ const App: React.FC = () => {
                  )}
                  {testResult === 'error' && (
                      <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-rose-500/10 py-1 rounded">
-                         <AlertTriangle className="w-3 h-3" /> 连接失败。请检查密钥或代理地址。
+                         <AlertTriangle className="w-3 h-3" /> 连接失败。请检查密钥或网络设置。
                      </div>
                  )}
                  
@@ -410,8 +426,6 @@ const App: React.FC = () => {
                  key={item.view}
                  onClick={() => {
                      setCurrentView(item.view);
-                     // If user clicks Archive manually, generally default to Milestones or keep current?
-                     // Let's reset to milestones to be safe unless we are in deep navigation.
                      if (item.view === AppView.ARCHIVE) setArchiveInitialTab('milestones');
                  }}
                  className={`group flex flex-col items-center gap-1.5 relative transition-all duration-500 outline-none p-1 md:p-2 rounded-xl ${
