@@ -14,7 +14,7 @@ import { Button, LoadingSpinner } from './components/Shared';
 // Services
 import { setAiConfig, hasApiKey, setUserName, checkConnection } from './services/geminiService';
 
-const DEFAULT_PROXY = 'https://api.lucidjournal.space';
+const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
 const DEFAULT_PUBLIC_KEY = 'AIzaSyDISN6HSXz0bQij9--dCaQwKhio0DWkP3A';
 
 const App: React.FC = () => {

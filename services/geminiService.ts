@@ -4,7 +4,7 @@ import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntr
 // Initialize Gemini Client Lazily
 // This prevents the app from crashing at startup if process.env.API_KEY is not immediately available or configured
 let aiInstance: GoogleGenAI | null = null;
-const DEFAULT_PROXY = 'https://api.lucidjournal.space';
+const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
 
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
 
