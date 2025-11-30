@@ -4,11 +4,35 @@ import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntr
 // Initialize Gemini Client Lazily
 // This prevents the app from crashing at startup if process.env.API_KEY is not immediately available or configured
 let aiInstance: GoogleGenAI | null = null;
-const DEFAULT_PROXY = 'https://lucidjournal.space';
+const DEFAULT_PROXY = 'https://api.lucidjournal.space';
 
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
-// Grandma-friendly update: Default to the custom domain proxy if no other setting exists
-let dynamicBaseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || DEFAULT_PROXY : DEFAULT_PROXY;
+
+// --- GRANDMA-FRIENDLY AUTO-FIX ---
+// Helper to clean up potentially bad stored URLs
+const getInitialBaseUrl = () => {
+  if (typeof localStorage === 'undefined') return DEFAULT_PROXY;
+  
+  const stored = localStorage.getItem('lucid_base_url');
+  
+  // Case 1: No stored URL -> Use New Default
+  if (!stored) return DEFAULT_PROXY;
+  
+  // Case 2: Stored URL is the old blocked workers.dev -> Force Update to New Domain
+  if (stored.includes('workers.dev')) {
+    return DEFAULT_PROXY;
+  }
+  
+  // Case 3: Stored URL is empty string (User tried to direct connect) -> Force Update to New Domain (Assuming they are in China)
+  // If they really want direct, they can clear it manually, but defaulting to Proxy is safer for Grandma's friends.
+  if (stored.trim() === '') {
+    return DEFAULT_PROXY;
+  }
+
+  return stored;
+};
+
+let dynamicBaseUrl = getInitialBaseUrl();
 let userName = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '旅行者' : '旅行者';
 
 export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
@@ -17,8 +41,6 @@ export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
   
   // Robust URL formatting for Proxy
   // If baseUrl is provided (user typed something), use it.
-  // If baseUrl is empty string (user cleared it), use empty string (direct connection).
-  // If baseUrl is undefined (initial setup), default to DEFAULT_PROXY.
   if (baseUrl !== undefined && baseUrl !== null) {
       if (baseUrl.trim().length > 0) {
           let cleanUrl = baseUrl.trim();
@@ -30,6 +52,7 @@ export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
           }
           dynamicBaseUrl = cleanUrl;
       } else {
+          // If user explicitly clears it in settings, allow direct connection (empty string)
           dynamicBaseUrl = '';
       }
   }
@@ -40,7 +63,10 @@ export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
     if (dynamicBaseUrl) {
       localStorage.setItem('lucid_base_url', dynamicBaseUrl);
     } else {
-      localStorage.removeItem('lucid_base_url');
+      // If empty, remove it so next load might check default logic again, 
+      // or we can store empty string to respect "direct connect". 
+      // Let's store empty string to mean "Direct".
+      localStorage.setItem('lucid_base_url', '');
     }
   }
   aiInstance = null; // Reset instance to apply new config

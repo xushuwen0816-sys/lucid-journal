@@ -24,7 +24,7 @@ const App: React.FC = () => {
   );
   // Default to custom domain proxy for Grandma-friendly experience
   const [proxyUrlInput, setProxyUrlInput] = useState(() => 
-    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || 'https://lucidjournal.space' : 'https://lucidjournal.space'
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_base_url') || 'https://api.lucidjournal.space' : 'https://api.lucidjournal.space'
   );
   
   // Connection Test State
@@ -327,12 +327,12 @@ const App: React.FC = () => {
                         type="text"
                         value={proxyUrlInput}
                         onChange={(e) => setProxyUrlInput(e.target.value)}
-                        placeholder="例: https://lucidjournal.space"
+                        placeholder="例: https://api.lucidjournal.space"
                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide placeholder-white/20"
                      />
                      <p className="text-[10px] text-stone-500 pt-1 leading-relaxed">
                         * 已为您自动填好默认通道，国内朋友可直接使用。<br/>
-                        * 默认地址: <b>https://lucidjournal.space</b>
+                        * 默认地址: <b>https://api.lucidjournal.space</b>
                      </p>
                  </div>
 
