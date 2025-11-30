@@ -96,13 +96,16 @@ export const hasApiKey = () => {
 const getAi = () => {
     if (!aiInstance) {
         const key = process.env.API_KEY || dynamicApiKey;
-        const config: any = { apiKey: key || '' };
+        // Forced Proxy Usage as requested
+        const config: any = { 
+            apiKey: key || '',
+            baseUrl: 'https://empty-feather-566a.xushuwen0816.workers.dev'
+        };
         
-        // If a custom Base URL is set (e.g., for proxying from China), use it.
-        // Otherwise, the SDK defaults to the official endpoint.
-        if (dynamicBaseUrl) {
-            config.baseUrl = dynamicBaseUrl;
-        }
+        // Deprecated dynamic logic for now to ensure forced proxy
+        // if (dynamicBaseUrl) {
+        //     config.baseUrl = dynamicBaseUrl;
+        // }
 
         aiInstance = new GoogleGenAI(config);
     }
