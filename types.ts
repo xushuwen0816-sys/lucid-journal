@@ -46,6 +46,7 @@ export interface ChatMessage {
 export interface BeliefMap {
   emotionalBlocks: string[];
   limitingBeliefs: string[];
+  supportiveBeliefs: string[]; // Added: Current positive mindset
   newIdentity: string;
 }
 

@@ -1,6 +1,7 @@
 
+
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Sparkles, Check, ArrowRight, AlertCircle, Fingerprint, Lock, ShieldAlert, ArrowDown } from 'lucide-react';
+import { Send, Sparkles, Check, ArrowRight, AlertCircle, Fingerprint, Lock, ShieldAlert, ArrowDown, Zap } from 'lucide-react';
 import { Wish, ChatMessage, IntentState } from '../types';
 import { analyzeWishDeepDive, generateBeliefMapAndTags, generateAffirmations } from '../services/geminiService';
 import { Button, Card, SectionTitle, LoadingSpinner } from './Shared';
@@ -301,6 +302,30 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                              </div>
                         </Card>
 
+                        {/* 1.5. Supportive Beliefs (Blue/Indigo Tone) - NEW */}
+                        {state.generatedBeliefs.supportiveBeliefs && state.generatedBeliefs.supportiveBeliefs.length > 0 && (
+                            <Card className="border-indigo-500/20 bg-gradient-to-br from-indigo-900/10 to-transparent relative overflow-hidden">
+                                <div className="flex items-center gap-2 mb-4 text-indigo-300">
+                                    <Zap className="w-5 h-5" />
+                                    <span className="text-xs uppercase tracking-widest font-bold">内在优势 Inner Strengths</span>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <span className="text-[10px] text-indigo-400/70 uppercase tracking-widest block mb-2">正确思路 & 积极心态 Supportive Beliefs</span>
+                                        <ul className="space-y-2">
+                                            {state.generatedBeliefs.supportiveBeliefs.map((b, i) => (
+                                                <li key={i} className="flex items-start gap-3 text-stone-300 font-serif text-sm">
+                                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500/50 flex-shrink-0"></span>
+                                                    "{b}"
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
                         <div className="flex justify-center">
                             <ArrowDown className="w-6 h-6 text-stone-600 animate-bounce" />
                         </div>
@@ -349,7 +374,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                     <h3 className="text-xl font-serif text-white">人生脚本已重写</h3>
                     <p className="text-lucid-dim text-sm mt-2 font-serif tracking-wider">确认你的新身份，我们将把这些频率植入潜意识。</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {state.generatedAffirmations.map((aff, i) => (
                         <Card 
                             key={i} 

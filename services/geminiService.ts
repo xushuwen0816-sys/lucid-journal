@@ -192,7 +192,11 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
     请全部使用中文。
 
     Requirements:
-    1. beliefs: 识别用户的情绪阻碍、限制性信念，并设计一个新的身份(New Identity)。
+    1. beliefs: 
+       - emotionalBlocks: 识别用户的情绪阻碍。
+       - limitingBeliefs: 识别用户的限制性信念。
+       - supportiveBeliefs: 识别用户当前已具备的、有助于实现愿望的正确思路、积极心态或内在优势(Correct thoughts / Strengths)。
+       - newIdentity: 设计一个新的身份(New Identity)，基于愿望实现后的状态。
     2. tags: 
        - emotional: 愿望背后的情绪关键词 (如: 丰盛, 安全感, 自由)
        - domain: 愿望所属领域 (如: 事业, 感情, 灵性)
@@ -213,9 +217,10 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
               properties: {
                 emotionalBlocks: { type: Type.ARRAY, items: { type: Type.STRING } },
                 limitingBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                supportiveBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
                 newIdentity: { type: Type.STRING },
               },
-              required: ["emotionalBlocks", "limitingBeliefs", "newIdentity"]
+              required: ["emotionalBlocks", "limitingBeliefs", "supportiveBeliefs", "newIdentity"]
             },
             tags: {
               type: Type.OBJECT,
@@ -235,7 +240,12 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
   } catch (error) {
     console.error("Belief/Tag error:", error);
     return {
-      beliefs: { emotionalBlocks: ["未知阻碍"], limitingBeliefs: ["未知限制"], newIdentity: "全新的自己" },
+      beliefs: { 
+          emotionalBlocks: ["未知阻碍"], 
+          limitingBeliefs: ["未知限制"], 
+          supportiveBeliefs: ["未发现优势"],
+          newIdentity: "全新的自己" 
+      },
       tags: { emotional: ["平静"], domain: ["生活"], style: ["柔和"] }
     };
   }
@@ -248,21 +258,23 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
     新身份: "${beliefs.newIdentity}"
     用户: "${userName}"
     
-    按照以下风格，请生成 **9条** 肯定语 (JSON格式)，即每种类型各生成 3 条。
+    按照以下要求，请生成 **18条** 肯定语 (JSON格式)，即每种类型各生成 6 条。
     请用中文。
+    肯定语应当非常强大，旨在洗清用户的限制性信念，重塑用户的思维。
     
-    1. conscious (显意识) - 3条: 
+    1. conscious (显意识) - 6条: 
        - 风格：理性、逻辑、允许。
-       - 句式："我选择..." "我允许自己..." "我意识到..."
+       - 句式："我选择..." "我允许自己..." "我意识到..." "我释放..."
        
-    2. subconscious (潜意识) - 3条:
+    2. subconscious (潜意识) - 6条:
        - 风格：短促、有力、绝对、现在时。
        - 句式："我是..." (I AM)
-       - 作用：直接指令，不容置疑。
+       - 作用：直接指令，不容置疑，如同重写代码。
        
-    3. future_self (未来自我) - 3条:
-       - 风格：充满画面感、感恩、扩张、已经实现的喜悦。
-       - 句式："我如此感激..." "看着现在的我..."
+    3. future_self (未来自我) - 6条:
+       - 风格：具像化地描写用户实现愿望之后的现实细节和情绪状态。
+       - 内容：包含具体的感官细节（看到了什么、听到了什么）和强烈的积极情绪（感恩、狂喜、平静）。
+       - 句式："我如此感激..." "看着窗外的..." "这一切发生得如此自然..."
   `;
 
   try {
@@ -290,12 +302,21 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
         { text: "我允许自己接纳所有的丰盛。", type: "conscious" },
         { text: "我选择相信我的力量。", type: "conscious" },
         { text: "我意识到我是自由的。", type: "conscious" },
+        { text: "我释放所有旧的限制。", type: "conscious" },
+        { text: "我值得拥有美好。", type: "conscious" },
+        { text: "我向无限的可能性敞开。", type: "conscious" },
         { text: "我是丰盛本身。", type: "subconscious" },
         { text: "我是光。", type: "subconscious" },
         { text: "我是爱。", type: "subconscious" },
+        { text: "我是创造者。", type: "subconscious" },
+        { text: "我是力量。", type: "subconscious" },
+        { text: "我是奇迹。", type: "subconscious" },
         { text: "我如此感激每一天自然流向我的财富。", type: "future_self" },
         { text: "看着现在的我，是如此的圆满。", type: "future_self" },
-        { text: "谢谢你，这一切已经发生。", type: "future_self" }
+        { text: "谢谢你，这一切已经发生。", type: "future_self" },
+        { text: "阳光洒在我的书桌上，我感到无比宁静。", type: "future_self" },
+        { text: "我听见海浪的声音，感受到彻底的自由。", type: "future_self" },
+        { text: "每一个细胞都在欢庆这个结果。", type: "future_self" }
     ];
   }
 };
