@@ -1438,6 +1438,26 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                       <h3 className="text-2xl font-serif text-white leading-relaxed mb-2">{selectedWish.content}</h3>
                       <p className="text-lucid-dim font-serif italic">新身份: {selectedWish.beliefs.newIdentity}</p>
                   </div>
+                  
+                  {/* NEW: Supportive Beliefs (Inner Strengths) Section */}
+                  {selectedWish.beliefs.supportiveBeliefs && selectedWish.beliefs.supportiveBeliefs.length > 0 && (
+                    <div className="bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10 relative overflow-hidden">
+                         <div className="absolute top-0 right-0 p-4 opacity-5">
+                            <Zap className="w-24 h-24" />
+                        </div>
+                        <h4 className="text-sm text-indigo-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Zap className="w-4 h-4" /> 现有优势 & 正确思路 Inner Strengths
+                        </h4>
+                        <div className="grid grid-cols-1 gap-3">
+                            {selectedWish.beliefs.supportiveBeliefs.map((b, i) => (
+                                <div key={i} className="flex items-start gap-3">
+                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0"></span>
+                                    <p className="text-indigo-100/80 text-sm font-serif leading-relaxed">{b}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                  )}
 
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                       <h4 className="text-sm text-stone-400 uppercase tracking-widest mb-4">Core Shifts</h4>
@@ -1459,7 +1479,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
                   <div className="flex flex-col gap-4">
                        <div className="w-full bg-white/5 rounded-xl border border-white/5 p-4 overflow-y-auto max-h-[300px] custom-scrollbar">
-                           <span className="text-[10px] text-stone-500 uppercase block mb-3">Affirmations (9)</span>
+                           <span className="text-[10px] text-stone-500 uppercase block mb-3">Affirmations ({selectedWish.affirmations.length})</span>
                            <div className="space-y-2">
                                {selectedWish.affirmations.map((a,i) => (
                                    <div key={i} className="pl-3 border-l-2 border-white/10 py-1">
