@@ -1,4 +1,10 @@
 
+
+
+
+
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
@@ -11,6 +17,7 @@ interface ArchiveViewProps {
   ritualEntries: RitualArchiveEntry[];
   letters: FutureLetter[];
   onUpdateWish: (wish: Wish) => void;
+  onDeleteWish: (id: string) => void;
   onAddLetter: (letter: FutureLetter) => void;
   onImportData: (data: any) => void;
   onDeleteJournalEntry?: (id: string) => void;
@@ -81,7 +88,7 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onAddLetter, onImportData, onDeleteJournalEntry, initialTab = 'milestones' }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onImportData, onDeleteJournalEntry, initialTab = 'milestones' }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
   const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>(initialTab);
   
@@ -533,6 +540,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       setSelectedWish(updatedWish); 
   };
 
+  const handleDeleteWishClick = (id: string) => {
+      if (window.confirm('确定要彻底删除这个愿望吗？此操作无法撤销。\nAre you sure you want to delete this wish permanently?')) {
+          onDeleteWish(id);
+          setSelectedWish(null);
+      }
+  };
+
   const getWishPhase = (wish: Wish) => {
       if (wish.status === 'manifested') return { name: '已显化', color: 'text-emerald-400', border: 'border-emerald-500/30' };
       if (Object.keys(wish.beliefs || {}).length > 0) return { name: '校准 · Align', color: 'text-blue-400', border: 'border-blue-500/30' };
@@ -720,7 +734,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                   )}
 
                                                   {Array.isArray(journal.aiAnalysis?.emotionalState) && journal.aiAnalysis?.emotionalState.map((e, i) => (
-                                                      <span key={i} className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-stone-300">
+                                                      <span key={i} className="text-[9px] bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded text-yellow-200">
                                                           {typeof e === 'object' ? (e as any).text || JSON.stringify(e) : e}
                                                       </span>
                                                   ))}
@@ -739,7 +753,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                           </span>
                                                       ))}
                                                       {journal.aiAnalysis.blocksIdentified?.map((b, i) => (
-                                                          <span key={`block-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 font-serif">
+                                                          <span key={`block-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[10px] text-red-300 font-serif">
                                                               <AlertCircle className="w-3 h-3 opacity-70" /> {typeof b === 'object' ? (b as any).text || 'Block' : b}
                                                           </span>
                                                       ))}
@@ -968,9 +982,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                             <span className="text-[10px] md:text-xs text-emerald-500/70 uppercase tracking-widest flex items-center gap-1">已显化 Manifested</span>
                         </Card>
 
-                        <Card onClick={() => setDetailsModal('blocks')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-rose-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
-                            <span className="text-2xl md:text-3xl font-serif text-rose-100 mb-1 group-hover:scale-110 transition-transform">{stats.uniqueBlocks.length}</span>
-                            <span className="text-[10px] md:text-xs text-rose-500/70 uppercase tracking-widest flex items-center gap-1">清理信念 Cleared</span>
+                        <Card onClick={() => setDetailsModal('blocks')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-red-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
+                            <span className="text-2xl md:text-3xl font-serif text-red-100 mb-1 group-hover:scale-110 transition-transform">{stats.uniqueBlocks.length}</span>
+                            <span className="text-[10px] md:text-xs text-red-500/70 uppercase tracking-widest flex items-center gap-1">清理信念 Cleared</span>
                         </Card>
                         
                         <Card onClick={() => setDetailsModal('traits')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-indigo-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
@@ -1053,13 +1067,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                         <Card className="flex flex-col h-full hover:bg-white/[0.03] transition-colors">
                             <div className="flex items-center justify-between mb-6">
                                 <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4 text-rose-400" /> 识别限制性信念 (Top 10)
+                                    <AlertCircle className="w-4 h-4 text-red-400" /> 识别限制性信念 (Top 10)
                                 </h4>
                             </div>
                             <RankingList 
                                 items={stats.topBlocks} 
-                                colorClass="text-rose-200" 
-                                barColor="bg-rose-500"
+                                colorClass="text-red-200" 
+                                barColor="bg-red-500"
                                 emptyText="持续觉察以发现潜意识阻碍..."
                             />
                         </Card>
@@ -1288,7 +1302,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                             <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-black/20 ${phase.color}`}>
                                                 {phase.name}
                                             </span>
-                                            <span className="text-xs text-lucid-dim font-serif">Started {days}d ago</span>
+                                            <div className="flex items-center gap-2 relative z-20">
+                                                <span className="text-xs text-lucid-dim font-serif">Started {days}d ago</span>
+                                            </div>
                                         </div>
                                         
                                         <h3 className="text-lg font-serif text-white mb-2 line-clamp-2 leading-relaxed group-hover:text-lucid-glow transition-colors">
@@ -1303,7 +1319,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                             ))}
                                         </div>
 
-                                        <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                             <ArrowRight className="w-5 h-5 text-lucid-glow" />
                                         </div>
                                     </div>
@@ -1413,8 +1429,8 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
               {detailsModal === 'blocks' && (
                   stats.allBlocksRaw.length > 0 ? stats.allBlocksRaw.map((b, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-rose-500/5 rounded-lg border border-rose-500/10">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>
+                    <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 rounded-lg border border-red-500/10">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
                         <div className="flex-1">
                             <span className="text-stone-200 font-serif text-sm">{b.text}</span>
                             <span className="text-[10px] text-stone-500 block">{new Date(b.date).toLocaleDateString()}</span>
@@ -1425,8 +1441,8 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
               {detailsModal === 'traits' && (
                   stats.allTraitsRaw.length > 0 ? stats.allTraitsRaw.map((t, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                    <div key={i} className="flex items-center gap-3 p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
                         <div className="flex-1">
                             <span className="text-stone-200 font-serif text-sm">{t.text}</span>
                             <span className="text-[10px] text-stone-500 block">{new Date(t.date).toLocaleDateString()}</span>
@@ -1445,19 +1461,32 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       >
           {selectedWish && (
               <div className="space-y-8 pb-10">
-                  <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                  <div className="flex flex-wrap justify-between items-center border-b border-white/10 pb-4 gap-2">
                       <div className="flex items-center gap-3">
                           <span className={`px-3 py-1 rounded-full text-xs font-sans tracking-wider border ${selectedWish.status === 'active' ? 'bg-lucid-glow/10 text-lucid-glow border-lucid-glow/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
                               {selectedWish.status === 'active' ? '● 进行中 In Progress' : '★ 已显化 Manifested'}
                           </span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 ml-auto">
                           <span className="text-xs text-stone-500 font-serif mr-2">{new Date(selectedWish.createdAt).toLocaleString()}</span>
                           <button 
                               onClick={toggleWishStatus}
                               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedWish.status === 'active' ? 'border-green-500/30 text-green-400 hover:bg-green-500/10' : 'border-stone-500/30 text-stone-400 hover:bg-white/5'}`}
                           >
                              {selectedWish.status === 'active' ? '标记为已实现' : '标记为进行中'}
+                          </button>
+                          
+                          <div className="w-[1px] h-4 bg-white/10 mx-1 hidden md:block"></div>
+                          
+                          <button 
+                              type="button"
+                              onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteWishClick(selectedWish.id);
+                              }}
+                              className="text-xs px-3 py-1.5 rounded-full border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                              <Trash2 className="w-3 h-3" /> 删除
                           </button>
                       </div>
                   </div>
@@ -1518,6 +1547,17 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                ))}
                            </div>
                        </div>
+                  </div>
+
+                  {/* Danger Zone: Explicit Delete Button at Bottom */}
+                  <div className="mt-8 pt-6 border-t border-white/5 flex justify-center">
+                      <button
+                          type="button"
+                          onClick={() => handleDeleteWishClick(selectedWish.id)}
+                          className="text-xs text-stone-500 hover:text-rose-400 underline underline-offset-4 transition-colors"
+                      >
+                          彻底删除此愿望 Permanently Delete Wish
+                      </button>
                   </div>
               </div>
           )}

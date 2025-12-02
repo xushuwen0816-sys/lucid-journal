@@ -302,6 +302,11 @@ const App: React.FC = () => {
     setWishes(prev => prev.map(w => w.id === updatedWish.id ? updatedWish : w));
   };
 
+  const handleDeleteWish = (id: string) => {
+    setWishes(prev => prev.filter(w => w.id !== id));
+    if (activeWishId === id) setActiveWishId(null);
+  };
+
   const navItems = [
     { view: AppView.ENERGY, icon: Zap, label: '能量' },
     { view: AppView.JOURNAL, icon: BookOpen, label: '日记' },
@@ -549,6 +554,7 @@ const App: React.FC = () => {
                     ritualEntries={ritualEntries}
                     letters={letters}
                     onUpdateWish={handleWishUpdate}
+                    onDeleteWish={handleDeleteWish}
                     onAddLetter={handleAddLetter}
                     onImportData={handleImportData}
                     onDeleteJournalEntry={handleDeleteJournalEntry}
