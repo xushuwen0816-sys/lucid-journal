@@ -140,10 +140,15 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
      
      sortedEntries.forEach(entry => {
          if(entry.aiAnalysis) {
-             // Emotions
-             const emotions = Array.isArray(entry.aiAnalysis.emotionalState) 
-                ? entry.aiAnalysis.emotionalState 
-                : (typeof entry.aiAnalysis.emotionalState === 'string' ? [entry.aiAnalysis.emotionalState] : []);
+             // 1. Sanitize Emotions
+             let rawEmotions = entry.aiAnalysis.emotionalState;
+             if (!Array.isArray(rawEmotions)) {
+                 rawEmotions = typeof rawEmotions === 'string' ? [rawEmotions] : [];
+             }
+             const emotions = rawEmotions.map((e: any) => {
+                 if (typeof e === 'object' && e !== null) return e.text || e.title || JSON.stringify(e);
+                 return String(e);
+             }).filter(s => s);
 
              let entryScoreSum = 0;
              emotions.forEach(em => {
@@ -162,21 +167,33 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                  });
              }
              
-             // Blocks
-             if (entry.aiAnalysis.blocksIdentified) {
-                 entry.aiAnalysis.blocksIdentified.forEach(b => {
-                     const cleanB = b.trim();
-                     allBlocksRaw.push({ text: cleanB, date: entry.date });
-                     blockCounts[cleanB] = (blockCounts[cleanB] || 0) + 1;
+             // 2. Sanitize Blocks
+             let rawBlocks = entry.aiAnalysis.blocksIdentified;
+             if (Array.isArray(rawBlocks)) {
+                 rawBlocks.forEach((b: any) => {
+                     let cleanB = "";
+                     if (typeof b === 'object' && b !== null) cleanB = b.text || b.content || JSON.stringify(b);
+                     else cleanB = String(b);
+                     
+                     if (cleanB) {
+                        allBlocksRaw.push({ text: cleanB, date: entry.date });
+                        blockCounts[cleanB] = (blockCounts[cleanB] || 0) + 1;
+                     }
                  });
              }
 
-             // Traits
-             if (entry.aiAnalysis.highSelfTraits) {
-                 entry.aiAnalysis.highSelfTraits.forEach(t => {
-                     const cleanT = t.trim();
-                     allTraitsRaw.push({ text: cleanT, date: entry.date });
-                     traitCounts[cleanT] = (traitCounts[cleanT] || 0) + 1;
+             // 3. Sanitize Traits
+             let rawTraits = entry.aiAnalysis.highSelfTraits;
+             if (Array.isArray(rawTraits)) {
+                 rawTraits.forEach((t: any) => {
+                     let cleanT = "";
+                     if (typeof t === 'object' && t !== null) cleanT = t.text || t.content || JSON.stringify(t);
+                     else cleanT = String(t);
+
+                     if (cleanT) {
+                         allTraitsRaw.push({ text: cleanT, date: entry.date });
+                         traitCounts[cleanT] = (traitCounts[cleanT] || 0) + 1;
+                     }
                  });
              }
          }
@@ -703,7 +720,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                   )}
 
                                                   {Array.isArray(journal.aiAnalysis?.emotionalState) && journal.aiAnalysis?.emotionalState.map((e, i) => (
-                                                      <span key={i} className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-stone-300">{e}</span>
+                                                      <span key={i} className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-stone-300">
+                                                          {typeof e === 'object' ? (e as any).text || JSON.stringify(e) : e}
+                                                      </span>
                                                   ))}
                                               </div>
                                           </div>
@@ -716,12 +735,12 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                   <div className="flex flex-wrap gap-2 mt-3 mb-2">
                                                       {journal.aiAnalysis.highSelfTraits?.map((t, i) => (
                                                           <span key={`trait-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-300 font-serif">
-                                                              <Sparkles className="w-3 h-3 opacity-70" /> {t}
+                                                              <Sparkles className="w-3 h-3 opacity-70" /> {typeof t === 'object' ? (t as any).text || 'Trait' : t}
                                                           </span>
                                                       ))}
                                                       {journal.aiAnalysis.blocksIdentified?.map((b, i) => (
                                                           <span key={`block-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 font-serif">
-                                                              <AlertCircle className="w-3 h-3 opacity-70" /> {b}
+                                                              <AlertCircle className="w-3 h-3 opacity-70" /> {typeof b === 'object' ? (b as any).text || 'Block' : b}
                                                           </span>
                                                       ))}
                                                   </div>
@@ -731,7 +750,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                   <div className="pt-4 border-t border-white/5 mt-4">
                                                       <h4 className="text-[10px] text-lucid-dim uppercase mb-2">AI Insight</h4>
                                                       <div className="text-xs text-stone-400 leading-relaxed">
-                                                         <SimpleMarkdown content={journal.aiAnalysis.summary} />
+                                                         <SimpleMarkdown content={typeof journal.aiAnalysis.summary === 'object' ? (journal.aiAnalysis.summary as any).text || JSON.stringify(journal.aiAnalysis.summary) : journal.aiAnalysis.summary} />
                                                       </div>
                                                   </div>
                                               )}
@@ -788,7 +807,10 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                   : (typeof j.aiAnalysis?.emotionalState === 'string' ? [j.aiAnalysis.emotionalState] : [])
                                               ).filter(Boolean) as string[];
                                               
-                                              moodStyle = getMoodStyle(allEmotions);
+                                              // Ensure flat strings only
+                                              const flatEmotions = allEmotions.map(e => typeof e === 'object' ? (e as any).text || '' : e).filter(e => e);
+                                              
+                                              moodStyle = getMoodStyle(flatEmotions);
                                           } else if (hasRitual) {
                                               moodStyle = 'bg-indigo-900/30 border-indigo-500/20 text-indigo-300';
                                           }
@@ -894,7 +916,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                       <div className="w-8 text-[10px] text-stone-500 text-right font-sans">#{i+1}</div>
                       <div className="flex-1">
                           <div className="flex justify-between items-end mb-1">
-                              <span className={`text-xs font-serif ${colorClass}`}>{name}</span>
+                              <span className={`text-xs font-serif ${colorClass}`}>
+                                  {typeof name === 'object' ? JSON.stringify(name) : name}
+                              </span>
                               <span className="text-[9px] text-stone-600">{count}</span>
                           </div>
                           <div className="h-1 bg-white/5 rounded-full overflow-hidden">
@@ -1054,7 +1078,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                 <div className="flex flex-wrap gap-2 content-start">
                                     {stats.topTraits.map(([name, count], i) => (
                                         <div key={i} className="flex items-center bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1.5 group cursor-default">
-                                            <span className="text-xs text-indigo-200 font-serif mr-2">{name}</span>
+                                            <span className="text-xs text-indigo-200 font-serif mr-2">
+                                                {typeof name === 'object' ? JSON.stringify(name) : name}
+                                            </span>
                                             <span className="text-[10px] text-indigo-400/60 bg-indigo-500/10 px-1.5 rounded-full">{count}</span>
                                         </div>
                                     ))}
@@ -1220,7 +1246,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                         
                                         <div className="text-sm text-stone-400 font-serif line-clamp-3 leading-relaxed">
                                             {letter.aiReply ? (
-                                                <span className="text-lucid-glow italic">" {letter.aiReply} "</span>
+                                                <span className="text-lucid-glow italic">" {typeof letter.aiReply === 'object' ? (letter.aiReply as any).text : letter.aiReply} "</span>
                                             ) : (
                                                 "Waiting for future resonance..."
                                             )}
@@ -1271,7 +1297,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                         
                                         <div className="flex flex-wrap gap-2 mt-4">
                                             {wish.tags?.emotional?.slice(0, 3).map((tag, i) => (
-                                                <span key={i} className="text-xs text-stone-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">#{tag}</span>
+                                                <span key={i} className="text-xs text-stone-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                                                    #{typeof tag === 'object' ? 'Tag' : tag}
+                                                </span>
                                             ))}
                                         </div>
 
@@ -1436,7 +1464,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
                   <div>
                       <h3 className="text-2xl font-serif text-white leading-relaxed mb-2">{selectedWish.content}</h3>
-                      <p className="text-lucid-dim font-serif italic">新身份: {selectedWish.beliefs.newIdentity}</p>
+                      <p className="text-lucid-dim font-serif italic">新身份: {typeof selectedWish.beliefs.newIdentity === 'object' ? (selectedWish.beliefs.newIdentity as any).name || (selectedWish.beliefs.newIdentity as any).text || JSON.stringify(selectedWish.beliefs.newIdentity) : selectedWish.beliefs.newIdentity}</p>
                   </div>
                   
                   {/* NEW: Supportive Beliefs (Inner Strengths) Section */}
@@ -1452,7 +1480,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                             {selectedWish.beliefs.supportiveBeliefs.map((b, i) => (
                                 <div key={i} className="flex items-start gap-3">
                                     <span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0"></span>
-                                    <p className="text-indigo-100/80 text-sm font-serif leading-relaxed">{b}</p>
+                                    <p className="text-indigo-100/80 text-sm font-serif leading-relaxed">
+                                        {typeof b === 'object' ? (b as any).text || String(b) : b}
+                                    </p>
                                 </div>
                             ))}
                         </div>
@@ -1465,13 +1495,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                           <div>
                               <span className="text-xs text-rose-300 block mb-2">已释放阻碍</span>
                               <ul className="list-disc list-inside text-stone-400 text-sm space-y-1">
-                                  {selectedWish.beliefs.emotionalBlocks.map((b,i) => <li key={i}>{b}</li>)}
+                                  {selectedWish.beliefs.emotionalBlocks.map((b,i) => <li key={i}>{typeof b === 'object' ? (b as any).text || String(b) : b}</li>)}
                               </ul>
                           </div>
                           <div>
                               <span className="text-xs text-emerald-300 block mb-2">需要重塑的信念</span>
                               <ul className="list-disc list-inside text-stone-400 text-sm space-y-1">
-                                  {selectedWish.beliefs.limitingBeliefs.map((b,i) => <li key={i}>{b}</li>)}
+                                  {selectedWish.beliefs.limitingBeliefs.map((b,i) => <li key={i}>{typeof b === 'object' ? (b as any).text || String(b) : b}</li>)}
                               </ul>
                           </div>
                       </div>
@@ -1515,7 +1545,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                           </div>
                       </div>
                       <div className="text-white/90 font-serif leading-loose text-base relative z-10 italic">
-                          <SimpleMarkdown content={selectedLetter.aiReply || ''} />
+                          <SimpleMarkdown content={typeof selectedLetter.aiReply === 'object' ? (selectedLetter.aiReply as any).text : selectedLetter.aiReply || ''} />
                       </div>
                   </div>
 
@@ -1551,7 +1581,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                        <span>来自过去的信件已送达</span>
                                    </div>
                                    <div className="text-stone-300 font-serif leading-loose whitespace-pre-wrap">
-                                       <SimpleMarkdown content={selectedLetter.content} />
+                                       <SimpleMarkdown content={typeof selectedLetter.content === 'object' ? (selectedLetter.content as any).text : selectedLetter.content} />
                                    </div>
                                </>
                            )}

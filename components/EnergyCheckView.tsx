@@ -10,6 +10,17 @@ interface EnergyCheckViewProps {
     onSaveRitual: (data: { date: number, reading?: TarotReading, practice?: DailyPractice }) => void;
 }
 
+// Helper to safely render text that might be an object
+const safeRender = (val: any): string => {
+    if (!val) return "";
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') {
+        return val.text || val.content || val.description || val.meaning || val.name || JSON.stringify(val);
+    }
+    return String(val);
+};
+
 // Full 78 Cards Data Generator (Chinese)
 const generateTarotDeck = () => {
     const majors = [
@@ -326,7 +337,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                                 {card.position}
                                             </span>
                                             <div className="my-3 text-center flex-shrink-0">
-                                                <h4 className="text-xl font-serif text-white mb-2">{card.name}</h4>
+                                                <h4 className="text-xl font-serif text-white mb-2">{safeRender(card.name)}</h4>
                                                 {card.isReversed ? (
                                                     <span className="text-xs text-rose-300 uppercase tracking-widest font-sans opacity-90">逆位 Reversed</span>
                                                 ) : (
@@ -335,7 +346,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                             </div>
                                             <div className="w-full flex-grow flex items-start mt-2 px-2">
                                                 <p className="text-sm text-stone-100 font-serif leading-relaxed text-justify">
-                                                    {card.meaning}
+                                                    {safeRender(card.meaning)}
                                                 </p>
                                             </div>
                                         </div>
@@ -348,11 +359,11 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                             <Card className="bg-gradient-to-b from-white/5 to-transparent border-t border-white/10">
                                 <h4 className="text-lg font-serif text-lucid-glow mb-4 text-center">✨ 宇宙讯息</h4>
                                 <p className="text-stone-200 font-serif leading-loose text-justify text-sm md:text-base">
-                                    {reading.guidance}
+                                    {safeRender(reading.guidance)}
                                 </p>
                                 <div className="mt-6 pt-4 border-t border-white/5 flex flex-col items-center">
                                     <span className="text-xs text-stone-500 uppercase tracking-widest mb-1">今日宜显化 · Focus Wish</span>
-                                    <p className="text-white font-serif text-base">{reading.focusWishName || "当下"}</p>
+                                    <p className="text-white font-serif text-base">{safeRender(reading.focusWishName) || "当下"}</p>
                                 </div>
                             </Card>
 
@@ -386,13 +397,13 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                         <Card className="text-center relative overflow-hidden group py-10">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-lucid-glow to-transparent opacity-50"></div>
                             <span className="text-xs font-sans tracking-widest text-stone-500 uppercase">今日能量场</span>
-                            <h2 className="text-3xl font-serif text-white mt-2 mb-6">{practice.energyStatus}</h2>
+                            <h2 className="text-3xl font-serif text-white mt-2 mb-6">{safeRender(practice.energyStatus)}</h2>
                             
                             <div className="w-12 h-[1px] bg-white/10 mx-auto mb-6"></div>
                             
                             <span className="text-xs font-sans tracking-widest text-lucid-accent/80 uppercase block mb-2">今日肯定语</span>
                             <p className="text-xl text-lucid-glow font-serif italic opacity-90 px-4">
-                                "{practice.todaysAffirmation}"
+                                "{safeRender(practice.todaysAffirmation)}"
                             </p>
                         </Card>
 
@@ -403,7 +414,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                             <div>
                                 <h4 className="text-base font-bold text-emerald-100 mb-1">今日微行动</h4>
                                 <p className="text-stone-300 font-serif leading-relaxed text-base">
-                                    {practice.actionStep}
+                                    {safeRender(practice.actionStep)}
                                 </p>
                             </div>
                         </Card>

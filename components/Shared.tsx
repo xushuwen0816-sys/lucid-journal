@@ -115,12 +115,22 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: R
     );
 };
 
-export const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
+export const SimpleMarkdown: React.FC<{ content: any }> = ({ content }) => {
   if (!content) return null;
+
+  // Defensive conversion to string
+  let safeContent = "";
+  if (typeof content === 'string') {
+      safeContent = content;
+  } else if (typeof content === 'object') {
+      safeContent = content.text || content.content || JSON.stringify(content);
+  } else {
+      safeContent = String(content);
+  }
 
   // Pre-process content: handle escaped newlines (\n) that might come from JSON responses
   // and ensure they are treated as real newlines for splitting.
-  const processedContent = content.replace(/\\n/g, '\n');
+  const processedContent = safeContent.replace(/\\n/g, '\n');
 
   // Split content by newlines to handle line-by-line processing
   const lines = processedContent.split('\n');

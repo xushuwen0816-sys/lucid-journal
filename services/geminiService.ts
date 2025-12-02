@@ -10,6 +10,41 @@ const SILICONFLOW_BASE_URL = 'https://api.siliconflow.cn/v1';
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
 let currentProvider: 'gemini' | 'siliconflow' = (typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_provider') as any : 'gemini') || 'gemini';
 
+// --- HELPER: DATA SANITIZATION ---
+// Prevents React errors when AI returns objects instead of strings (e.g. {title: "Joy"} instead of "Joy")
+
+const cleanJsonString = (str: string): string => {
+  if (!str) return "{}";
+  let cleaned = str.trim();
+  // Remove markdown code blocks if present
+  cleaned = cleaned.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+  return cleaned;
+};
+
+const sanitizeString = (val: any): string => {
+  if (!val) return "";
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+      // Prioritize common keys DeepSeek might return for a single string field
+      return val.text || val.content || val.value || val.name || val.title || val.description || val.message || JSON.stringify(val);
+  }
+  return String(val);
+};
+
+const sanitizeStringArray = (arr: any[]): string[] => {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(item => {
+    if (typeof item === 'string') return item;
+    if (typeof item === 'number') return String(item);
+    if (typeof item === 'object' && item !== null) {
+      // Try common property names DeepSeek/AI might return in object lists
+      return item.text || item.title || item.name || item.content || item.label || item.value || item.description || JSON.stringify(item);
+    }
+    return String(item);
+  }).filter(s => s && s.trim() !== '' && s !== '[object Object]');
+};
+
 // --- GRANDMA-FRIENDLY AUTO-FIX ---
 // Helper to clean up potentially bad stored URLs
 const getInitialBaseUrl = () => {
@@ -329,7 +364,22 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
             jsonStr = response.text || "{}";
       }
       
-      return JSON.parse(jsonStr);
+      const parsed = JSON.parse(cleanJsonString(jsonStr));
+      
+      // Sanitize fields
+      if (parsed.beliefs) {
+          parsed.beliefs.emotionalBlocks = sanitizeStringArray(parsed.beliefs.emotionalBlocks);
+          parsed.beliefs.limitingBeliefs = sanitizeStringArray(parsed.beliefs.limitingBeliefs);
+          parsed.beliefs.supportiveBeliefs = sanitizeStringArray(parsed.beliefs.supportiveBeliefs);
+          parsed.beliefs.newIdentity = sanitizeString(parsed.beliefs.newIdentity);
+      }
+      if (parsed.tags) {
+          parsed.tags.emotional = sanitizeStringArray(parsed.tags.emotional);
+          parsed.tags.domain = sanitizeStringArray(parsed.tags.domain);
+          parsed.tags.style = sanitizeStringArray(parsed.tags.style);
+      }
+      
+      return parsed;
   } catch (error) {
     console.error("Belief/Tag error:", error);
     return {
@@ -379,12 +429,22 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
               prompt,
               true
            );
-           // DeepSeek/SiliconFlow might return { "affirmations": [...] } wrapper if not prompted perfectly, or just the array.
-           // We'll parse and check.
-           const parsed = JSON.parse(jsonStr);
-           if (Array.isArray(parsed)) return parsed;
-           if (parsed.affirmations && Array.isArray(parsed.affirmations)) return parsed.affirmations;
-           return [];
+           const cleanStr = cleanJsonString(jsonStr);
+           const parsed = JSON.parse(cleanStr);
+           
+           let affirmations: any[] = [];
+           if (Array.isArray(parsed)) {
+               affirmations = parsed;
+           } else if (parsed.affirmations && Array.isArray(parsed.affirmations)) {
+               affirmations = parsed.affirmations;
+           }
+
+           // Sanitize affirmations
+           return affirmations.map((a: any) => ({
+               text: sanitizeString(a.text || a), // Use sanitizeString to extract text if object
+               type: a.type
+           }));
+
       } else {
            const model = "gemini-2.5-flash";
            const response = await getAi().models.generateContent({
@@ -483,7 +543,21 @@ export const generateTarotReading = async (
         });
         jsonStr = response.text || "{}";
     }
-    return JSON.parse(jsonStr);
+    const raw = JSON.parse(cleanJsonString(jsonStr));
+    
+    // Sanitize fields
+    if (raw.cards && Array.isArray(raw.cards)) {
+         raw.cards = raw.cards.map((c: any) => ({
+             ...c,
+             name: sanitizeString(c.name),
+             meaning: sanitizeString(c.meaning)
+         }));
+    }
+    raw.guidance = sanitizeString(raw.guidance);
+    raw.actionHint = sanitizeString(raw.actionHint);
+    raw.focusWishName = sanitizeString(raw.focusWishName);
+
+    return raw;
   } catch (error) {
     console.error("Tarot error:", error);
     return {
@@ -530,7 +604,12 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
          });
          jsonStr = response.text || "{}";
     }
-    return JSON.parse(jsonStr);
+    const raw = JSON.parse(cleanJsonString(jsonStr));
+    return {
+        energyStatus: sanitizeString(raw.energyStatus),
+        todaysAffirmation: sanitizeString(raw.todaysAffirmation),
+        actionStep: sanitizeString(raw.actionStep)
+    };
   } catch (error) {
     return { energyStatus: "平静如水", todaysAffirmation: "我与当下同在。", actionStep: "深呼吸三次。" };
   }
@@ -575,7 +654,18 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
             });
             jsonStr = response.text || "{}";
       }
-      return JSON.parse(jsonStr);
+      
+      const rawData = JSON.parse(cleanJsonString(jsonStr));
+      
+      return {
+          ...rawData,
+          blocksIdentified: sanitizeStringArray(rawData.blocksIdentified),
+          emotionalState: sanitizeStringArray(rawData.emotionalState),
+          highSelfTraits: sanitizeStringArray(rawData.highSelfTraits),
+          summary: sanitizeString(rawData.summary),
+          tomorrowsAdvice: sanitizeString(rawData.tomorrowsAdvice),
+      };
+
   } catch (error) {
     console.error(error);
     return undefined;

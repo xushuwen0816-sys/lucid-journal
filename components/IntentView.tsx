@@ -1,5 +1,4 @@
 
-
 import React, { useRef, useEffect, useState } from 'react';
 import { Send, Sparkles, Check, ArrowRight, AlertCircle, Fingerprint, Lock, ShieldAlert, ArrowDown, Zap } from 'lucide-react';
 import { Wish, ChatMessage, IntentState } from '../types';
@@ -281,7 +280,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                                          {state.generatedBeliefs.limitingBeliefs.map((b, i) => (
                                              <li key={i} className="flex items-start gap-3 text-stone-300 font-serif text-sm">
                                                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500/50 flex-shrink-0"></span>
-                                                 "{b}"
+                                                 "{typeof b === 'object' ? (b as any).text || String(b) : b}"
                                              </li>
                                          ))}
                                      </ul>
@@ -294,7 +293,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                                       <div className="flex flex-wrap gap-2">
                                          {state.generatedBeliefs.emotionalBlocks.map((b, i) => (
                                              <span key={i} className="px-3 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full text-xs text-rose-200 font-serif">
-                                                 {b}
+                                                 {typeof b === 'object' ? (b as any).text || String(b) : b}
                                              </span>
                                          ))}
                                       </div>
@@ -317,7 +316,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                                             {state.generatedBeliefs.supportiveBeliefs.map((b, i) => (
                                                 <li key={i} className="flex items-start gap-3 text-stone-300 font-serif text-sm">
                                                     <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500/50 flex-shrink-0"></span>
-                                                    "{b}"
+                                                    "{typeof b === 'object' ? (b as any).text || String(b) : b}"
                                                 </li>
                                             ))}
                                         </ul>
@@ -344,7 +343,7 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                              <div className="text-center py-4">
                                  <p className="text-stone-400 text-xs uppercase tracking-widest mb-3">From Old Self To...</p>
                                  <h4 className="text-xl md:text-2xl font-serif text-white leading-relaxed text-shadow-sm">
-                                     "{state.generatedBeliefs.newIdentity}"
+                                     "{typeof state.generatedBeliefs.newIdentity === 'object' ? (state.generatedBeliefs.newIdentity as any).name || (state.generatedBeliefs.newIdentity as any).text || JSON.stringify(state.generatedBeliefs.newIdentity) : state.generatedBeliefs.newIdentity}"
                                  </h4>
                              </div>
                         </Card>
