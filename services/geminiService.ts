@@ -1,12 +1,14 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage } from "../types";
 
 // Initialize Gemini Client Lazily
-// This prevents the app from crashing at startup if process.env.API_KEY is not immediately available or configured
 let aiInstance: GoogleGenAI | null = null;
 const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
+const SILICONFLOW_BASE_URL = 'https://api.siliconflow.cn/v1';
 
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
+let currentProvider: 'gemini' | 'siliconflow' = (typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_provider') as any : 'gemini') || 'gemini';
 
 // --- GRANDMA-FRIENDLY AUTO-FIX ---
 // Helper to clean up potentially bad stored URLs
@@ -19,12 +21,11 @@ const getInitialBaseUrl = () => {
   if (!stored) return DEFAULT_PROXY;
   
   // Case 2: Stored URL is the old blocked workers.dev -> Force Update to New Domain
-  if (stored.includes('workers.dev')) {
+  if (stored.includes('workers.dev') && !stored.includes('empty-feather')) {
     return DEFAULT_PROXY;
   }
   
   // Case 3: Stored URL is empty string (User tried to direct connect) -> Force Update to New Domain (Assuming they are in China)
-  // If they really want direct, they can clear it manually, but defaulting to Proxy is safer for Grandma's friends.
   if (stored.trim() === '') {
     return DEFAULT_PROXY;
   }
@@ -35,107 +36,178 @@ const getInitialBaseUrl = () => {
 let dynamicBaseUrl = getInitialBaseUrl();
 let userName = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '旅行者' : '旅行者';
 
-export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
+export const setAiConfig = (key: string, name: string, baseUrl?: string, provider: 'gemini' | 'siliconflow' = 'gemini') => {
   dynamicApiKey = key;
   userName = name || '旅行者';
+  currentProvider = provider;
   
-  // Robust URL formatting for Proxy
-  // If baseUrl is provided (user typed something), use it.
-  if (baseUrl !== undefined && baseUrl !== null) {
-      if (baseUrl.trim().length > 0) {
-          let cleanUrl = baseUrl.trim();
-          // 1. Remove trailing slash
-          cleanUrl = cleanUrl.replace(/\/+$/, '');
-          // 2. Ensure protocol exists. If missing, default to https://
-          if (!/^https?:\/\//i.test(cleanUrl)) {
-              cleanUrl = `https://${cleanUrl}`;
-          }
-          dynamicBaseUrl = cleanUrl;
+  // Robust URL formatting for Proxy/Base URL
+  if (baseUrl && baseUrl.trim().length > 0) {
+      let cleanUrl = baseUrl.trim();
+      cleanUrl = cleanUrl.replace(/\/+$/, '');
+      if (!/^https?:\/\//i.test(cleanUrl)) {
+          cleanUrl = `https://${cleanUrl}`;
+      }
+      
+      // SAFETY CHECK: If provider is SiliconFlow but URL looks like Gemini Proxy, force Direct
+      if (provider === 'siliconflow' && cleanUrl.includes('workers.dev')) {
+          dynamicBaseUrl = SILICONFLOW_BASE_URL;
       } else {
-          // If user explicitly clears it in settings, allow direct connection (empty string)
+          dynamicBaseUrl = cleanUrl;
+      }
+  } else {
+      // If no custom URL provided:
+      if (provider === 'siliconflow') {
+          // Default SiliconFlow (Direct)
+          dynamicBaseUrl = SILICONFLOW_BASE_URL;
+      } else {
+          // Default Gemini (Direct or handled by SDK defaults if empty)
           dynamicBaseUrl = '';
       }
   }
   
   if (typeof localStorage !== 'undefined') {
+    // Only update the "generic" legacy key if we are in Gemini mode or to keep compat
     localStorage.setItem('lucid_api_key', key);
     localStorage.setItem('lucid_user_name', userName);
+    localStorage.setItem('lucid_provider', provider);
     if (dynamicBaseUrl) {
       localStorage.setItem('lucid_base_url', dynamicBaseUrl);
     } else {
-      // If empty, remove it so next load might check default logic again, 
-      // or we can store empty string to respect "direct connect". 
-      // Let's store empty string to mean "Direct".
       localStorage.setItem('lucid_base_url', '');
     }
   }
   aiInstance = null; // Reset instance to apply new config
 };
 
-// Keep specific setters for backward compatibility if needed, but internally they should update storage
-export const setDynamicApiKey = (key: string) => {
-  dynamicApiKey = key;
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('lucid_api_key', key);
-  }
-  aiInstance = null;
-};
-
-export const setUserName = (name: string) => {
-  userName = name || '旅行者';
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('lucid_user_name', userName);
-  }
-};
-
 export const hasApiKey = () => {
-  // Check strict equality to ensure we don't return true for empty strings or undefined
   return !!(process.env.API_KEY || dynamicApiKey);
 };
 
 const getAi = () => {
     if (!aiInstance) {
         const key = process.env.API_KEY || dynamicApiKey;
-        // Forced Proxy Usage as requested
-        const config: any = { 
-            apiKey: key || '',
-            baseUrl: 'https://empty-feather-566a.xushuwen0816.workers.dev'
-        };
+        // Construct config
+        const config: any = { apiKey: key || '' };
         
-        // Deprecated dynamic logic for now to ensure forced proxy
-        // if (dynamicBaseUrl) {
-        //     config.baseUrl = dynamicBaseUrl;
-        // }
+        // Only apply baseUrl if it's set and not the default SiliconFlow URL (since this is the Gemini getter)
+        // Note: If using Gemini, dynamicBaseUrl might be the proxy.
+        if (dynamicBaseUrl && dynamicBaseUrl !== SILICONFLOW_BASE_URL) {
+            config.baseUrl = dynamicBaseUrl;
+        }
 
         aiInstance = new GoogleGenAI(config);
     }
     return aiInstance;
 };
 
+// --- SiliconFlow Adapter (OpenAI Compatible) ---
+
+const callSiliconFlow = async (
+    systemPrompt: string, 
+    userPrompt: string | { role: string, content: string }[], 
+    jsonMode: boolean = false
+): Promise<string> => {
+    // IMPORTANT: Prioritize dynamicApiKey (User Input) over process.env.API_KEY if dynamic is present
+    const key = dynamicApiKey || process.env.API_KEY;
+    if (!key) throw new Error("API Key missing");
+
+    const messages = [];
+    
+    // Add System Prompt if exists
+    if (systemPrompt) {
+        messages.push({ role: "system", content: systemPrompt });
+    }
+
+    // Add User Prompt / History
+    if (Array.isArray(userPrompt)) {
+        messages.push(...userPrompt);
+    } else {
+        messages.push({ role: "user", content: userPrompt });
+    }
+
+    // Use dynamicBaseUrl if set, otherwise fallback to default
+    const baseUrl = dynamicBaseUrl || SILICONFLOW_BASE_URL;
+
+    try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${key}`
+            },
+            body: JSON.stringify({
+                model: "deepseek-ai/DeepSeek-V3", // SiliconFlow Model ID
+                messages: messages,
+                stream: false,
+                response_format: jsonMode ? { type: "json_object" } : undefined
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            
+            // Handle common 402/401 explicitly for better UX
+            if (response.status === 402) {
+                 throw new Error("SiliconFlow Error: 余额不足 (Insufficient Balance). Please top up your SiliconFlow account.");
+            }
+            if (response.status === 401) {
+                 throw new Error("SiliconFlow Error: 认证失败 (Auth Failed). Check your API Key.");
+            }
+
+            throw new Error(`SiliconFlow API Error: ${response.status} - ${err}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "";
+    } catch (error: any) {
+        console.error("SiliconFlow Call Failed:", error);
+        throw error;
+    }
+};
+
 // --- Connection Check ---
 
-export const checkConnection = async (): Promise<boolean> => {
+export const checkConnection = async (): Promise<{ success: boolean; message?: string }> => {
     try {
-        // Use a lightweight call to test connectivity
-        await getAi().models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: "ping",
-            config: {
-                maxOutputTokens: 1,
-            }
-        });
-        return true;
-    } catch (error) {
+        if (currentProvider === 'siliconflow') {
+             // SiliconFlow connection check - use empty system prompt
+             await callSiliconFlow("", "Hello");
+             return { success: true };
+        } else {
+            // Use a lightweight call to test connectivity
+            await getAi().models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: "ping",
+                config: {
+                    maxOutputTokens: 1,
+                }
+            });
+            return { success: true };
+        }
+    } catch (error: any) {
         console.error("Connection check failed:", error);
-        return false;
+        let msg = "连接失败，请检查网络或代理设置。";
+        
+        if (error.message) {
+            if (error.message.includes("401") || error.message.includes("Auth Failed")) {
+                msg = "认证失败：请检查 API Key 是否正确。";
+            } else if (error.message.includes("402") || error.message.includes("Balance")) {
+                msg = "余额不足：请检查 API 账户余额。";
+            } else if (error.message.includes("Failed to fetch")) {
+                msg = "网络错误：无法连接到服务器。";
+            } else {
+                msg = error.message;
+            }
+        }
+        
+        return { success: false, message: msg };
     }
 };
 
 // --- Text & Analysis ---
 
 export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]): Promise<string> => {
-  const model = "gemini-2.5-flash"; 
-  
   const systemInstructionText = `
     你是一个名为“LUCID（澄）”的潜意识操作系统向导。
     你的角色：像一位温柔、神秘、充满智慧的灵性疗愈师。
@@ -157,35 +229,41 @@ export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]):
        - 愿望背后的核心情绪是什么？(Core Emotion)
   `;
 
-  // Construct structured contents from history
-  // Workaround for 500 Internal Server Error: Inject system instruction into the first message content
-  // instead of using config.systemInstruction which can be unstable on some endpoints/models.
-  const contents = history.map((msg, index) => {
-    let text = msg.text;
-    if (index === 0 && msg.role === 'user') {
-      text = `${systemInstructionText}\n\n[User's Initial Input]: ${text}`;
-    }
-    return {
-      role: msg.role === 'model' ? 'model' : 'user',
-      parts: [{ text: text }]
-    };
-  });
-
   try {
-    const response = await getAi().models.generateContent({
-      model,
-      contents,
-      // config: { systemInstruction: systemInstructionText } // Removed to fix 500 error
-    });
-    return response.text || "正在连接你的潜意识频率...";
+      if (currentProvider === 'siliconflow') {
+          // Convert history to OpenAI format
+          const openAIMessages = history.map(msg => ({
+              role: msg.role === 'model' ? 'assistant' : 'user',
+              content: msg.text
+          }));
+          return await callSiliconFlow(systemInstructionText, openAIMessages);
+      } else {
+          // Gemini Logic
+          const model = "gemini-2.5-flash"; 
+          const contents = history.map((msg, index) => {
+            let text = msg.text;
+            if (index === 0 && msg.role === 'user') {
+              text = `${systemInstructionText}\n\n[User's Initial Input]: ${text}`;
+            }
+            return {
+              role: msg.role === 'model' ? 'model' : 'user',
+              parts: [{ text: text }]
+            };
+          });
+
+          const response = await getAi().models.generateContent({
+            model,
+            contents,
+          });
+          return response.text || "正在连接你的潜意识频率...";
+      }
   } catch (error) {
     console.error("Deep dive error:", error);
-    return "信号受到了干扰，请检查网络连接或代理设置。";
+    return "信号受到了干扰，请检查网络连接或API设置。";
   }
 };
 
 export const generateBeliefMapAndTags = async (wish: string, chatContext: string): Promise<{ beliefs: BeliefMap, tags: WishTags }> => {
-  const model = "gemini-2.5-flash";
   const prompt = `
     基于用户(${userName})愿望 "${wish}" 和深挖对话 "${chatContext}"。
     请生成 JSON 格式的信念地图(Belief Map)和愿望标签(Tags)。
@@ -201,42 +279,57 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
        - emotional: 愿望背后的情绪关键词 (如: 丰盛, 安全感, 自由)
        - domain: 愿望所属领域 (如: 事业, 感情, 灵性)
        - style: 适合这个愿望的视觉/听觉风格 (如: 赛博朋克, 森林, 海洋, 极简)
+       
+    返回格式必须是纯 JSON。
   `;
 
   try {
-    const response = await getAi().models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            beliefs: {
-              type: Type.OBJECT,
-              properties: {
-                emotionalBlocks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                limitingBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
-                supportiveBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
-                newIdentity: { type: Type.STRING },
+      let jsonStr = "";
+      
+      if (currentProvider === 'siliconflow') {
+          jsonStr = await callSiliconFlow(
+              "You are a subconscious analysis engine. You output strictly JSON.", 
+              prompt, 
+              true // Force JSON mode
+          );
+      } else {
+          const model = "gemini-2.5-flash";
+          const response = await getAi().models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    beliefs: {
+                      type: Type.OBJECT,
+                      properties: {
+                        emotionalBlocks: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        limitingBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        supportiveBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        newIdentity: { type: Type.STRING },
+                      },
+                      required: ["emotionalBlocks", "limitingBeliefs", "supportiveBeliefs", "newIdentity"]
+                    },
+                    tags: {
+                      type: Type.OBJECT,
+                      properties: {
+                        emotional: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        domain: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        style: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      },
+                      required: ["emotional", "domain", "style"]
+                    }
+                  },
+                  required: ["beliefs", "tags"],
+                },
               },
-              required: ["emotionalBlocks", "limitingBeliefs", "supportiveBeliefs", "newIdentity"]
-            },
-            tags: {
-              type: Type.OBJECT,
-              properties: {
-                emotional: { type: Type.ARRAY, items: { type: Type.STRING } },
-                domain: { type: Type.ARRAY, items: { type: Type.STRING } },
-                style: { type: Type.ARRAY, items: { type: Type.STRING } },
-              },
-              required: ["emotional", "domain", "style"]
-            }
-          },
-          required: ["beliefs", "tags"],
-        },
-      },
-    });
-    return JSON.parse(response.text || "{}");
+            });
+            jsonStr = response.text || "{}";
+      }
+      
+      return JSON.parse(jsonStr);
   } catch (error) {
     console.error("Belief/Tag error:", error);
     return {
@@ -252,7 +345,6 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
 };
 
 export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Promise<Affirmation[]> => {
-  const model = "gemini-2.5-flash";
   const prompt = `
     愿望: "${wish}"
     新身份: "${beliefs.newIdentity}"
@@ -275,48 +367,53 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
        - 风格：具像化地描写用户实现愿望之后的现实细节和情绪状态。
        - 内容：包含具体的感官细节（看到了什么、听到了什么）和强烈的积极情绪（感恩、狂喜、平静）。
        - 句式："我如此感激..." "看着窗外的..." "这一切发生得如此自然..."
+
+    Output JSON Array only: [{ text: "...", type: "conscious" | "subconscious" | "future_self" }]
   `;
 
   try {
-    const response = await getAi().models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              text: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ["conscious", "subconscious", "future_self"] },
-            },
-            required: ["text", "type"],
-          },
-        },
-      },
-    });
-    return JSON.parse(response.text || "[]") as Affirmation[];
+      let jsonStr = "";
+      if (currentProvider === 'siliconflow') {
+           jsonStr = await callSiliconFlow(
+              "You are an affirmation generator. Output strictly JSON array.",
+              prompt,
+              true
+           );
+           // DeepSeek/SiliconFlow might return { "affirmations": [...] } wrapper if not prompted perfectly, or just the array.
+           // We'll parse and check.
+           const parsed = JSON.parse(jsonStr);
+           if (Array.isArray(parsed)) return parsed;
+           if (parsed.affirmations && Array.isArray(parsed.affirmations)) return parsed.affirmations;
+           return [];
+      } else {
+           const model = "gemini-2.5-flash";
+           const response = await getAi().models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      text: { type: Type.STRING },
+                      type: { type: Type.STRING, enum: ["conscious", "subconscious", "future_self"] },
+                    },
+                    required: ["text", "type"],
+                  },
+                },
+              },
+            });
+            jsonStr = response.text || "[]";
+            return JSON.parse(jsonStr);
+      }
   } catch (error) {
+    // Fallback affirmations
     return [
         { text: "我允许自己接纳所有的丰盛。", type: "conscious" },
-        { text: "我选择相信我的力量。", type: "conscious" },
-        { text: "我意识到我是自由的。", type: "conscious" },
-        { text: "我释放所有旧的限制。", type: "conscious" },
-        { text: "我值得拥有美好。", type: "conscious" },
-        { text: "我向无限的可能性敞开。", type: "conscious" },
         { text: "我是丰盛本身。", type: "subconscious" },
-        { text: "我是光。", type: "subconscious" },
-        { text: "我是爱。", type: "subconscious" },
-        { text: "我是创造者。", type: "subconscious" },
-        { text: "我是力量。", type: "subconscious" },
-        { text: "我是奇迹。", type: "subconscious" },
         { text: "我如此感激每一天自然流向我的财富。", type: "future_self" },
-        { text: "看着现在的我，是如此的圆满。", type: "future_self" },
-        { text: "谢谢你，这一切已经发生。", type: "future_self" },
-        { text: "阳光洒在我的书桌上，我感到无比宁静。", type: "future_self" },
-        { text: "我听见海浪的声音，感受到彻底的自由。", type: "future_self" },
-        { text: "每一个细胞都在欢庆这个结果。", type: "future_self" }
     ];
   }
 };
@@ -327,9 +424,7 @@ export const generateTarotReading = async (
     drawnCards: { name: string, isReversed: boolean, position: 'body' | 'mind' | 'spirit' }[],
     wishes: Wish[]
 ): Promise<TarotReading> => {
-  const model = "gemini-2.5-flash";
   const wishSummary = wishes.map(w => w.content).join(", ") || "无特定愿望";
-  
   const cardsDesc = drawnCards.map(c => `${c.position}: ${c.name} (${c.isReversed ? '逆位' : '正位'})`).join('\n');
 
   const prompt = `
@@ -348,36 +443,47 @@ export const generateTarotReading = async (
     4. focusWishName: 在用户的愿望中，选出今天最值得推进的一个 (Focus Wish)，如无则填 "当下"。
   `;
   try {
-    const response = await getAi().models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            cards: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  isReversed: { type: Type.BOOLEAN },
-                  meaning: { type: Type.STRING },
-                  position: { type: Type.STRING, enum: ["body", "mind", "spirit"] },
+    let jsonStr = "";
+    if (currentProvider === 'siliconflow') {
+        jsonStr = await callSiliconFlow(
+            "You are a Tarot Reader. Output strictly JSON.",
+            prompt,
+            true
+        );
+    } else {
+        const model = "gemini-2.5-flash";
+        const response = await getAi().models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                cards: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      isReversed: { type: Type.BOOLEAN },
+                      meaning: { type: Type.STRING },
+                      position: { type: Type.STRING, enum: ["body", "mind", "spirit"] },
+                    },
+                    required: ["name", "isReversed", "meaning", "position"]
+                  }
                 },
-                required: ["name", "isReversed", "meaning", "position"]
-              }
+                guidance: { type: Type.STRING },
+                actionHint: { type: Type.STRING },
+                focusWishName: { type: Type.STRING },
+              },
+              required: ["cards", "guidance", "actionHint", "focusWishName"]
             },
-            guidance: { type: Type.STRING },
-            actionHint: { type: Type.STRING },
-            focusWishName: { type: Type.STRING },
           },
-          required: ["cards", "guidance", "actionHint", "focusWishName"]
-        },
-      },
-    });
-    return JSON.parse(response.text || "{}");
+        });
+        jsonStr = response.text || "{}";
+    }
+    return JSON.parse(jsonStr);
   } catch (error) {
     console.error("Tarot error:", error);
     return {
@@ -390,7 +496,6 @@ export const generateTarotReading = async (
 };
 
 export const generateDailyPractice = async (readingContext: string): Promise<DailyPractice> => {
-  const model = "gemini-2.5-flash";
   const prompt = `
     基于以下塔罗解读和能量状态 (User: ${userName})：
     "${readingContext}"
@@ -402,30 +507,36 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
   `;
 
   try {
-    const response = await getAi().models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                energyStatus: { type: Type.STRING },
-                todaysAffirmation: { type: Type.STRING },
-                actionStep: { type: Type.STRING },
-            },
-            required: ["energyStatus", "todaysAffirmation", "actionStep"]
-        }
-      }
-    });
-    return JSON.parse(response.text || "{}");
+    let jsonStr = "";
+    if (currentProvider === 'siliconflow') {
+         jsonStr = await callSiliconFlow("You are a spiritual guide. Output strictly JSON.", prompt, true);
+    } else {
+         const model = "gemini-2.5-flash";
+         const response = await getAi().models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        energyStatus: { type: Type.STRING },
+                        todaysAffirmation: { type: Type.STRING },
+                        actionStep: { type: Type.STRING },
+                    },
+                    required: ["energyStatus", "todaysAffirmation", "actionStep"]
+                }
+            }
+         });
+         jsonStr = response.text || "{}";
+    }
+    return JSON.parse(jsonStr);
   } catch (error) {
     return { energyStatus: "平静如水", todaysAffirmation: "我与当下同在。", actionStep: "深呼吸三次。" };
   }
 };
 
 export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['aiAnalysis']> => {
-  const model = "gemini-2.5-flash";
   const prompt = `
     分析以下用户(${userName})的觉察日记：
     "${text}"
@@ -439,25 +550,32 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
   `;
 
   try {
-    const response = await getAi().models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            blocksIdentified: { type: Type.ARRAY, items: { type: Type.STRING } },
-            emotionalState: { type: Type.ARRAY, items: { type: Type.STRING } },
-            summary: { type: Type.STRING },
-            tomorrowsAdvice: { type: Type.STRING },
-            highSelfTraits: { type: Type.ARRAY, items: { type: Type.STRING } },
-          },
-          required: ["blocksIdentified", "emotionalState", "summary", "tomorrowsAdvice", "highSelfTraits"]
-        }
+      let jsonStr = "";
+      if (currentProvider === 'siliconflow') {
+          jsonStr = await callSiliconFlow("You are a psychology expert. Output strictly JSON.", prompt, true);
+      } else {
+          const model = "gemini-2.5-flash";
+          const response = await getAi().models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    blocksIdentified: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    emotionalState: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    summary: { type: Type.STRING },
+                    tomorrowsAdvice: { type: Type.STRING },
+                    highSelfTraits: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  },
+                  required: ["blocksIdentified", "emotionalState", "summary", "tomorrowsAdvice", "highSelfTraits"]
+                }
+              }
+            });
+            jsonStr = response.text || "{}";
       }
-    });
-    return JSON.parse(response.text || "{}");
+      return JSON.parse(jsonStr);
   } catch (error) {
     console.error(error);
     return undefined;
@@ -467,7 +585,6 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
 // --- Archive / Reporting ---
 
 export const generateWeeklyReport = async (entries: JournalEntry[]): Promise<string> => {
-    const model = "gemini-2.5-flash";
     const entriesText = entries.map(e => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
     
     const prompt = `
@@ -487,18 +604,22 @@ export const generateWeeklyReport = async (entries: JournalEntry[]): Promise<str
     `;
 
     try {
-        const response = await getAi().models.generateContent({
-            model,
-            contents: prompt,
-        });
-        return response.text || "能量整合中...";
+        if (currentProvider === 'siliconflow') {
+            return await callSiliconFlow("You are a spiritual mentor.", prompt);
+        } else {
+            const model = "gemini-2.5-flash";
+            const response = await getAi().models.generateContent({
+                model,
+                contents: prompt,
+            });
+            return response.text || "能量整合中...";
+        }
     } catch (error) {
         return "无法生成报告。";
     }
 };
 
 export const generateFutureLetterReply = async (userLetter: string): Promise<string> => {
-    const model = "gemini-2.5-flash";
     const prompt = `
       User (${userName}) send a letter to their future self:
       "${userLetter}"
@@ -521,11 +642,16 @@ export const generateFutureLetterReply = async (userLetter: string): Promise<str
     `;
 
     try {
-        const response = await getAi().models.generateContent({
-            model,
-            contents: prompt,
-        });
-        return response.text || "收到。我在未来等你。";
+        if (currentProvider === 'siliconflow') {
+            return await callSiliconFlow("You are the Higher Self.", prompt);
+        } else {
+            const model = "gemini-2.5-flash";
+            const response = await getAi().models.generateContent({
+                model,
+                contents: prompt,
+            });
+            return response.text || "收到。我在未来等你。";
+        }
     } catch (error) {
         return "信号连接中...";
     }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight, Server } from 'lucide-react';
 
 // Components
 import IntentView from './components/IntentView';
@@ -12,36 +12,79 @@ import ArchiveView from './components/ArchiveView';
 import { Button, LoadingSpinner } from './components/Shared';
 
 // Services
-import { setAiConfig, hasApiKey, setUserName, checkConnection } from './services/geminiService';
+import { setAiConfig, hasApiKey, checkConnection } from './services/geminiService';
 
 const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
 
 const App: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   
-  // Default API Key Logic: User must provide their own key
-  const [apiKeyInput, setApiKeyInput] = useState(() => 
-    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : ''
+  // Provider Selection: 'gemini' or 'siliconflow'
+  const [provider, setProvider] = useState<'gemini' | 'siliconflow'>(() => {
+    if (typeof localStorage !== 'undefined') {
+       return (localStorage.getItem('lucid_provider') as 'gemini' | 'siliconflow') || 'gemini';
+    }
+    return 'gemini';
+  });
+
+  // Separate Key Storage
+  const [geminiKey, setGeminiKey] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_key_gemini') || localStorage.getItem('lucid_api_key') || '' : ''
   );
+  
+  const [siliconflowKey, setSiliconflowKey] = useState(() => 
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_key_siliconflow') || '' : ''
+  );
+
+  // Active Input State (Initialized based on current provider)
+  const [apiKeyInput, setApiKeyInput] = useState(() => {
+      const p = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_provider') || 'gemini' : 'gemini';
+      if (p === 'siliconflow') {
+          return typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_key_siliconflow') || '' : '';
+      }
+      return typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_key_gemini') || localStorage.getItem('lucid_api_key') || '' : '';
+  });
   
   const [userNameInput, setUserNameInput] = useState(() => 
     typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '' : ''
   );
-  
-  // Grandma-friendly: Boolean toggle instead of text input
-  // Default to true (using proxy) unless explicitly set to empty string (direct) in storage
+
+  // Sync Input when Provider Changes
+  useEffect(() => {
+      if (provider === 'gemini') {
+          setApiKeyInput(geminiKey);
+      } else {
+          setApiKeyInput(siliconflowKey);
+      }
+  }, [provider]);
+
+  // Handle Input Changes with Persistence
+  const handleKeyChange = (val: string) => {
+      setApiKeyInput(val);
+      if (provider === 'gemini') {
+          setGeminiKey(val);
+          localStorage.setItem('lucid_key_gemini', val);
+          // Legacy support (optional, but keeps older versions working if downgraded)
+          localStorage.setItem('lucid_api_key', val);
+      } else {
+          setSiliconflowKey(val);
+          localStorage.setItem('lucid_key_siliconflow', val);
+      }
+  };
+
+  // Proxy Toggle
   const [useProxy, setUseProxy] = useState(() => {
     if (typeof localStorage === 'undefined') return true;
     const stored = localStorage.getItem('lucid_base_url');
     // If stored is explicitly empty string, it means user wants direct connection
     if (stored === '') return false;
-    // Otherwise use proxy (default)
     return true;
   });
   
   // Connection Test State
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Default view is now ENERGY Check
   const [currentView, setCurrentView] = useState<AppView>(AppView.ENERGY);
@@ -49,19 +92,16 @@ const App: React.FC = () => {
   // Controls which tab inside ArchiveView is active. 
   const [archiveInitialTab, setArchiveInitialTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
 
-  // Check URL Params just in case, but map to boolean
   useEffect(() => {
       const params = new URLSearchParams(window.location.search);
       const proxyParam = params.get('proxy');
       if (proxyParam) {
-          // If a specific proxy is forced via URL, enable proxy mode
           setUseProxy(true);
       }
   }, []);
 
   // --- GLOBAL STATE ---
 
-  // 1. Wishes (Persistent)
   const [wishes, setWishes] = useState<Wish[]>(() => {
     if (typeof localStorage !== 'undefined') {
         try {
@@ -106,27 +146,37 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const getEffectiveBaseUrl = () => {
+    if (provider === 'siliconflow') return '';
+    return useProxy ? DEFAULT_PROXY : '';
+  };
+
   const handleStartSystem = () => {
-    if (apiKeyInput.trim().length > 10) {
-      // Logic: If useProxy is true, send the CONSTANT url. If false, send empty string.
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), useProxy ? DEFAULT_PROXY : '');
+    if (apiKeyInput.trim().length > 5) {
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), getEffectiveBaseUrl(), provider);
       setIsAuthorized(true);
     }
   };
 
   const handleTestConnection = async () => {
-      if (apiKeyInput.trim().length < 10) return;
+      if (apiKeyInput.trim().length < 5) return;
       setIsTesting(true);
       setTestResult(null);
+      setErrorMessage("");
       
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), useProxy ? DEFAULT_PROXY : '');
+      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), getEffectiveBaseUrl(), provider);
       
-      const success = await checkConnection();
-      setTestResult(success ? 'success' : 'error');
+      const result = await checkConnection();
+      if (result.success) {
+          setTestResult('success');
+      } else {
+          setTestResult('error');
+          setErrorMessage(result.message || "连接失败");
+      }
       setIsTesting(false);
   };
   
-  // 2. Journal Entries (Persistent)
+  // 2. Journal Entries
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
     try {
         const saved = localStorage.getItem('lucid_all_journals');
@@ -153,7 +203,7 @@ const App: React.FC = () => {
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
   };
 
-  // 3. Ritual Entries (Persistent)
+  // 3. Ritual Entries
   const [ritualEntries, setRitualEntries] = useState<RitualArchiveEntry[]>(() => {
     try {
         const saved = localStorage.getItem('lucid_ritual_archive');
@@ -191,7 +241,7 @@ const App: React.FC = () => {
     localStorage.setItem('lucid_ritual_archive', JSON.stringify(ritualEntries));
   }, [ritualEntries]);
 
-  // 4. Future Letters (Persistent)
+  // 4. Future Letters
   const [letters, setLetters] = useState<FutureLetter[]>(() => {
      try {
        return JSON.parse(localStorage.getItem('lucid_future_letters') || '[]');
@@ -207,8 +257,6 @@ const App: React.FC = () => {
       localStorage.setItem('lucid_future_letters', JSON.stringify(letters));
   }, [letters]);
 
-
-  // --- DATA IMPORT HANDLER ---
   const handleImportData = (data: any) => {
       try {
           if (data.data) {
@@ -233,7 +281,6 @@ const App: React.FC = () => {
           alert('导入失败：文件格式不正确。\nFailed to import: Invalid file format.');
       }
   };
-
 
   // Persistent State for Intent View
   const [intentState, setIntentState] = useState<IntentState>({
@@ -293,63 +340,104 @@ const App: React.FC = () => {
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
                  </div>
+                 
+                 {/* Provider Selection */}
+                 <div className="space-y-3 pt-2 border-t border-white/5">
+                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
+                         <Server className="w-3 h-3" /> 模型服务商 Provider
+                     </label>
+                     <div className="grid grid-cols-2 gap-2 bg-black/20 p-1 rounded-xl">
+                         <button
+                            onClick={() => setProvider('gemini')}
+                            className={`py-2 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'gemini' ? 'bg-lucid-glow text-black shadow-lg' : 'text-stone-400 hover:text-white'}`}
+                         >
+                             Google Gemini
+                         </button>
+                         <button
+                            onClick={() => setProvider('siliconflow')}
+                            className={`py-2 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'siliconflow' ? 'bg-indigo-500 text-white shadow-lg' : 'text-stone-400 hover:text-white'}`}
+                         >
+                             硅基流动 (SiliconFlow)
+                         </button>
+                     </div>
+                 </div>
 
                  <div className="space-y-2">
                      <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center justify-between">
                          <div className="flex items-center gap-2">
-                            <Key className="w-3 h-3" /> API 密钥 (Gemini Key)
+                            <Key className="w-3 h-3" /> API 密钥 ({provider === 'gemini' ? 'Gemini' : 'SiliconFlow'} Key)
                          </div>
                      </label>
                      <input 
                         type="password"
                         value={apiKeyInput}
-                        onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder="在此粘贴 AIzaSy... 开头的密钥"
+                        onChange={(e) => handleKeyChange(e.target.value)}
+                        placeholder={provider === 'gemini' ? "粘贴 AIzaSy... 开头的密钥" : "粘贴 sk-... 开头的 SiliconFlow 密钥"}
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
                      <p className="text-[10px] text-stone-500 leading-relaxed">
-                         * 请前往 Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline mx-1">申请自己的 Key</a>并在此填入，您的密钥仅存储在本地浏览器中。
+                         {provider === 'gemini' 
+                            ? <span>* 请前往 Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline">申请 Key</a></span>
+                            : <span>* 请前往 硅基流动官网 <a href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">申请 Key</a></span>
+                         }
+                         <span className="ml-1">密钥仅存储在本地。</span>
                      </p>
                  </div>
 
-                 {/* New Grandma-Friendly Proxy Toggle */}
+                 {/* Universal Proxy Toggle - Logic Adjusted for SiliconFlow */}
                  <div 
-                    onClick={() => setUseProxy(!useProxy)}
+                    onClick={() => {
+                        // Only allow toggling if provider is Gemini
+                        if (provider === 'gemini') {
+                            setUseProxy(!useProxy);
+                        }
+                    }}
                     className={`
                         relative flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer group
-                        ${useProxy 
+                        ${provider === 'gemini' && useProxy 
                             ? 'bg-gradient-to-r from-orange-900/20 to-rose-900/20 border-lucid-glow/30' 
-                            : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.05]'
+                            : 'bg-white/[0.03] border-white/5'
                         }
+                        ${provider !== 'gemini' ? 'opacity-60 cursor-default' : 'hover:bg-white/[0.05]'}
                     `}
                  >
                      <div className="flex items-center gap-3">
-                         <div className={`p-2 rounded-full ${useProxy ? 'bg-lucid-glow text-black' : 'bg-white/10 text-stone-400'}`}>
+                         <div className={`p-2 rounded-full ${provider === 'gemini' && useProxy ? 'bg-lucid-glow text-black' : 'bg-white/10 text-stone-400'}`}>
                              <Globe className="w-4 h-4" />
                          </div>
                          <div className="flex flex-col">
-                             <span className={`text-sm font-serif tracking-wide ${useProxy ? 'text-white' : 'text-stone-400'}`}>
-                                 {useProxy ? '国内访问加速 (已开启)' : '海外直连模式'}
+                             <span className={`text-sm font-serif tracking-wide ${provider === 'gemini' && useProxy ? 'text-white' : 'text-stone-400'}`}>
+                                 {provider === 'siliconflow' ? 'SiliconFlow 直连模式 (无需代理)' : (useProxy ? '国内访问加速 (已开启)' : '海外直连模式')}
                              </span>
                              <span className="text-[10px] text-stone-500 font-sans">
-                                 {useProxy ? 'Auto-Proxy Active' : 'Direct Connection'}
+                                 {provider === 'siliconflow' 
+                                    ? 'Connecting directly to api.siliconflow.cn' 
+                                    : (useProxy ? 'Using Workers Proxy' : 'Direct Connection')
+                                 }
                              </span>
                          </div>
                      </div>
                      
                      <div>
-                         {useProxy ? (
-                             <ToggleRight className="w-8 h-8 text-lucid-glow transition-all" />
+                         {provider === 'gemini' ? (
+                             useProxy ? (
+                                 <ToggleRight className="w-8 h-8 text-lucid-glow transition-all" />
+                             ) : (
+                                 <ToggleLeft className="w-8 h-8 text-stone-600 transition-all" />
+                             )
                          ) : (
-                             <ToggleLeft className="w-8 h-8 text-stone-600 transition-all" />
+                             // No toggle for SiliconFlow
+                             <div className="w-8 h-8"></div>
                          )}
                      </div>
                  </div>
+                 
+                 {/* Connection Info Display - REMOVED TARGET URL FOR SILICONFLOW */}
 
                  <div className="flex justify-end mt-2">
                      <button 
                         onClick={handleTestConnection}
-                        disabled={isTesting || apiKeyInput.length < 10}
+                        disabled={isTesting || apiKeyInput.length < 5}
                         className="text-[10px] flex items-center gap-1 bg-white/5 px-2 py-1 rounded hover:bg-white/10 text-stone-400 hover:text-white transition-colors disabled:opacity-50"
                      >
                         {isTesting ? <LoadingSpinner /> : <Wifi className="w-3 h-3" />}
@@ -364,13 +452,13 @@ const App: React.FC = () => {
                  )}
                  {testResult === 'error' && (
                      <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-rose-500/10 py-1 rounded">
-                         <AlertTriangle className="w-3 h-3" /> 连接失败。请检查密钥或网络设置。
+                         <AlertTriangle className="w-3 h-3" /> {errorMessage || "连接失败。请检查密钥是否正确。"}
                      </div>
                  )}
                  
                  <Button 
                     onClick={handleStartSystem} 
-                    disabled={apiKeyInput.length < 10}
+                    disabled={apiKeyInput.length < 5}
                     variant="primary" 
                     className="w-full rounded-xl py-4 text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
                  >
