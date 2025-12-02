@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
@@ -1547,17 +1540,6 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                ))}
                            </div>
                        </div>
-                  </div>
-
-                  {/* Danger Zone: Explicit Delete Button at Bottom */}
-                  <div className="mt-8 pt-6 border-t border-white/5 flex justify-center">
-                      <button
-                          type="button"
-                          onClick={() => handleDeleteWishClick(selectedWish.id)}
-                          className="text-xs text-stone-500 hover:text-rose-400 underline underline-offset-4 transition-colors"
-                      >
-                          彻底删除此愿望 Permanently Delete Wish
-                      </button>
                   </div>
               </div>
           )}
