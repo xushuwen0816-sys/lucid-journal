@@ -15,14 +15,13 @@ import { Button, LoadingSpinner } from './components/Shared';
 import { setAiConfig, hasApiKey, setUserName, checkConnection } from './services/geminiService';
 
 const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
-const DEFAULT_PUBLIC_KEY = 'AIzaSyDRyD6Vws-an_fGv5TqILtj2PcX7bhp1kw';
 
 const App: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   
-  // Default API Key Logic: Use stored key, or fallback to the Grandma's Public Key
+  // Default API Key Logic: User must provide their own key
   const [apiKeyInput, setApiKeyInput] = useState(() => 
-    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || DEFAULT_PUBLIC_KEY : DEFAULT_PUBLIC_KEY
+    typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : ''
   );
   
   const [userNameInput, setUserNameInput] = useState(() => 
@@ -300,11 +299,6 @@ const App: React.FC = () => {
                          <div className="flex items-center gap-2">
                             <Key className="w-3 h-3" /> API 密钥 (Gemini Key)
                          </div>
-                         {apiKeyInput === DEFAULT_PUBLIC_KEY && (
-                             <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                                 已预填免费额度
-                             </span>
-                         )}
                      </label>
                      <input 
                         type="password"
@@ -314,7 +308,7 @@ const App: React.FC = () => {
                         className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
                      />
                      <p className="text-[10px] text-stone-500 leading-relaxed">
-                         * 默认使用开发者提供的免费额度。如需更高稳定性，建议<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline mx-1">申请自己的 Key</a>并在此替换。
+                         * 请前往 Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline mx-1">申请自己的 Key</a>并在此填入，您的密钥仅存储在本地浏览器中。
                      </p>
                  </div>
 

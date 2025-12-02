@@ -219,7 +219,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                             <div className="flex items-center justify-center gap-2 mt-2 opacity-50">
                                 <MoveHorizontal className="w-3 h-3 text-stone-400 animate-pulse" />
                                 <p className="text-stone-400 text-[10px] font-sans tracking-widest">
-                                    左右滑动以查看完整牌阵
+                                    左右滑动以查看所有牌
                                 </p>
                                 <MoveHorizontal className="w-3 h-3 text-stone-400 animate-pulse" />
                             </div>
