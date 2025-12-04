@@ -416,7 +416,7 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
     3. future_self (未来自我) - 6条:
        - 风格：具像化地描写用户实现愿望之后的现实细节和情绪状态。
        - 内容：包含具体的感官细节（看到了什么、听到了什么）和强烈的积极情绪（感恩、狂喜、平静）。
-       - 句式："我如此感激..." "看着窗外的..." "这一切发生得如此自然..."
+       - 句式："我如此感激..." "看着窗外的..." "这一切发生得如此自然..."，只是风格示范，实际输出应有多种句式。
 
     Output JSON Array only: [{ text: "...", type: "conscious" | "subconscious" | "future_self" }]
   `;

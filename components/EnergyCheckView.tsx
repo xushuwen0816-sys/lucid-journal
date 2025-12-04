@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { generateTarotReading, generateDailyPractice } from '../services/geminiService';
 import { TarotReading, DailyPractice, Wish } from '../types';
@@ -236,7 +237,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                             </div>
                         </div>
                         
-                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 px-8 min-h-[500px]">
+                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 pl-32 pr-8 min-h-[500px]">
                             <div className="flex items-end min-w-max h-40 relative mx-auto" style={{ marginLeft: '-1rem' }}> 
                                 {deck.map((card, idx) => {
                                     const isSelected = selectedIndices.includes(idx);
