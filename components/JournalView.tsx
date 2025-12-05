@@ -175,19 +175,19 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
                                 <Sparkles className="w-16 h-16" />
                             </div>
                             <h4 className="text-sm font-serif text-lucid-glow mb-4 flex items-center gap-2 uppercase tracking-widest border-b border-lucid-glow/10 pb-2 inline-block">
-                                <Sparkles className="w-4 h-4" /> LUCID 洞见 Insight
+                                <Sparkles className="w-4 h-4" /> LUCID 洞见
                             </h4>
-                            <div className="text-stone-300 font-serif text-base leading-loose whitespace-pre-wrap">
+                            <div className="text-stone-300 font-serif text-lg leading-loose whitespace-pre-wrap">
                                 <SimpleMarkdown content={safeRender(journalAnalysis.summary)} />
                             </div>
                         </Card>
 
                         {/* Advice */}
                         <Card className="bg-emerald-900/10 border-emerald-500/10 p-6">
-                            <h4 className="text-sm font-serif text-emerald-300 mb-4 uppercase tracking-widest border-b border-emerald-500/10 pb-2 inline-block">
-                                明日建议 Guidance
+                            <h4 className="text-sm font-serif text-emerald-300 mb-4 uppercase tracking-widest border-b border-emerald-500/10 pb-2 w-full block">
+                                明日建议 GUIDANCE
                             </h4>
-                            <div className="text-stone-300 font-serif text-base leading-loose whitespace-pre-wrap">
+                            <div className="text-stone-300 font-serif text-lg leading-loose whitespace-pre-wrap">
                                 <SimpleMarkdown content={safeRender(journalAnalysis.tomorrowsAdvice)} />
                             </div>
                         </Card>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
@@ -14,6 +15,7 @@ interface ArchiveViewProps {
   onAddLetter: (letter: FutureLetter) => void;
   onImportData: (data: any) => void;
   onDeleteJournalEntry?: (id: string) => void;
+  onUpdateJournalEntry?: (entry: JournalEntry) => void;
   initialTab?: 'milestones' | 'letters' | 'wishes' | 'library';
 }
 
@@ -81,7 +83,7 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onImportData, onDeleteJournalEntry, initialTab = 'milestones' }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onImportData, onDeleteJournalEntry, onUpdateJournalEntry, initialTab = 'milestones' }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
   const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>(initialTab);
   
@@ -131,7 +133,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
      const blockCounts: Record<string, number> = {};
      const traitCounts: Record<string, number> = {};
      
-     const allBlocksRaw: { text: string, date: number }[] = [];
+     const allBlocksRaw: { text: string, date: number, entryId: string }[] = [];
      const allTraitsRaw: { text: string, date: number }[] = [];
      const sentimentData: { date: number, score: number, emotions: string[] }[] = [];
 
@@ -176,7 +178,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                      else cleanB = String(b);
                      
                      if (cleanB) {
-                        allBlocksRaw.push({ text: cleanB, date: entry.date });
+                        allBlocksRaw.push({ text: cleanB, date: entry.date, entryId: entry.id });
                         blockCounts[cleanB] = (blockCounts[cleanB] || 0) + 1;
                      }
                  });
@@ -289,6 +291,28 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       localStorage.setItem('lucid_weekly_report_content', report);
       localStorage.setItem('lucid_weekly_report_date', Date.now().toString());
       setReportLoading(false);
+  };
+
+  const handleDeleteBlock = (entryId: string, blockText: string) => {
+      if (!onUpdateJournalEntry) return;
+      if (!window.confirm(`确定要删除信念 "${blockText}" 吗？这会更新对应的日记记录。`)) return;
+
+      const entry = journalEntries.find(e => e.id === entryId);
+      if (entry && entry.aiAnalysis && entry.aiAnalysis.blocksIdentified) {
+          const updatedBlocks = entry.aiAnalysis.blocksIdentified.filter((b: any) => {
+              const t = typeof b === 'object' ? b.text || b.content || JSON.stringify(b) : String(b);
+              return t !== blockText;
+          });
+          
+          const updatedEntry = {
+              ...entry,
+              aiAnalysis: {
+                  ...entry.aiAnalysis,
+                  blocksIdentified: updatedBlocks
+              }
+          };
+          onUpdateJournalEntry(updatedEntry);
+      }
   };
 
   const handleExportJSON = () => {
@@ -1422,12 +1446,24 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
               {detailsModal === 'blocks' && (
                   stats.allBlocksRaw.length > 0 ? stats.allBlocksRaw.map((b, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 rounded-lg border border-red-500/10">
+                    <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 rounded-lg border border-red-500/10 group">
                         <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
                         <div className="flex-1">
                             <span className="text-stone-200 font-serif text-sm">{b.text}</span>
                             <span className="text-[10px] text-stone-500 block">{new Date(b.date).toLocaleDateString()}</span>
                         </div>
+                        {onUpdateJournalEntry && (
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteBlock(b.entryId, b.text);
+                                }}
+                                className="p-2 text-stone-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 rounded-full"
+                                title="删除"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                   )) : <p className="text-stone-500 text-center py-4">暂无数据</p>
               )}

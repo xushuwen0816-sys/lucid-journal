@@ -306,9 +306,9 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
 
     Requirements:
     1. beliefs: 
-       - emotionalBlocks: 识别用户的情绪阻碍。
-       - limitingBeliefs: 识别用户的限制性信念。
-       - supportiveBeliefs: 识别用户当前已具备的、有助于实现愿望的正确思路、积极心态或内在优势(Correct thoughts / Strengths)。
+       - emotionalBlocks: 识别用户的情绪阻碍（2-4个字）。
+       - limitingBeliefs: 识别用户的限制性信念。**关键要求**：请提取**通用的核心心理模式**（例如："不配得感"、"匮乏心态"、"完美主义"、"对未知的恐惧"），**严禁**使用长句复述具体事件。这用于数据统计，必须抽象化、标签化。
+       - supportiveBeliefs: 识别用户当前已具备的、有助于实现愿望的正确思路或内在优势（例如："成长型思维"、"行动力"）。同样保持短语形式。
        - newIdentity: 设计一个新的身份(New Identity)，基于愿望实现后的状态。
     2. tags: 
        - emotional: 愿望背后的情绪关键词 (如: 丰盛, 安全感, 自由)
@@ -621,11 +621,16 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
     "${text}"
 
     请返回 JSON，请确保内容有良好的可读性，适当使用换行符(\\n\\n)分段：
-    1. blocksIdentified: 识别出的限制性信念或思维模式 (Array of strings).
-    2. emotionalState: 用户当下的情绪状态关键词 (Array of strings, e.g. ["焦虑", "期待"]).
+    1. blocksIdentified: 识别出的限制性信念 (Array of strings)。
+       **关键要求**：必须输出**通用的心理学术语或短语**（例如："不配得感"、"匮乏心态"、"完美主义"、"受害者模式"、"被遗弃感"、"讨好型人格"、"对未知的恐惧"）。
+       **禁止事项**：
+       - 禁止包含具体事件或长句描述。
+       - **禁止包含“情绪波动”等单纯的情绪状态描述**，这不属于信念。
+       每个词建议2-6个字，用于后续的归类统计，务必保持抽象和通用性。
+    2. emotionalState: 用户当下的情绪状态关键词 (Array of strings, e.g. ["焦虑", "期待"])。
     3. summary: 一段富有洞察力的心理分析和反馈 (Deep Insight)。请像一位智慧的导师一样，如果内容较长，请分段落（使用 \\n\\n），不要写成一大块。
     4. tomorrowsAdvice: 给明天的建议。请提供具体的指引，并分段落（使用 \\n\\n）使其清晰易读。
-    5. highSelfTraits: 从日记中发现的用户的高我特质/优点 (Array of strings, e.g. ["诚实", "勇敢"]).
+    5. highSelfTraits: 从日记中发现的用户的高我特质/优点 (Array of strings, e.g. ["诚实", "勇敢"])。请同样使用简洁的短语。
   `;
 
   try {

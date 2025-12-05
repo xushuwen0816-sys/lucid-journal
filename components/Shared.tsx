@@ -168,7 +168,8 @@ export const SimpleMarkdown: React.FC<{ content: any }> = ({ content }) => {
       }
 
       // 5. Regular Paragraphs
-      return <p key={index} className="text-stone-300 text-sm leading-relaxed mb-2 font-serif">{parseInline(line)}</p>;
+      // REMOVED text-sm and text-stone-300 to allow inheritance from parent container
+      return <p key={index} className="leading-relaxed mb-2 font-serif opacity-90">{parseInline(line)}</p>;
   };
 
   const parseInline = (text: string) => {

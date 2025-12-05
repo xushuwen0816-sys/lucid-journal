@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
 import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight, Server } from 'lucide-react';
@@ -199,6 +198,12 @@ const App: React.FC = () => {
 
   const handleDeleteJournalEntry = (id: string) => {
     const updated = journalEntries.filter(j => j.id !== id);
+    setJournalEntries(updated);
+    localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
+  };
+
+  const handleUpdateJournalEntry = (updatedEntry: JournalEntry) => {
+    const updated = journalEntries.map(j => j.id === updatedEntry.id ? updatedEntry : j);
     setJournalEntries(updated);
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
   };
@@ -558,6 +563,7 @@ const App: React.FC = () => {
                     onAddLetter={handleAddLetter}
                     onImportData={handleImportData}
                     onDeleteJournalEntry={handleDeleteJournalEntry}
+                    onUpdateJournalEntry={handleUpdateJournalEntry}
                     initialTab={archiveInitialTab}
                 />
               )}
