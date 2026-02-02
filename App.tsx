@@ -9,6 +9,8 @@ import EnergyCheckView from './components/EnergyCheckView';
 import JournalView from './components/JournalView';
 import ArchiveView from './components/ArchiveView';
 import { Button, LoadingSpinner } from './components/Shared';
+import { useAuth } from './contexts/AuthContext';
+import { AuthModal } from './components/AuthModal';
 
 // Services
 import { setAiConfig, hasApiKey, checkConnection } from './services/geminiService';
@@ -16,6 +18,8 @@ import { setAiConfig, hasApiKey, checkConnection } from './services/geminiServic
 const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
 
 const App: React.FC = () => {
+  const { user, token, logout } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   
   // Provider Selection: 'gemini' or 'siliconflow'
@@ -153,6 +157,25 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Sync Data on Login
+  useEffect(() => {
+    if (user && token) {
+      fetch('/api/journals', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+            setJournalEntries(data.map((j: any) => ({
+                ...j,
+                date: typeof j.date === 'string' ? new Date(j.date).getTime() : j.date
+            })));
+        }
+      })
+      .catch(err => console.error("Sync failed", err));
+    }
+  }, [user, token]);
+
   const getEffectiveBaseUrl = () => {
     if (provider === 'siliconflow') return '';
     return useProxy ? (proxyUrlInput.trim() || DEFAULT_PROXY) : '';
@@ -202,6 +225,17 @@ const App: React.FC = () => {
     const updated = [entry, ...journalEntries];
     setJournalEntries(updated);
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
+
+    if (user && token) {
+        fetch('/api/journals', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(entry)
+        }).catch(console.error);
+    }
   };
 
   const handleDeleteJournalEntry = (id: string) => {
@@ -494,16 +528,37 @@ const App: React.FC = () => {
                      </div>
                  )}
                  
-                 <Button 
-                    onClick={handleStartSystem} 
-                    disabled={apiKeyInput.length < 5}
-                    variant="primary" 
-                    className="w-full rounded-xl py-4 text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
-                 >
-                    启动 LUCID 系统 <ArrowRight className="w-4 h-4 ml-2" />
-                 </Button>
+                 <div className="flex flex-col gap-3">
+                   <Button 
+                      onClick={handleStartSystem} 
+                      disabled={apiKeyInput.length < 5}
+                      variant="primary" 
+                      className="w-full rounded-xl py-4 text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
+                   >
+                      启动 LUCID 系统 <ArrowRight className="w-4 h-4 ml-2" />
+                   </Button>
+                   
+                   {!user ? (
+                     <button 
+                       onClick={() => setIsAuthModalOpen(true)}
+                       className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white transition-all text-xs tracking-wider uppercase font-medium flex items-center justify-center gap-2 relative z-50 cursor-pointer"
+                     >
+                       <User size={14} />
+                       Login / Register
+                     </button>
+                   ) : (
+                     <div className="w-full py-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs tracking-wider flex items-center justify-between px-4 relative z-50">
+                       <span className="flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                         {user.email.split('@')[0]}
+                       </span>
+                       <button onClick={logout} className="hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                     </div>
+                   )}
+                 </div>
              </div>
          </div>
+         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </div>
     );
   }
@@ -559,7 +614,13 @@ const App: React.FC = () => {
                </button>
              ))}
            </div>
+
+           <div className="mt-auto mb-6 hidden md:flex flex-col items-center gap-4 w-full">
+             {/* Sidebar login removed */}
+           </div>
         </nav>
+
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
         <div className="order-1 md:order-2 flex-1 relative overflow-hidden flex flex-col">
            <div className="flex-1 w-full h-full p-2 md:p-6 max-w-6xl mx-auto flex flex-col">

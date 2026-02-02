@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  
+  wishes       Wish[]
+  journals     JournalEntry[]
+  rituals      RitualArchiveEntry[]
+  letters      FutureLetter[]
+}
+
+model Wish {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  content       String
+  createdAt     DateTime @default(now())
+  status        String   
+  
+  tags          String   
+  deepDiveChat  String   
+  beliefs       String   
+  affirmations  String   
+}
+
+model JournalEntry {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  date         DateTime
+  content      String
+  
+  aiAnalysis   String?  
+}
+
+model RitualArchiveEntry {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  date         DateTime
+  
+  reading      String?  
+  practice     String?  
+}
+
+model FutureLetter {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  content      String
+  sendDate     DateTime
+  aiReply      String?
+  isLocked     Boolean
+}
