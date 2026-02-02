@@ -55,10 +55,10 @@ const getInitialBaseUrl = () => {
   // Case 1: No stored URL -> Use New Default
   if (!stored) return DEFAULT_PROXY;
   
-  // Case 2: Stored URL is the old blocked workers.dev -> Force Update to New Domain
-  if (stored.includes('workers.dev') && !stored.includes('empty-feather')) {
-    return DEFAULT_PROXY;
-  }
+  // Case 2: (Removed) Allow users to use their own workers.dev proxy
+  // if (stored.includes('workers.dev') && !stored.includes('empty-feather')) {
+  //   return DEFAULT_PROXY;
+  // }
   
   // Case 3: Stored URL is empty string (User tried to direct connect) -> Force Update to New Domain (Assuming they are in China)
   if (stored.trim() === '') {
@@ -122,18 +122,66 @@ export const hasApiKey = () => {
 const getAi = () => {
     if (!aiInstance) {
         const key = process.env.API_KEY || dynamicApiKey;
-        // Construct config
-        const config: any = { apiKey: key || '' };
         
-        // Only apply baseUrl if it's set and not the default SiliconFlow URL (since this is the Gemini getter)
-        // Note: If using Gemini, dynamicBaseUrl might be the proxy.
+        // Construct config
+        // NOTE: For @google/genai SDK, connection settings are passed differently depending on version.
+        // Based on search results, 'httpOptions.baseUrl' or root config 'baseUrl' might be used.
+        // We will try to set it in a way that covers most bases, but specifically for the new SDK:
+        // It seems the constructor takes { apiKey, httpOptions: { baseUrl: ... } }
+        
+        const clientOptions: any = { apiKey: key || '' };
+
         if (dynamicBaseUrl && dynamicBaseUrl !== SILICONFLOW_BASE_URL) {
-            config.baseUrl = dynamicBaseUrl;
+            // Ensure no trailing slash
+            const cleanUrl = dynamicBaseUrl.replace(/\/+$/, '');
+            console.log('[LUCID] Setting Custom Base URL:', cleanUrl);
+            
+            // Try Method 1: Top-level baseUrl (common in some versions)
+            clientOptions.baseUrl = cleanUrl;
+            
+            // Try Method 2: httpOptions.baseUrl (common in newer @google/genai)
+            clientOptions.httpOptions = {
+                baseUrl: cleanUrl,
+                apiVersion: 'v1beta'
+            };
         }
 
-        aiInstance = new GoogleGenAI(config);
+        console.log('[LUCID] Initializing Gemini with options:', JSON.stringify(clientOptions, null, 2));
+
+        aiInstance = new GoogleGenAI(clientOptions);
     }
     return aiInstance;
+};
+
+// --- Helper: API Call with Retry ---
+const callGeminiWithRetry = async <T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 2000
+): Promise<T> => {
+    let attempt = 0;
+    while (true) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            attempt++;
+            if (attempt > maxRetries) throw error;
+            
+            // Check if error is 429 (Resource Exhausted)
+            const is429 = error.message && (
+                error.message.includes("429") || 
+                error.message.includes("Resource exhausted") ||
+                error.message.includes("quota")
+            );
+
+            if (is429) {
+                console.warn(`[LUCID] Gemini 429 Error (Attempt ${attempt}/${maxRetries}). Retrying in ${baseDelay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, baseDelay));
+            } else {
+                throw error; // Non-retriable error
+            }
+        }
+    }
 };
 
 // --- SiliconFlow Adapter (OpenAI Compatible) ---
@@ -210,30 +258,38 @@ export const checkConnection = async (): Promise<{ success: boolean; message?: s
              await callSiliconFlow("", "Hello");
              return { success: true };
         } else {
-            // Use a lightweight call to test connectivity
-            await getAi().models.generateContent({
-                model: "gemini-2.5-flash",
+            // Use gemini-1.5-flash-latest or gemini-2.0-flash which are active
+            // Refer to: https://ai.google.dev/gemini-api/docs/models/gemini
+            const model = "gemini-2.5-flash";
+            
+            await callGeminiWithRetry(() => getAi().models.generateContent({
+                model,
                 contents: "ping",
                 config: {
                     maxOutputTokens: 1,
                 }
-            });
+            }));
             return { success: true };
         }
     } catch (error: any) {
         console.error("Connection check failed:", error);
-        let msg = "连接失败，请检查网络或代理设置。";
+        let msg = `连接失败: `;
         
         if (error.message) {
-            if (error.message.includes("401") || error.message.includes("Auth Failed")) {
-                msg = "认证失败：请检查 API Key 是否正确。";
-            } else if (error.message.includes("402") || error.message.includes("Balance")) {
-                msg = "余额不足：请检查 API 账户余额。";
-            } else if (error.message.includes("Failed to fetch")) {
-                msg = "网络错误：无法连接到服务器。";
-            } else {
-                msg = error.message;
+            msg += error.message;
+            
+            // Add helpful tips based on keywords
+            if (msg.includes("401") || msg.includes("Auth Failed")) {
+                msg += " (请检查 API Key)";
+            } else if (msg.includes("Failed to fetch")) {
+                msg += " (请检查域名拼写、SSL设置或是否被防火墙拦截)";
+            } else if (msg.includes("404") || msg.includes("Not Found")) {
+                msg += " (模型未找到，可能该版本已下线或 Key 权限不足)";
+            } else if (msg.includes("429") || msg.includes("Resource exhausted")) {
+                msg += " (API调用频率过高，请稍后再试)";
             }
+        } else {
+            msg += JSON.stringify(error);
         }
         
         return { success: false, message: msg };
@@ -274,6 +330,7 @@ export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]):
           return await callSiliconFlow(systemInstructionText, openAIMessages);
       } else {
           // Gemini Logic
+          // Use gemini-2.0-flash as it is the current stable version
           const model = "gemini-2.5-flash"; 
           const contents = history.map((msg, index) => {
             let text = msg.text;
@@ -286,10 +343,10 @@ export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]):
             };
           });
 
-          const response = await getAi().models.generateContent({
+          const response = await callGeminiWithRetry(() => getAi().models.generateContent({
             model,
             contents,
-          });
+          }));
           return response.text || "正在连接你的潜意识频率...";
       }
   } catch (error) {
@@ -329,7 +386,7 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
           );
       } else {
           const model = "gemini-2.5-flash";
-          const response = await getAi().models.generateContent({
+          const response = await callGeminiWithRetry(() => getAi().models.generateContent({
               model,
               contents: prompt,
               config: {
@@ -360,7 +417,7 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
                   required: ["beliefs", "tags"],
                 },
               },
-            });
+            }));
             jsonStr = response.text || "{}";
       }
       
@@ -447,7 +504,7 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
 
       } else {
            const model = "gemini-2.5-flash";
-           const response = await getAi().models.generateContent({
+           const response = await callGeminiWithRetry(() => getAi().models.generateContent({
               model,
               contents: prompt,
               config: {
@@ -464,7 +521,7 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
                   },
                 },
               },
-            });
+            }));
             jsonStr = response.text || "[]";
             return JSON.parse(jsonStr);
       }
@@ -512,7 +569,7 @@ export const generateTarotReading = async (
         );
     } else {
         const model = "gemini-2.5-flash";
-        const response = await getAi().models.generateContent({
+        const response = await callGeminiWithRetry(() => getAi().models.generateContent({
           model,
           contents: prompt,
           config: {
@@ -540,7 +597,7 @@ export const generateTarotReading = async (
               required: ["cards", "guidance", "actionHint", "focusWishName"]
             },
           },
-        });
+        }));
         jsonStr = response.text || "{}";
     }
     const raw = JSON.parse(cleanJsonString(jsonStr));
@@ -586,7 +643,7 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
          jsonStr = await callSiliconFlow("You are a spiritual guide. Output strictly JSON.", prompt, true);
     } else {
          const model = "gemini-2.5-flash";
-         const response = await getAi().models.generateContent({
+         const response = await callGeminiWithRetry(() => getAi().models.generateContent({
             model,
             contents: prompt,
             config: {
@@ -601,7 +658,7 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
                     required: ["energyStatus", "todaysAffirmation", "actionStep"]
                 }
             }
-         });
+         }));
          jsonStr = response.text || "{}";
     }
     const raw = JSON.parse(cleanJsonString(jsonStr));
@@ -639,7 +696,7 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
           jsonStr = await callSiliconFlow("You are a psychology expert. Output strictly JSON.", prompt, true);
       } else {
           const model = "gemini-2.5-flash";
-          const response = await getAi().models.generateContent({
+          const response = await callGeminiWithRetry(() => getAi().models.generateContent({
               model,
               contents: prompt,
               config: {
@@ -656,7 +713,7 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
                   required: ["blocksIdentified", "emotionalState", "summary", "tomorrowsAdvice", "highSelfTraits"]
                 }
               }
-            });
+            }));
             jsonStr = response.text || "{}";
       }
       
@@ -703,10 +760,10 @@ export const generateWeeklyReport = async (entries: JournalEntry[]): Promise<str
             return await callSiliconFlow("You are a spiritual mentor.", prompt);
         } else {
             const model = "gemini-2.5-flash";
-            const response = await getAi().models.generateContent({
+            const response = await callGeminiWithRetry(() => getAi().models.generateContent({
                 model,
                 contents: prompt,
-            });
+            }));
             return response.text || "能量整合中...";
         }
     } catch (error) {
@@ -741,10 +798,10 @@ export const generateFutureLetterReply = async (userLetter: string): Promise<str
             return await callSiliconFlow("You are the Higher Self.", prompt);
         } else {
             const model = "gemini-2.5-flash";
-            const response = await getAi().models.generateContent({
+            const response = await callGeminiWithRetry(() => getAi().models.generateContent({
                 model,
                 contents: prompt,
-            });
+            }));
             return response.text || "收到。我在未来等你。";
         }
     } catch (error) {

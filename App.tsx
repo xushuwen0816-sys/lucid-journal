@@ -79,6 +79,14 @@ const App: React.FC = () => {
     if (stored === '') return false;
     return true;
   });
+
+  // Proxy URL State
+  const [proxyUrlInput, setProxyUrlInput] = useState(() => {
+      if (typeof localStorage === 'undefined') return DEFAULT_PROXY;
+      const stored = localStorage.getItem('lucid_base_url');
+      if (stored && stored !== '') return stored;
+      return DEFAULT_PROXY;
+  });
   
   // Connection Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -147,7 +155,7 @@ const App: React.FC = () => {
 
   const getEffectiveBaseUrl = () => {
     if (provider === 'siliconflow') return '';
-    return useProxy ? DEFAULT_PROXY : '';
+    return useProxy ? (proxyUrlInput.trim() || DEFAULT_PROXY) : '';
   };
 
   const handleStartSystem = () => {
@@ -417,12 +425,12 @@ const App: React.FC = () => {
                          </div>
                          <div className="flex flex-col">
                              <span className={`text-sm font-serif tracking-wide ${provider === 'gemini' && useProxy ? 'text-white' : 'text-stone-400'}`}>
-                                 {provider === 'siliconflow' ? 'SiliconFlow 直连模式 (无需代理)' : (useProxy ? '国内访问加速 (已开启)' : '海外直连模式')}
+                                 {provider === 'siliconflow' ? 'SiliconFlow 直连模式 (无需代理)' : (useProxy ? '国内访问加速 / 自定义代理' : '海外直连模式')}
                              </span>
                              <span className="text-[10px] text-stone-500 font-sans">
                                  {provider === 'siliconflow' 
                                     ? 'Connecting directly to api.siliconflow.cn' 
-                                    : (useProxy ? 'Using Workers Proxy' : 'Direct Connection')
+                                    : (useProxy ? 'Using Custom Base URL' : 'Direct Connection')
                                  }
                              </span>
                          </div>
@@ -436,11 +444,31 @@ const App: React.FC = () => {
                                  <ToggleLeft className="w-8 h-8 text-stone-600 transition-all" />
                              )
                          ) : (
-                             // No toggle for SiliconFlow
                              <div className="w-8 h-8"></div>
                          )}
                      </div>
                  </div>
+
+                 {/* Proxy URL Input (Only visible when Proxy is enabled and provider is Gemini) */}
+                 {provider === 'gemini' && useProxy && (
+                    <div className="space-y-2 animate-fade-in bg-black/20 p-3 rounded-xl border border-white/5">
+                         <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
+                             <LinkIcon className="w-3 h-3" /> 代理地址 Proxy URL
+                         </label>
+                         <input 
+                            type="text"
+                            value={proxyUrlInput}
+                            onChange={(e) => setProxyUrlInput(e.target.value)}
+                            placeholder="例如: https://your-worker.workers.dev"
+                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
+                         />
+                         <p className="text-[10px] text-stone-500 leading-relaxed">
+                            * 默认使用公共代理 (可能不稳定)。<br/>
+                            * 建议使用 Cloudflare Workers 搭建私有代理。<br/>
+                            * 如果使用 Vercel/Next.js 部署，可填写 API 路由地址。
+                         </p>
+                    </div>
+                 )}
                  
                  {/* Connection Info Display - REMOVED TARGET URL FOR SILICONFLOW */}
 
