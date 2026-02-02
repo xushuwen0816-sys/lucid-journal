@@ -28,12 +28,18 @@
 3. **设置环境变量 (Variables)**:
    - 点击项目中的 `Variables` 选项卡。
    - 点击 `New Variable` 添加以下变量:
-     - `DATABASE_URL`: 粘贴第一步里获取的 Supabase 连接串 (记得替换密码)。
+     - `DATABASE_URL`: **(Transaction Pooler)** 使用端口 6543 的链接。
+       - 例如: `postgresql://postgres.xxx:pass@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
+       - **注意**: 建议在末尾加上 `?pgbouncer=true`。
+     - `DIRECT_URL`: **(Session Mode)** 使用端口 5432 的链接。
+       - 例如: `postgresql://postgres:pass@db.xxxx.supabase.co:5432/postgres`
+       - 这是用于 Prisma Migration 的。
      - `JWT_SECRET`: 随便填一串复杂的乱码 (例如 `my-super-secret-key-123`)。
      - `PORT`: `3000`
+   - **关键设置**: 点击 `Settings` -> `General` -> `Root Directory`，修改为 `/server`。
 4. **生成域名**:
    - 点击 `Settings` -> `Networking`。
-   - 点击 `Generate Domain`。您会得到一个类似 `https://lucid-journal-production.up.railway.app` 的网址。
+   - 点击 `Generate Domain`。我得到了一个类似 `https://lucid-journal-production.up.railway.app` 的网址。
 
 ## 第三步：前端更新
 
