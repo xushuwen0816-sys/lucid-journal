@@ -24,6 +24,11 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+// Health Check
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/journals', journalRoutes);
@@ -52,6 +57,6 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
