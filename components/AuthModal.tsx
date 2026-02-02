@@ -46,7 +46,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       onClose();
     } catch (err: any) {
       console.error("Auth error:", err);
-      setError(err.message);
+      // Display full URL in error message to help debugging
+      const endpoint = isLogin ? '/login' : '/register';
+      const fullUrl = `${API_URL}${endpoint}`;
+      setError(`${err.message} (Requesting: ${fullUrl})`);
     }
   };
 
