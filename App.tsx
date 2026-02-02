@@ -160,7 +160,8 @@ const App: React.FC = () => {
   // Sync Data on Login
   useEffect(() => {
     if (user && token) {
-      fetch('/api/journals', {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      fetch(`${baseUrl}/api/journals`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -227,7 +228,8 @@ const App: React.FC = () => {
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
 
     if (user && token) {
-        fetch('/api/journals', {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/journals`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
