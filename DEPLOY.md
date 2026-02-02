@@ -28,12 +28,9 @@
 3. **设置环境变量 (Variables)**:
    - 点击项目中的 `Variables` 选项卡。
    - 点击 `New Variable` 添加以下变量:
-     - `DATABASE_URL`: **(Transaction Pooler)** 使用端口 6543 的链接。
+     - `DATABASE_URL`: **使用 Transaction Pooler (端口 6543)**。
        - 例如: `postgresql://postgres.xxx:pass@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
-       - **注意**: 建议在末尾加上 `?pgbouncer=true`。
-     - `DIRECT_URL`: **(Session Mode)** 使用端口 5432 的链接。
-       - 例如: `postgresql://postgres:pass@db.xxxx.supabase.co:5432/postgres`
-       - 这是用于 Prisma Migration 的。
+       - **重要**: 请务必使用端口为 `6543` 的链接，并在末尾加上 `?pgbouncer=true`。
      - `JWT_SECRET`: 随便填一串复杂的乱码 (例如 `my-super-secret-key-123`)。
      - `PORT`: `3000`
    - **关键设置**: 点击 `Settings` -> `General` -> `Root Directory`，修改为 `/server`。
