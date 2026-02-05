@@ -179,7 +179,10 @@ const App: React.FC = () => {
       fetch(`${baseUrl}/api/journals`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      })
       .then(data => {
         if (Array.isArray(data)) {
             setJournalEntries(data.map((j: any) => ({

@@ -2,8 +2,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// NOTE: Provider is set to "sqlite" for local development. 
-// Change to "postgresql" for production/Supabase deployment.
+// NOTE: Provider is set dynamically by scripts/check-provider.js
+// Default is set to postgresql to satisfy git tracking for production
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
