@@ -14,7 +14,18 @@ interface IntentViewProps {
 
 const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, onInteract }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputCardRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (inputCardRef.current) {
+        const rect = inputCardRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        inputCardRef.current.style.setProperty('--mouse-x', `${x}px`);
+        inputCardRef.current.style.setProperty('--mouse-y', `${y}px`);
+    }
+  };
   
   // Auto-scroll for Chat
   useEffect(() => {
@@ -150,7 +161,12 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                     <h3 className="text-3xl font-serif text-white/90 tracking-wide">此刻，<br/>你想显化什么？</h3>
                     
                     {/* Centered Input Container */}
-                    <div className="group relative w-full bg-white/[0.02] hover:bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-[2rem] transition-all duration-500 focus-within:border-lucid-glow/30 focus-within:bg-white/[0.04] focus-within:shadow-[0_0_30px_rgba(253,186,116,0.1)] flex items-center justify-center min-h-[130px] p-8">
+                    <div 
+                        ref={inputCardRef}
+                        onMouseMove={handleMouseMove}
+                        style={{ '--mouse-x': '0px', '--mouse-y': '0px' } as React.CSSProperties}
+                        className="group relative w-full bg-white/[0.02] hover:bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-[2rem] transition-all duration-500 focus-within:border-lucid-glow/30 focus-within:bg-white/[0.04] focus-within:shadow-[0_0_30px_rgba(253,186,116,0.1)] flex items-center justify-center min-h-[130px] p-8 overflow-hidden before:content-[''] before:absolute before:inset-0 before:bg-[radial-gradient(600px_circle_at_var(--mouse-x)_var(--mouse-y),rgba(251,146,60,0.08),transparent_40%)] before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500 before:pointer-events-none"
+                    >
                         <textarea
                             className="w-full bg-transparent border-none focus:ring-0 text-2xl text-center resize-none placeholder-white/10 font-serif leading-relaxed text-lucid-text outline-none h-auto"
                             rows={1}

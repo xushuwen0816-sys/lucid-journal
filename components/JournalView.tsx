@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { analyzeJournalEntry } from '../services/geminiService';
 import { JournalEntry } from '../types';
 import { Button, Card, SectionTitle, LoadingSpinner, SimpleMarkdown } from './Shared';
@@ -24,6 +24,38 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
   const [loading, setLoading] = useState(false);
   const [journalInput, setJournalInput] = useState('');
   const [journalAnalysis, setJournalAnalysis] = useState<JournalEntry['aiAnalysis'] | null>(null);
+  
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (cardRef.current && !journalInput) {
+      const rect = cardRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Calculate rotation (Tilted Card Effect)
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      
+      // Max rotation in degrees
+      const maxRotation = 2;
+      
+      const rotateY = ((x - centerX) / centerX) * maxRotation;
+      const rotateX = -((y - centerY) / centerY) * maxRotation;
+
+      cardRef.current.style.setProperty('--mouse-x', `${x}px`);
+      cardRef.current.style.setProperty('--mouse-y', `${y}px`);
+      cardRef.current.style.setProperty('--rotate-x', `${rotateX}deg`);
+      cardRef.current.style.setProperty('--rotate-y', `${rotateY}deg`);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (cardRef.current) {
+        cardRef.current.style.setProperty('--rotate-x', '0deg');
+        cardRef.current.style.setProperty('--rotate-y', '0deg');
+    }
+  };
 
   // Persistence Key Helper
   const getTodayKey = () => new Date().toLocaleDateString('zh-CN');
@@ -52,14 +84,17 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
 
   // Auto-save draft
   useEffect(() => {
-      // Only save if there is content or analysis to save
-      if (journalInput || journalAnalysis) {
-           const data = {
-               content: journalInput,
-               analysis: journalAnalysis
-           };
-           localStorage.setItem(`lucid_journal_${getTodayKey()}`, JSON.stringify(data));
+      // If both are empty, clear the storage to avoid restoring stale data
+      if (!journalInput && !journalAnalysis) {
+          localStorage.removeItem(`lucid_journal_${getTodayKey()}`);
+          return;
       }
+      
+      const data = {
+          content: journalInput,
+          analysis: journalAnalysis
+      };
+      localStorage.setItem(`lucid_journal_${getTodayKey()}`, JSON.stringify(data));
   }, [journalInput, journalAnalysis]);
 
   const handleJournalSubmit = async () => {
@@ -94,19 +129,34 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
 
         <div className="flex-1 overflow-y-auto px-4 pb-20 custom-scrollbar animate-fade-in">
             <div className="max-w-4xl mx-auto space-y-6 pt-6">
-                <Card className="border-white/10 bg-gradient-to-b from-stone-800/20 to-transparent !p-0 overflow-hidden">
-                    <div className="flex items-center gap-2 p-4 md:p-6 border-b border-white/5 bg-white/[0.02] text-lucid-dim">
+                <Card 
+                    ref={cardRef}
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseLeave}
+                    style={{
+                        '--mouse-x': '0px',
+                        '--mouse-y': '0px',
+                        '--rotate-x': '0deg',
+                        '--rotate-y': '0deg',
+                        transform: journalInput ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
+                        willChange: 'transform',
+                    } as React.CSSProperties}
+                    className={`border-white/10 bg-gradient-to-b from-stone-800/20 to-transparent !p-0 overflow-hidden relative group transition-all duration-200 ease-out ${
+                        !journalInput ? 'hover:shadow-[0_0_40px_-10px_rgba(255,255,255,0.05)]' : ''
+                    }`}
+                >
+                    <div className="flex items-center gap-2 px-4 md:px-6 h-16 border-b border-white/5 bg-white/[0.02] text-lucid-dim">
                         <BookOpen className="w-4 h-4" />
                         <span className="text-xs font-serif tracking-widest">今日觉察 Writing Space</span>
                     </div>
                     <textarea
-                        className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[40vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
+                        className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
                         placeholder="在此处深呼吸，记录当下的情绪、念头、梦境，或是任何浮现的直觉..."
                         value={journalInput}
                         onChange={(e) => setJournalInput(e.target.value)}
                     />
-                    <div className="p-4 md:p-6 border-t border-white/5 bg-white/[0.02] flex justify-end">
-                        <Button onClick={handleJournalSubmit} disabled={loading || !journalInput.trim()} variant="glass" className="rounded-full px-8 py-3 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
+                    <div className="px-4 md:px-6 h-16 border-t border-white/5 bg-white/[0.02] flex items-center justify-end">
+                        <Button onClick={handleJournalSubmit} disabled={loading || !journalInput.trim()} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
                             {loading ? <LoadingSpinner /> : <><Sparkles className="w-4 h-4 mr-2" /> AI 深度觉察</>}
                         </Button>
                     </div>

@@ -1,0 +1,44 @@
+import express from 'express';
+import { PrismaClient } from '@prisma/client';
+import { authenticateToken } from '../middleware/auth';
+
+const router = express.Router();
+const prisma = new PrismaClient();
+
+// Get all letters for the user
+router.get('/', authenticateToken, async (req: any, res) => {
+  try {
+    const letters = await prisma.futureLetter.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(letters);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch letters' });
+  }
+});
+
+// Create a new letter
+router.post('/', authenticateToken, async (req: any, res) => {
+  try {
+    const { content, sendDate, aiReply, isLocked } = req.body;
+    
+    const letter = await prisma.futureLetter.create({
+      data: {
+        userId: req.user.userId,
+        content,
+        sendDate: new Date(sendDate),
+        aiReply,
+        isLocked,
+        isSent: false
+      }
+    });
+    
+    res.status(201).json(letter);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to create letter' });
+  }
+});
+
+export default router;

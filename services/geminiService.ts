@@ -552,6 +552,14 @@ export const generateTarotReading = async (
 
     请根据这三张牌（注意正逆位含义）进行解读，分别对应身(Body)、心(Mind)、灵(Spirit)。
     并根据牌面能量，给出今日的行动指引。
+
+    【重要解读风格要求】：
+    1. **生活化与微观视角**：不要宏大叙事（如“人生影响”、“重大转变”），而要聚焦于用户**今天**的日常生活、睡眠、饮食、心情小事。
+    2. **轻松诙谐，低压感**：像一个老朋友在聊天，用幽默化解沉重，但避免过多的语气词。
+    3. **具体示例**：
+       - 将“你需要调整生活状态，重视健康”转化为：“昨天是不是没睡好呀？记得今天好好补个觉。”
+       - 将“你这段时间压力很大”转化为：“即便工作辛苦，也要好好照顾自己呀，摸摸头。”
+       - 将“不要抗拒变化”转化为：“扔掉一件你很久不用的旧东西，适当断舍离能让心情更轻松～”
     
     请用中文返回结果(JSON):
     1. cards: 包含 name(牌名), isReversed(是否逆位), meaning(详细解读，约80字，深入分析牌面含义和对用户当下的启示), position ("body", "mind", "spirit").
@@ -626,6 +634,104 @@ export const generateTarotReading = async (
   }
 };
 
+export const generateOracleReading = async (
+    drawnCards: { name: string, keywords: string[], meaning?: string, description?: string, position: 'body' | 'mind' | 'spirit' | 'oracle' }[],
+    wishes: Wish[]
+): Promise<TarotReading> => {
+  const wishSummary = wishes.map(w => w.content).join(", ") || "无特定愿望";
+  const cardsDesc = drawnCards.map(c => 
+      `${c.name}
+       [关键词: ${c.keywords.join(', ')}]
+       [画面: ${c.description || '无'}]
+       [原牌义: ${c.meaning || '无'}]`
+  ).join('\n\n');
+
+  const prompt = `
+    用户(${userName})刚刚抽取了一张神谕卡，使用的是《女神神谕卡》（The Goddess Oracle）：
+    ${cardsDesc}
+    
+    用户的愿望列表：${wishSummary}。
+
+    请根据这张神谕卡进行解读。
+    请结合提供的【原牌义】和【画面】描述，给出温暖、疗愈、低压感且富有洞察力的指引。
+    不要进行身、心、灵的分类，而是给出一个核心的神谕讯息 (Oracle Message)。
+    
+    请用中文返回结果(JSON):
+    1. cards: 包含 name(牌名), isReversed(固定为false), meaning(详细解读，约120字，结合关键词和画面给予指引), position (固定为 "oracle").
+    2. guidance: 总体神谕指引 (Oracle Guidance)，作为整次解读的总结升华。
+    3. actionHint: 今日具体的能量行动提示 (Energy Action).
+    4. focusWishName: 在用户的愿望中，选出今天最值得关注的一个.
+  `;
+  
+  try {
+    let jsonStr = "";
+    if (currentProvider === 'siliconflow') {
+        jsonStr = await callSiliconFlow(
+            "You are an Oracle Card Reader. Output strictly JSON.",
+            prompt,
+            true
+        );
+    } else {
+        const model = "gemini-2.5-flash";
+        const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                cards: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      isReversed: { type: Type.BOOLEAN },
+                      meaning: { type: Type.STRING },
+                      position: { type: Type.STRING, enum: ["oracle"] },
+                    },
+                    required: ["name", "isReversed", "meaning", "position"]
+                  }
+                },
+                guidance: { type: Type.STRING },
+                actionHint: { type: Type.STRING },
+                focusWishName: { type: Type.STRING },
+              },
+              required: ["cards", "guidance", "actionHint", "focusWishName"]
+            },
+          },
+        }));
+        jsonStr = response.text || "{}";
+    }
+    
+    const raw = JSON.parse(cleanJsonString(jsonStr));
+    
+    // Sanitize
+    if (raw.cards && Array.isArray(raw.cards)) {
+         raw.cards = raw.cards.map((c: any) => ({
+             ...c,
+             name: sanitizeString(c.name),
+             meaning: sanitizeString(c.meaning)
+         }));
+    }
+    raw.guidance = sanitizeString(raw.guidance);
+    raw.actionHint = sanitizeString(raw.actionHint);
+    raw.focusWishName = sanitizeString(raw.focusWishName);
+
+    return raw;
+  } catch (error) {
+    console.error("Oracle error:", error);
+    return {
+        cards: drawnCards.map(c => ({ ...c, isReversed: false, meaning: "神谕下载中...", position: "oracle" as const })),
+        guidance: "宇宙正在对你耳语。",
+        actionHint: "聆听内心的声音。",
+        focusWishName: "当下"
+    };
+  }
+};
+
+
 export const generateDailyPractice = async (readingContext: string): Promise<DailyPractice> => {
   const prompt = `
     基于以下塔罗解读和能量状态 (User: ${userName})：
@@ -679,15 +785,28 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
 
     请返回 JSON，请确保内容有良好的可读性，适当使用换行符(\\n\\n)分段：
     1. blocksIdentified: 识别出的限制性信念 (Array of strings)。
-       **关键要求**：必须输出**通用的心理学术语或短语**（例如："不配得感"、"匮乏心态"、"完美主义"、"受害者模式"、"被遗弃感"、"讨好型人格"、"对未知的恐惧"）。
-       **禁止事项**：
-       - 禁止包含具体事件或长句描述。
-       - **禁止包含“情绪波动”等单纯的情绪状态描述**，这不属于信念。
-       每个词建议2-6个字，用于后续的归类统计，务必保持抽象和通用性。
-    2. emotionalState: 用户当下的情绪状态关键词 (Array of strings, e.g. ["焦虑", "期待"])。
-    3. summary: 一段富有洞察力的心理分析和反馈 (Deep Insight)。请像一位智慧的导师一样，如果内容较长，请分段落（使用 \\n\\n），不要写成一大块。
+       **核心定义**：限制性信念是深层的、固化的**思维范式**或**世界观**（例如："我不配得"、"我必须完美才值得被爱"、"世界是不安全的"）。
+       **严格禁止**：
+       - **禁止**包含情绪感受（如"被抛弃感"、"孤独感"、"焦虑" —— 这些是情绪，不是信念）。
+       - **禁止**单纯列举性格标签（如"完美主义" —— 这只是现象，请挖掘其背后的信念，如"容错度低"或"必须完美"）。
+       - **禁止**无中生有。如果日记中没有明显的限制性信念，请留空，不要强行凑数。
+       - 保持客观中立，不要让用户感到被评判或挑刺。
+       每个词建议2-8个字，保持抽象和通用性。
+
+    2. emotionalState: 用户当下的情绪状态关键词 (Array of strings, e.g. ["释然", "期待", "疲惫"])。
+
+    3. summary: 一段富有洞察力的心理分析和反馈 (Deep Insight)。
+       - 风格：**温暖、接纳、像一位深谙人性的智者好友**。
+       - 目标：鼓励用户表达，确认看见用户的感受。不要高高在上地教导，也不要盲目吹捧。
+       - 格式：如果内容较长，请分段落（使用 \\n\\n）。
+
     4. tomorrowsAdvice: 给明天的建议。请提供具体的指引，并分段落（使用 \\n\\n）使其清晰易读。
-    5. highSelfTraits: 从日记中发现的用户的高我特质/优点 (Array of strings, e.g. ["诚实", "勇敢"])。请同样使用简洁的短语。
+
+    5. highSelfTraits: 从日记中发现的用户的高我特质/优点 (Array of strings)。
+       **严格筛选**：
+       - **禁止**使用"自我觉察"、"内省"、"愿意改变"等词汇（因为写日记本身就代表了这些，说了等于没说）。
+       - 请挖掘更具体的特质（如："诚实面对自我"、"逻辑清晰"、"富有同理心"、"坚韧"、"细腻的感知力"）。
+       - 态度要真诚客观，不要过度溢美（捧杀）。
   `;
 
   try {

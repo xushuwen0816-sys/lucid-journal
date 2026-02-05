@@ -68,3 +68,30 @@ postgresql://[user]:[password]@[region].pooler.supabase.com:5432/postgres
 2.  **Verify Commit:** Is the latest code actually running? (Check Commit SHA).
 3.  **Frontend Error UI:** Don't just say "Failed". Show `err.message` AND the `request.url` in the UI.
     *   Helps distinguish between "Wrong URL" (404) and "Server Error" (500).
+4.  **JSON Parsing Errors:** If you see `SyntaxError: Unexpected end of JSON input`, it usually means the backend returned a non-JSON response (like a 404/500 HTML page or empty body) but the frontend blindly called `res.json()`.
+    *   **Fix:** Always check `if (!res.ok) throw ...` before parsing JSON.
+
+## 6. Local (SQLite) vs Production (Postgres) Coordination
+
+**Context:** Developing locally with SQLite (for speed/simplicity) but deploying to PostgreSQL (Supabase).
+
+*   **Problem:** `schema.prisma` provider conflict.
+    *   Local needs `provider = "sqlite"`.
+    *   Production needs `provider = "postgresql"`.
+    *   Committing one breaks the other.
+*   **Solution: Dynamic Provider Switching Strategy**
+    1.  **Scripting:** Create a script (e.g., `scripts/check-provider.js`) that checks `process.env.DATABASE_URL`.
+        *   If it starts with `postgres`, rewrite `schema.prisma` to use `postgresql`.
+        *   Otherwise, rewrite it to use `sqlite`.
+    2.  **Hooking:** Execute this script **before** any Prisma command in `package.json`.
+        ```json
+        "scripts": {
+          "build": "node scripts/check-provider.js && tsc && npx prisma generate",
+          "dev": "node scripts/check-provider.js && nodemon src/index.ts",
+          "db:push": "node scripts/check-provider.js && npx prisma db push"
+        }
+        ```
+    3.  **Isolation:**
+        *   Git-ignore `.env` and `*.db` files.
+        *   Local `.env`: `DATABASE_URL="file:./dev.db"`
+        *   Production Env: `DATABASE_URL="postgresql://..."`

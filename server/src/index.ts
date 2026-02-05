@@ -3,11 +3,16 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import journalRoutes from './routes/journals';
+import letterRoutes from './routes/letters';
+import { startScheduler } from './services/schedulerService';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
+
+// Start Scheduler
+startScheduler();
 
 app.use(cors({
   origin: '*', // Allow all origins for now (debugging)
@@ -32,6 +37,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/journals', journalRoutes);
+app.use('/api/letters', letterRoutes);
 
 app.get('/', (req, res) => {
   res.status(200).send(`
@@ -59,4 +65,7 @@ app.get('/', (req, res) => {
 
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+}).on('error', (err) => {
+  console.error('Server failed to start:', err);
+  process.exit(1);
 });

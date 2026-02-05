@@ -21,11 +21,12 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
   );
 };
 
-export const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
-  <div onClick={onClick} className={`bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-3xl p-6 transition-all duration-700 hover:bg-white/[0.04] ${className}`}>
+export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode; className?: string; onClick?: () => void }>(({ children, className = '', onClick, ...props }, ref) => (
+  <div ref={ref} onClick={onClick} className={`bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-3xl p-6 transition-all duration-700 hover:bg-white/[0.04] ${className}`} {...props}>
     {children}
   </div>
-);
+));
+Card.displayName = 'Card';
 
 export const LoadingSpinner = () => (
   <div className="flex items-center justify-center space-x-2">
@@ -35,8 +36,8 @@ export const LoadingSpinner = () => (
   </div>
 );
 
-export const SectionTitle: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => (
-  <div className="w-full flex flex-col items-end justify-start mb-2 animate-fade-in select-none pt-1">
+export const SectionTitle: React.FC<{ title: string; subtitle?: string; className?: string }> = ({ title, subtitle, className = '' }) => (
+  <div className={`w-full flex flex-col items-end justify-start mb-2 animate-fade-in select-none pt-1 ${className}`}>
     <h2 className="text-2xl font-light font-serif text-white/90 tracking-wide mb-1 text-right drop-shadow-sm">
       {title}
     </h2>
@@ -53,24 +54,25 @@ export const TabNav: React.FC<{
   tabs: { id: string; label: string; icon?: React.ElementType; badge?: boolean }[]; 
   activeTab: string; 
   onTabChange: (id: any) => void; 
-}> = ({ tabs, activeTab, onTabChange }) => (
-  <div className="flex justify-center mb-2">
-    <div className="flex items-center bg-white/[0.03] p-1.5 rounded-full border border-white/5 backdrop-blur-xl relative shadow-2xl">
+  className?: string;
+}> = ({ tabs, activeTab, onTabChange, className = '' }) => (
+  <div className={`flex justify-center ${className}`}>
+    <div className="flex items-center bg-black/20 p-1.5 rounded-full border border-white/10 backdrop-blur-2xl relative shadow-2xl hover:border-white/20 transition-colors duration-500">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={`
-            relative px-5 py-2 rounded-full text-xs font-serif tracking-widest transition-all duration-500 z-10 flex items-center gap-2 group
-            ${activeTab === tab.id ? 'text-white' : 'text-lucid-dim hover:text-white'}
+            relative px-6 py-2.5 rounded-full text-xs font-serif tracking-widest transition-all duration-300 z-10 flex items-center gap-2 group
+            ${activeTab === tab.id ? 'text-white scale-105 shadow-lg' : 'text-lucid-dim hover:text-white hover:bg-white/5'}
           `}
         >
           {activeTab === tab.id && (
-             <div className="absolute inset-0 bg-white/10 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.05)] border border-white/10 -z-10 animate-fade-in"></div>
+             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.1)] border border-white/10 -z-10 animate-fade-in"></div>
           )}
-          {tab.icon && <tab.icon className={`w-4 h-4 transition-colors duration-300 ${activeTab === tab.id ? 'text-lucid-glow' : 'opacity-50 group-hover:opacity-80'}`} />}
+          {tab.icon && <tab.icon className={`w-4 h-4 transition-colors duration-300 ${activeTab === tab.id ? 'text-lucid-glow drop-shadow-[0_0_8px_rgba(253,186,116,0.5)]' : 'opacity-50 group-hover:opacity-80'}`} />}
           {tab.label}
-          {tab.badge && <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
+          {tab.badge && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]"></div>}
         </button>
       ))}
     </div>

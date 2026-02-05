@@ -60,7 +60,7 @@ export interface TarotCard {
   name: string;
   isReversed: boolean;
   meaning: string;
-  position: 'body' | 'mind' | 'spirit';
+  position: 'body' | 'mind' | 'spirit' | 'oracle';
 }
 
 export interface TarotReading {

@@ -69,4 +69,5 @@ model FutureLetter {
   sendDate     DateTime
   aiReply      String?
   isLocked     Boolean
+  isSent       Boolean  @default(false)
 }

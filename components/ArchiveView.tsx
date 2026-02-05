@@ -2,8 +2,14 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
-import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload, Trash2, Check } from 'lucide-react';
+import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload, Trash2, Check, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { generateFutureLetterReply, generateWeeklyReport } from '../services/geminiService';
+import StatPieChart from './StatPieChart';
+import StatDetailModal from './StatDetailModal';
+import SentimentDetailModal, { processSentimentData } from './SentimentDetailModal';
+import SentimentTrendChart from './SentimentTrendChart';
+import JournalCalendar from './JournalCalendar';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ArchiveViewProps {
   wishes: Wish[];
@@ -116,6 +122,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   });
   const [detailsModal, setDetailsModal] = useState<DetailsType>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedDateForCalendar, setSelectedDateForCalendar] = useState<Date | null>(null);
   
   // --- Letters State ---
   const [letterInput, setLetterInput] = useState('');
@@ -123,6 +130,36 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   const [isSending, setIsSending] = useState(false);
   const [showLetterInput, setShowLetterInput] = useState(false);
   const [selectedLetter, setSelectedLetter] = useState<FutureLetter | null>(null);
+  
+  const { token } = useAuth();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (cardRef.current && !letterInput) {
+      const rect = cardRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const maxRotation = 2;
+      
+      const rotateY = ((x - centerX) / centerX) * maxRotation;
+      const rotateX = -((y - centerY) / centerY) * maxRotation;
+
+      cardRef.current.style.setProperty('--mouse-x', `${x}px`);
+      cardRef.current.style.setProperty('--mouse-y', `${y}px`);
+      cardRef.current.style.setProperty('--rotate-x', `${rotateX}deg`);
+      cardRef.current.style.setProperty('--rotate-y', `${rotateY}deg`);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (cardRef.current) {
+        cardRef.current.style.setProperty('--rotate-x', '0deg');
+        cardRef.current.style.setProperty('--rotate-y', '0deg');
+    }
+  };
 
   // --- Derived Stats for Milestones ---
   const stats = useMemo(() => {
@@ -204,9 +241,17 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
      const uniqueBlocks = Object.keys(blockCounts);
      const uniqueTraits = Object.keys(traitCounts);
      
-     const topEmotions = sortAndSlice(emotionCounts, 10);
-     const topBlocks = sortAndSlice(blockCounts, 10);
-     const topTraits = sortAndSlice(traitCounts, 10);
+     // Convert to array format for charts
+     const allEmotionsList = Object.entries(emotionCounts).map(([name, count]) => ({ name, count }));
+     const allBlocksList = Object.entries(blockCounts).map(([name, count]) => ({ name, count }));
+     const allTraitsList = Object.entries(traitCounts).map(([name, count]) => ({ name, count }));
+     
+     // Process sentiment data for chart (Last 30 days)
+     const sentimentTrendData = processSentimentData(journalEntries, 30);
+
+     const topEmotions = sortAndSlice(emotionCounts, 20);
+     const topBlocks = sortAndSlice(blockCounts, 20);
+     const topTraits = sortAndSlice(traitCounts, 20);
 
      return { 
          totalEntries, 
@@ -218,7 +263,10 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
          topEmotions, // [name, count][]
          topBlocks,   // [name, count][]
          topTraits,   // [name, count][]
-         sentimentData,
+         allEmotionsList,
+         allBlocksList,
+         allTraitsList,
+         sentimentTrendData,
          emotionCountsTotal: Object.values(emotionCounts).reduce((a,b)=>a+b,0),
          blocksCountsTotal: Object.values(blockCounts).reduce((a,b)=>a+b,0),
          traitsCountsTotal: Object.values(traitCounts).reduce((a,b)=>a+b,0),
@@ -533,16 +581,69 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
     const reply = await generateFutureLetterReply(letterInput);
     
-    const newLetter: FutureLetter = {
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      content: letterInput,
-      sendDate: actualUnlockTime,
-      aiReply: reply,
-      isLocked: true 
-    };
+    try {
+        if (token) {
+            // Debug: Log the URL we are trying to hit
+            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const targetUrl = `${baseUrl}/api/letters`;
+            console.log('Attempting to send letter to:', targetUrl);
 
-    onAddLetter(newLetter);
+            const res = await fetch(targetUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    content: letterInput,
+                    sendDate: actualUnlockTime,
+                    aiReply: reply,
+                    isLocked: true 
+                })
+            });
+            
+            if (res.ok) {
+                const savedLetter = await res.json();
+                console.log('Letter saved to server successfully:', savedLetter);
+                onAddLetter({
+                    ...savedLetter,
+                    createdAt: new Date(savedLetter.createdAt).getTime(),
+                    sendDate: new Date(savedLetter.sendDate).getTime()
+                });
+                alert('信件已成功封存，并同步到云端！');
+            } else {
+                 const errorText = await res.text();
+                 console.error('Server responded with error:', res.status, errorText);
+                 throw new Error(`Failed to save to server: ${res.status} ${errorText}`);
+            }
+        } else {
+            // Offline fallback
+            console.warn('No token found, saving locally (offline mode)');
+            const newLetter: FutureLetter = {
+              id: crypto.randomUUID(),
+              createdAt: Date.now(),
+              content: letterInput,
+              sendDate: actualUnlockTime,
+              aiReply: reply,
+              isLocked: true 
+            };
+            onAddLetter(newLetter);
+            alert('注意：由于未登录，信件仅保存在本地，无法发送邮件。');
+        }
+    } catch (e) {
+        console.error("Failed to send letter, falling back to local:", e);
+        alert(`连接服务器失败，信件将仅保存在本地，无法发送邮件。\n错误详情: ${e}`);
+        
+        const newLetter: FutureLetter = {
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+            content: letterInput,
+            sendDate: actualUnlockTime,
+            aiReply: reply,
+            isLocked: true 
+        };
+        onAddLetter(newLetter);
+    }
     
     setLetterInput('');
     setIsSending(false);
@@ -572,7 +673,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
   // --- Sub-components ---
   
-  const JournalCalendar = () => {
+  const JournalCalendar = ({ initialDate }: { initialDate?: Date | null }) => {
       const [selectedEntry, setSelectedEntry] = useState<{ journals: JournalEntry[], ritual?: RitualArchiveEntry, dateStr: string } | null>(null);
       const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -605,6 +706,21 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
           });
           return map;
       }, [journalEntries, ritualEntries]);
+
+      // Initialize selected entry from prop if provided
+      useEffect(() => {
+          if (initialDate) {
+              const dateStr = initialDate.toDateString();
+              const entry = entriesByDay[dateStr];
+              if (entry && (entry.journals.length > 0 || entry.ritual)) {
+                  setSelectedEntry({
+                      journals: entry.journals,
+                      ritual: entry.ritual,
+                      dateStr: initialDate.toLocaleDateString()
+                  });
+              }
+          }
+      }, [initialDate, entriesByDay]);
 
       // Determine range of months to display
       // Default to last 12 months if no data, otherwise from first entry to today
@@ -885,100 +1001,30 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       );
   };
 
-  const SentimentChart = () => {
-      const data = stats.sentimentData;
-      if (data.length < 2) return <p className="text-xs text-stone-500 italic text-center py-4">需要更多日记数据来生成曲线</p>;
 
-      const height = 100;
-      const width = 300; // viewBox width
-      const maxScore = 10;
-      const minScore = 1;
-      
-      const points = data.map((d, i) => {
-          const x = (i / (data.length - 1)) * width;
-          const y = height - ((d.score - minScore) / (maxScore - minScore)) * height;
-          return `${x},${y}`;
-      }).join(' ');
 
-      return (
-          <div className="w-full h-40 relative group">
-              <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-                  <line x1="0" y1="0" x2={width} y2="0" stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
-                  <line x1="0" y1={height/2} x2={width} y2={height/2} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
-                  <line x1="0" y1={height} x2={width} y2={height} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
-                  <polyline
-                      fill="none"
-                      stroke="#FDBA74"
-                      strokeWidth="2"
-                      points={points}
-                      vectorEffect="non-scaling-stroke"
-                      className="drop-shadow-[0_0_10px_rgba(253,186,116,0.3)]"
-                  />
-                  {data.map((d, i) => {
-                       const x = (i / (data.length - 1)) * width;
-                       const y = height - ((d.score - minScore) / (maxScore - minScore)) * height;
-                       return (
-                           <circle 
-                            key={i} 
-                            cx={x} 
-                            cy={y} 
-                            r="3" 
-                            fill="#1C1917" 
-                            stroke="#FDBA74" 
-                            strokeWidth="2"
-                            className="hover:scale-150 transition-transform cursor-pointer"
-                           >
-                               <title>{new Date(d.date).toLocaleDateString()}: {d.emotions.join(', ')}</title>
-                           </circle>
-                       )
-                  })}
-              </svg>
-          </div>
-      );
-  };
 
-  const RankingList = ({ items, colorClass, barColor, emptyText }: { items: [string, number][], colorClass: string, barColor: string, emptyText: string }) => {
-      if (items.length === 0) return <p className="text-stone-500 text-xs italic py-4 text-center">{emptyText}</p>;
-      const max = items[0][1];
-      return (
-          <div className="space-y-3">
-              {items.map(([name, count], i) => (
-                  <div key={i} className="flex items-center gap-3">
-                      <div className="w-8 text-[10px] text-stone-500 text-right font-sans">#{i+1}</div>
-                      <div className="flex-1">
-                          <div className="flex justify-between items-end mb-1">
-                              <span className={`text-xs font-serif ${colorClass}`}>
-                                  {typeof name === 'object' ? JSON.stringify(name) : name}
-                              </span>
-                              <span className="text-[9px] text-stone-600">{count}</span>
-                          </div>
-                          <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full ${barColor} opacity-50`} 
-                                style={{ width: `${(count / max) * 100}%` }}
-                              ></div>
-                          </div>
-                      </div>
-                  </div>
-              ))}
-          </div>
-      );
-  };
 
   return (
     <div className="w-full h-full flex flex-col">
-      <SectionTitle title="我的时空" subtitle="ARCHIVE · 个人状态" />
-
-      <TabNav 
-        activeTab={tab}
-        onTabChange={setTab}
-        tabs={[
-            { id: 'milestones', icon: Zap, label: '生命洞察' },
-            { id: 'letters', icon: Clock, label: '时间胶囊', badge: hasUnlockedLetters },
-            { id: 'wishes', icon: Star, label: '显化列表' },
-            { id: 'library', icon: Type, label: '能量语库' },
-        ]}
-      />
+      <div className="relative w-full flex flex-col md:flex-row items-center justify-center min-h-[60px] mb-6 mt-2 shrink-0">
+        <div className="w-full md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2 md:w-auto z-0 pointer-events-none">
+            <SectionTitle title="我的时空" subtitle="ARCHIVE · 个人状态" className="pr-4 md:pr-0" />
+        </div>
+        
+        <div className="z-10 mt-4 md:mt-0">
+            <TabNav 
+                activeTab={tab}
+                onTabChange={setTab}
+                tabs={[
+                    { id: 'milestones', icon: Zap, label: '生命洞察' },
+                    { id: 'letters', icon: Clock, label: '时间胶囊', badge: hasUnlockedLetters },
+                    { id: 'wishes', icon: Star, label: '显化列表' },
+                    { id: 'library', icon: Type, label: '能量语库' },
+                ]}
+            />
+        </div>
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 custom-scrollbar animate-fade-in pb-20">
         <div className="max-w-5xl mx-auto w-full">
@@ -1054,69 +1100,97 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     <div className="grid md:grid-cols-2 gap-6">
                         
                         {/* 1. Emotion Frequency */}
-                        <Card className="flex flex-col h-full hover:bg-white/[0.03] transition-colors">
+                        <Card onClick={() => setDetailsModal('emotions')} className="flex flex-col h-full hover:bg-white/[0.03] transition-colors cursor-pointer group">
                             <div className="flex items-center justify-between mb-6">
-                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2">
-                                    <Smile className="w-4 h-4 text-lucid-glow" /> 情绪频次 (Top 10)
-                                </h4>
-                            </div>
-                            <RankingList 
-                                items={stats.topEmotions} 
-                                colorClass="text-stone-200" 
-                                barColor="bg-lucid-glow"
-                                emptyText="记录日记以分析情绪模式..."
-                            />
-                        </Card>
-
-                        {/* 2. Sentiment Flow */}
-                        <Card className="flex flex-col h-full hover:bg-white/[0.03] transition-colors">
-                            <div className="flex items-center justify-between mb-6">
-                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4 text-lucid-glow" /> 情绪流动 (Flow)
+                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2 group-hover:text-lucid-glow transition-colors">
+                                    <Smile className="w-4 h-4 text-lucid-glow" /> 情绪频次 (Top 20)
                                 </h4>
                             </div>
                             <div className="flex-1 flex items-center justify-center">
-                                <SentimentChart />
+                                <StatPieChart 
+                                    data={stats.topEmotions.map(([name, value]) => ({ 
+                                        name: typeof name === 'object' ? JSON.stringify(name) : name, 
+                                        value 
+                                    }))} 
+                                />
+                            </div>
+                        </Card>
+
+                        {/* 2. Sentiment Flow */}
+                        <Card onClick={() => setDetailsModal('emotions')} className="flex flex-col h-full hover:bg-white/[0.03] transition-colors cursor-pointer group">
+                            <div className="flex items-center justify-between mb-6">
+                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2 group-hover:text-lucid-glow transition-colors">
+                                    <TrendingUp className="w-4 h-4 text-lucid-glow" /> 情绪流动 (30 Days)
+                                </h4>
+                            </div>
+                            <div className="flex-1 flex items-center justify-center min-h-[160px] pointer-events-none">
+                                <SentimentTrendChart 
+                                    data={stats.sentimentTrendData}
+                                    showXAxis={false}
+                                    showGrid={false}
+                                    onPointClick={(point) => {
+                                        // This click is now handled by the Card's onClick
+                                    }}
+                                />
                             </div>
                         </Card>
 
                         {/* 3. Limiting Beliefs */}
-                        <Card className="flex flex-col h-full hover:bg-white/[0.03] transition-colors">
+                        <Card onClick={() => setDetailsModal('blocks')} className="flex flex-col h-full hover:bg-white/[0.03] transition-colors cursor-pointer group">
                             <div className="flex items-center justify-between mb-6">
-                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4 text-red-400" /> 识别限制性信念 (Top 10)
+                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2 group-hover:text-red-400 transition-colors">
+                                    <AlertCircle className="w-4 h-4 text-red-400" /> 识别限制性信念 (Top 20)
                                 </h4>
                             </div>
-                            <RankingList 
-                                items={stats.topBlocks} 
-                                colorClass="text-red-200" 
-                                barColor="bg-red-500"
-                                emptyText="持续觉察以发现潜意识阻碍..."
-                            />
+                            <div className="flex-1 flex items-center justify-center">
+                                <StatPieChart 
+                                    data={stats.topBlocks.map(([name, value]) => ({ 
+                                        name: typeof name === 'object' ? JSON.stringify(name) : name, 
+                                        value 
+                                    }))} 
+                                    colors={[
+                                        '#F28482', // Soft Red
+                                        '#F4ACB7', // Muted Pink
+                                        '#F7D1CD', // Pale Rose
+                                        '#D4A373', // Warm Beige
+                                        '#E5989B', // Dusty Rose
+                                        '#B5838D', // Old Rose
+                                        '#FFB5A7', // Peach
+                                        '#F4A261', // Soft Orange
+                                        '#E76F51', // Terracotta
+                                        '#C05299', // Muted Magenta
+                                    ]}
+                                />
+                            </div>
                         </Card>
 
                         {/* 4. High Self Traits */}
-                        <Card className="flex flex-col h-full hover:bg-white/[0.03] transition-colors">
+                        <Card onClick={() => setDetailsModal('traits')} className="flex flex-col h-full hover:bg-white/[0.03] transition-colors cursor-pointer group">
                             <div className="flex items-center justify-between mb-6">
-                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2">
-                                    <Star className="w-4 h-4 text-indigo-400" /> 收获高我特质 (Top 10)
+                                <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2 group-hover:text-indigo-400 transition-colors">
+                                    <Star className="w-4 h-4 text-indigo-400" /> 收获高我特质 (Top 20)
                                 </h4>
                             </div>
-                            
-                             {stats.topTraits.length === 0 ? (
-                                <p className="text-stone-500 text-xs italic py-4 text-center">记录日记以发现你的闪光点...</p>
-                             ) : (
-                                <div className="flex flex-wrap gap-2 content-start">
-                                    {stats.topTraits.map(([name, count], i) => (
-                                        <div key={i} className="flex items-center bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1.5 group cursor-default">
-                                            <span className="text-xs text-indigo-200 font-serif mr-2">
-                                                {typeof name === 'object' ? JSON.stringify(name) : name}
-                                            </span>
-                                            <span className="text-[10px] text-indigo-400/60 bg-indigo-500/10 px-1.5 rounded-full">{count}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                             )}
+                            <div className="flex-1 flex items-center justify-center">
+                                <StatPieChart 
+                                    data={stats.topTraits.map(([name, value]) => ({ 
+                                        name: typeof name === 'object' ? JSON.stringify(name) : name, 
+                                        value 
+                                    }))}
+                                    colors={[
+                                        '#A2D2FF', // Baby Blue
+                                        '#BDE0FE', // Pale Blue
+                                        '#8ECAE6', // Sky Blue
+                                        '#219EBC', // Muted Cyan
+                                        '#CDB4DB', // Lavender
+                                        '#FFAFCC', // Soft Pink
+                                        '#6D597A', // Muted Purple
+                                        '#457B9D', // Steel Blue
+                                        '#0077B6', // Ocean Blue
+                                        '#8D99AE', // Blue Grey
+                                    ]}
+                                />
+                            </div>
                         </Card>
                     </div>
 
@@ -1197,7 +1271,22 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
                     {showLetterInput && (
                         <div className="max-w-3xl mx-auto animate-fade-in">
-                            <Card className="border-lucid-glow/20 bg-gradient-to-b from-stone-900/50 to-transparent !p-0 overflow-hidden flex flex-col min-h-[60vh] relative">
+                            <Card 
+                                ref={cardRef}
+                                onMouseMove={handleMouseMove}
+                                onMouseLeave={handleMouseLeave}
+                                style={{
+                                    '--mouse-x': '0px',
+                                    '--mouse-y': '0px',
+                                    '--rotate-x': '0deg',
+                                    '--rotate-y': '0deg',
+                                    transform: letterInput ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
+                                    willChange: 'transform',
+                                } as React.CSSProperties}
+                                className={`border-lucid-glow/20 bg-gradient-to-b from-stone-900/50 to-transparent !p-0 overflow-hidden flex flex-col min-h-[60vh] relative group transition-all duration-200 ease-out ${
+                                    !letterInput ? 'hover:shadow-[0_0_40px_-10px_rgba(255,255,255,0.05)]' : ''
+                                }`}
+                            >
                                 {/* Header */}
                                 <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
                                     <div className="flex items-center gap-2 text-lucid-glow">
@@ -1424,13 +1513,15 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
       {/* MODALS */}
       
-      {/* 1. Details Modal (Milestones) */}
-      <Modal isOpen={!!detailsModal} onClose={() => setDetailsModal(null)} title={
-          detailsModal === 'wishes' ? '所有愿望 All Wishes' :
-          detailsModal === 'journals' ? '觉察记录 Calendar' :
-          detailsModal === 'blocks' ? '清理信念 Cleared Blocks' :
-          detailsModal === 'traits' ? '高我特质 High Self Traits' : ''
-      }>
+      {/* 1. Details Modal (Milestones - Standard Lists) */}
+      <Modal 
+          isOpen={!!detailsModal && ['wishes', 'journals'].includes(detailsModal)} 
+          onClose={() => setDetailsModal(null)} 
+          title={
+              detailsModal === 'wishes' ? '所有愿望 All Wishes' :
+              detailsModal === 'journals' ? '觉察记录 Calendar' : ''
+          }
+      >
           <div className="space-y-4">
               {detailsModal === 'wishes' && wishes.map(w => (
                   <div key={w.id} className="p-4 bg-white/5 rounded-xl border border-white/5">
@@ -1443,48 +1534,39 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
               ))}
               
               {detailsModal === 'journals' && (
-                  <JournalCalendar />
-              )}
-
-              {detailsModal === 'blocks' && (
-                  stats.allBlocksRaw.length > 0 ? stats.allBlocksRaw.map((b, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 rounded-lg border border-red-500/10 group">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
-                        <div className="flex-1">
-                            <span className="text-stone-200 font-serif text-sm">{b.text}</span>
-                            <span className="text-[10px] text-stone-500 block">{new Date(b.date).toLocaleDateString()}</span>
-                        </div>
-                        {onUpdateJournalEntry && (
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteBlock(b.entryId, b.text);
-                                }}
-                                className="p-2 text-stone-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 rounded-full"
-                                title="删除"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                  )) : <p className="text-stone-500 text-center py-4">暂无数据</p>
-              )}
-
-              {detailsModal === 'traits' && (
-                  stats.allTraitsRaw.length > 0 ? stats.allTraitsRaw.map((t, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
-                        <div className="flex-1">
-                            <span className="text-stone-200 font-serif text-sm">{t.text}</span>
-                            <span className="text-[10px] text-stone-500 block">{new Date(t.date).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                  )) : <p className="text-stone-500 text-center py-4">暂无数据</p>
+                  <JournalCalendar initialDate={selectedDateForCalendar} />
               )}
           </div>
       </Modal>
 
-      {/* 2. Wish Detail Modal */}
+      {/* 2. Chart Modals (Emotions, Blocks, Traits) */}
+      <SentimentDetailModal
+        isOpen={detailsModal === 'emotions'}
+        onClose={() => setDetailsModal(null)}
+        entries={journalEntries}
+        onDateSelect={(date) => {
+            setSelectedDateForCalendar(date);
+            setDetailsModal('journals');
+        }}
+      />
+
+      <StatDetailModal
+        isOpen={detailsModal === 'blocks'}
+        onClose={() => setDetailsModal(null)}
+        title="信念清理记录 · Cleared Blocks"
+        data={stats.allBlocksList}
+        color="#EF4444"
+      />
+
+      <StatDetailModal
+        isOpen={detailsModal === 'traits'}
+        onClose={() => setDetailsModal(null)}
+        title="高我特质整合 · Integrated Traits"
+        data={stats.allTraitsList}
+        color="#818CF8"
+      />
+
+      {/* 3. Wish Detail Modal */}
       <Modal 
          isOpen={!!selectedWish} 
          onClose={() => setSelectedWish(null)}

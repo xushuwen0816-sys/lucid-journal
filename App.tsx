@@ -175,12 +175,21 @@ const App: React.FC = () => {
   // Sync Data on Login
   useEffect(() => {
     if (user && token) {
+      // Use empty string to let Vite proxy handle /api requests
       const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      console.log('Syncing journals from:', `${baseUrl}/api/journals`);
+      
       fetch(`${baseUrl}/api/journals`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch');
+        if (!res.ok) {
+            console.error('Sync failed status:', res.status, res.statusText);
+            // Don't throw for 404/401, just handle gracefully
+            if (res.status === 404) return [];
+            throw new Error(`Failed to fetch: ${res.status}`);
+        }
         return res.json();
       })
       .then(data => {
@@ -191,7 +200,10 @@ const App: React.FC = () => {
             })));
         }
       })
-      .catch(err => console.error("Sync failed", err));
+      .catch(err => {
+          // Suppress the error if it's just a connection issue during dev
+          console.warn("Sync warning (offline or server down):", err.message);
+      });
     }
   }, [user, token]);
 
