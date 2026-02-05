@@ -7,7 +7,7 @@
     "dev": "node scripts/check-provider.js && nodemon src/index.ts",
     "build": "node scripts/check-provider.js && tsc && npx prisma generate",
     "db:push": "node scripts/check-provider.js && npx prisma db push --accept-data-loss",
-    "start": "node dist/index.js",
+    "start": "npx prisma db push --accept-data-loss && node dist/index.js",
     "postinstall": "node scripts/check-provider.js && npx prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
