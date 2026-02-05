@@ -1168,11 +1168,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                             {/* REDESIGNED BUTTON: TIME CAPSULE CARD */}
                             <button
                                onClick={() => setShowLetterInput(true)}
-                               className="relative group w-full max-w-sm px-8 py-6 rounded-3xl overflow-hidden transition-all duration-700 hover:scale-[1.02] active:scale-95"
+                               className="relative group w-full max-w-sm px-8 py-6 rounded-3xl transition-all duration-700 hover:scale-[1.02] active:scale-95"
                             >
+                               {/* Glow Effect */}
+                               <div className="absolute -inset-0.5 bg-lucid-glow/30 opacity-0 group-hover:opacity-100 blur-md transition-opacity duration-500 rounded-3xl"></div>
+                               
                                {/* Backgrounds */}
-                               <div className="absolute inset-0 bg-gradient-to-br from-stone-800 to-stone-950 border border-white/10 opacity-90 backdrop-blur-xl group-hover:border-lucid-glow/30 transition-colors" />
-                               <div className="absolute -inset-1 bg-gradient-to-r from-lucid-glow/0 via-lucid-glow/10 to-lucid-glow/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-1000" />
+                               <div className="absolute inset-0 bg-gradient-to-br from-stone-800 to-stone-950 border border-white/10 opacity-90 backdrop-blur-xl group-hover:border-lucid-glow/30 transition-colors rounded-3xl" />
                                
                                {/* Content */}
                                <div className="relative z-10 flex flex-col items-center gap-3">

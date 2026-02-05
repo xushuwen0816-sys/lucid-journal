@@ -3,11 +3,11 @@ import React, { useEffect } from 'react';
 import { X, Disc, Volume2, SkipBack, Play, Pause, SkipForward } from 'lucide-react';
 
 export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'glass' | 'outline' }> = ({ className = '', variant = 'primary', ...props }) => {
-  const baseStyles = "px-6 py-2.5 rounded-2xl font-serif text-sm tracking-wider transition-all duration-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden";
+  const baseStyles = "px-6 py-3.5 rounded-2xl font-serif text-sm tracking-wider transition-all duration-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden";
   
   const variants = {
-    // Warm gradient: Orange to Rose
-    primary: "bg-gradient-to-r from-orange-500/80 to-rose-400/80 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:brightness-105",
+    // Warm gradient: Orange to Rose (Soft Sunset)
+    primary: "bg-gradient-to-r from-orange-500 to-rose-400 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:brightness-110 font-medium",
     // Minimalist text
     ghost: "bg-transparent text-lucid-dim hover:text-white hover:bg-white/5",
     // Clean glass

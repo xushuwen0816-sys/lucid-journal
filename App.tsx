@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight, Server } from 'lucide-react';
+import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight, Server, Settings, LogOut, ChevronUp, ChevronDown } from 'lucide-react';
 
 // Components
 import IntentView from './components/IntentView';
@@ -15,12 +15,16 @@ import { AuthModal } from './components/AuthModal';
 // Services
 import { setAiConfig, hasApiKey, checkConnection } from './services/geminiService';
 
-const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
+const DEFAULT_PROXY = import.meta.env.VITE_DEFAULT_PROXY_URL || '';
+const DEFAULT_API_KEY = import.meta.env.VITE_DEFAULT_API_KEY || '';
 
 const App: React.FC = () => {
   const { user, token, logout } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   
   // Provider Selection: 'gemini' or 'siliconflow'
   const [provider, setProvider] = useState<'gemini' | 'siliconflow'>(() => {
@@ -64,14 +68,17 @@ const App: React.FC = () => {
   // Handle Input Changes with Persistence
   const handleKeyChange = (val: string) => {
       setApiKeyInput(val);
-      if (provider === 'gemini') {
-          setGeminiKey(val);
-          localStorage.setItem('lucid_key_gemini', val);
-          // Legacy support (optional, but keeps older versions working if downgraded)
-          localStorage.setItem('lucid_api_key', val);
-      } else {
-          setSiliconflowKey(val);
-          localStorage.setItem('lucid_key_siliconflow', val);
+      // Only persist to localStorage if it's NOT the default key
+      // This prevents the default key from being written to user's storage
+      if (val !== DEFAULT_API_KEY) {
+          if (provider === 'gemini') {
+              setGeminiKey(val);
+              localStorage.setItem('lucid_key_gemini', val);
+              localStorage.setItem('lucid_api_key', val);
+          } else {
+              setSiliconflowKey(val);
+              localStorage.setItem('lucid_key_siliconflow', val);
+          }
       }
   };
 
@@ -91,6 +98,14 @@ const App: React.FC = () => {
       if (stored && stored !== '') return stored;
       return DEFAULT_PROXY;
   });
+  
+  // Always force proxy to be true and use the default URL unless specifically overridden
+  useEffect(() => {
+      setUseProxy(true);
+      if (DEFAULT_PROXY && (!proxyUrlInput || proxyUrlInput === 'https://empty-feather-566a.xushuwen0816.workers.dev')) {
+          setProxyUrlInput(DEFAULT_PROXY);
+      }
+  }, []);
   
   // Connection Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -182,8 +197,64 @@ const App: React.FC = () => {
     return useProxy ? (proxyUrlInput.trim() || DEFAULT_PROXY) : '';
   };
 
-  const handleStartSystem = () => {
+  // Sync user profile from DB to inputs
+  useEffect(() => {
+      if (user) {
+          if (user.name) setUserNameInput(user.name);
+          
+          let effectiveKey = user.apiKey;
+          if ((!effectiveKey || effectiveKey.length < 5) && DEFAULT_API_KEY) {
+              effectiveKey = DEFAULT_API_KEY;
+          }
+
+          setApiKeyInput(effectiveKey);
+          
+          if (user.provider === 'siliconflow') {
+              setSiliconflowKey(effectiveKey);
+              setProvider('siliconflow');
+          } else {
+              setGeminiKey(effectiveKey);
+              setProvider('gemini');
+          }
+          
+          if (user.proxyUrl) setProxyUrlInput(user.proxyUrl);
+          if (user.provider) setProvider(user.provider as any);
+
+          // Auto-authorize if user has a name and valid key (which they should have by default now)
+          if (user.name && effectiveKey.length > 5) {
+               setAiConfig(effectiveKey, user.name, user.proxyUrl || DEFAULT_PROXY, (user.provider as any) || 'gemini');
+               setIsAuthorized(true);
+          }
+      }
+  }, [user]);
+
+  const updateProfile = async () => {
+    if (!user || !token) return;
+    try {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        await fetch(`${baseUrl}/api/auth/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                name: userNameInput,
+                apiKey: apiKeyInput,
+                proxyUrl: proxyUrlInput,
+                provider: provider
+            })
+        });
+    } catch (e) {
+        console.error("Failed to update profile", e);
+    }
+  };
+
+  const handleStartSystem = async () => {
     if (apiKeyInput.trim().length > 5) {
+      if (user) {
+          await updateProfile();
+      }
       setAiConfig(apiKeyInput.trim(), userNameInput.trim(), getEffectiveBaseUrl(), provider);
       setIsAuthorized(true);
     }
@@ -364,8 +435,90 @@ const App: React.FC = () => {
   ];
 
   if (!isAuthorized) {
+    if (!user) {
+      return (
+        <div className="min-h-screen text-lucid-text font-serif bg-lucid-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+           <div className="absolute inset-0 pointer-events-none">
+               <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-[#3F2E26] rounded-full blur-[150px] opacity-30 animate-pulse-slow"></div>
+               <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-[#4C3A35] rounded-full blur-[120px] opacity-20"></div>
+           </div>
+
+           <div className="z-10 w-full max-w-md space-y-8 text-center animate-fade-in">
+               <div className="flex flex-col items-center gap-4">
+                   <div className="w-16 h-16 rounded-full bg-lucid-glow/10 flex items-center justify-center shadow-[0_0_30px_rgba(253,186,116,0.15)] border border-lucid-glow/20">
+                      <Sparkles className="w-8 h-8 text-lucid-glow" />
+                   </div>
+                   <h1 className="text-3xl font-serif text-white tracking-widest">LUCID · 澄</h1>
+                   <p className="text-lucid-dim font-sans text-sm tracking-widest uppercase">潜意识操作系统</p>
+               </div>
+
+               <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl space-y-6 text-left">
+                   <div className="flex flex-col gap-4">
+                     <Button 
+                        onClick={() => {
+                            setAuthModalMode('login');
+                            setIsAuthModalOpen(true);
+                        }}
+                        variant="primary" 
+                        className="w-full rounded-xl py-4 text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
+                     >
+                        登录 Login
+                     </Button>
+                     
+                     <button 
+                       onClick={() => {
+                            setAuthModalMode('register');
+                            setIsAuthModalOpen(true);
+                       }}
+                       className="w-full py-3.5 rounded-2xl border border-orange-400/30 bg-gradient-to-r from-orange-400/10 to-rose-400/10 hover:from-orange-400/20 hover:to-rose-400/20 text-orange-100 hover:text-white transition-all text-sm tracking-widest font-serif font-medium relative z-50 cursor-pointer shadow-lg shadow-orange-900/10"
+                     >
+                       注册 Register
+                     </button>
+                   </div>
+               </div>
+           </div>
+           <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} initialView={authModalMode} />
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen text-lucid-text font-serif bg-lucid-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+         <div className="absolute top-4 right-4 z-50">
+             <div className="relative">
+                 <button 
+                     onClick={() => setShowUserMenu(!showUserMenu)}
+                     className="text-stone-500 hover:text-white transition-colors text-xs flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/5 bg-black/20 hover:bg-white/10"
+                 >
+                     <span>{user.name || user.email.split('@')[0]}</span>
+                     {showUserMenu ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                 </button>
+                 
+                 {showUserMenu && (
+                     <div className="absolute top-full right-0 mt-2 w-48 bg-[#1C1917] border border-white/10 rounded-xl shadow-xl overflow-hidden animate-fade-in flex flex-col z-[60]">
+                         <button 
+                            onClick={() => {
+                                setIsAuthorized(false);
+                                setShowUserMenu(false);
+                            }}
+                            className="text-left px-4 py-3 text-xs text-stone-400 hover:text-white hover:bg-white/5 flex items-center gap-2"
+                         >
+                             <Settings className="w-3 h-3" /> 修改配置
+                         </button>
+                         <button 
+                            onClick={() => {
+                                logout();
+                                setShowUserMenu(false);
+                            }}
+                            className="text-left px-4 py-3 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/5"
+                         >
+                             <LogOut className="w-3 h-3" /> 退出登录
+                         </button>
+                     </div>
+                 )}
+             </div>
+         </div>
+
          <div className="absolute inset-0 pointer-events-none">
              <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-[#3F2E26] rounded-full blur-[150px] opacity-30 animate-pulse-slow"></div>
              <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-[#4C3A35] rounded-full blur-[120px] opacity-20"></div>
@@ -377,7 +530,7 @@ const App: React.FC = () => {
                     <Sparkles className="w-8 h-8 text-lucid-glow" />
                  </div>
                  <h1 className="text-3xl font-serif text-white tracking-widest">LUCID · 澄</h1>
-                 <p className="text-lucid-dim font-sans text-sm tracking-widest uppercase">潜意识操作系统</p>
+                 <p className="text-lucid-dim font-sans text-sm tracking-widest uppercase">个人信息配置 Setup Profile</p>
              </div>
 
              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl space-y-6 text-left">
@@ -395,139 +548,153 @@ const App: React.FC = () => {
                      />
                  </div>
                  
-                 {/* Provider Selection */}
-                 <div className="space-y-3 pt-2 border-t border-white/5">
-                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
-                         <Server className="w-3 h-3" /> 模型服务商 Provider
-                     </label>
-                     <div className="grid grid-cols-2 gap-2 bg-black/20 p-1 rounded-xl">
-                         <button
-                            onClick={() => setProvider('gemini')}
-                            className={`py-2 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'gemini' ? 'bg-lucid-glow text-black shadow-lg' : 'text-stone-400 hover:text-white'}`}
-                         >
-                             Google Gemini
-                         </button>
-                         <button
-                            onClick={() => setProvider('siliconflow')}
-                            className={`py-2 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'siliconflow' ? 'bg-indigo-500 text-white shadow-lg' : 'text-stone-400 hover:text-white'}`}
-                         >
-                             硅基流动 (SiliconFlow)
-                         </button>
-                     </div>
-                 </div>
-
                  <div className="space-y-2">
-                     <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                            <Key className="w-3 h-3" /> API 密钥 ({provider === 'gemini' ? 'Gemini' : 'SiliconFlow'} Key)
-                         </div>
-                     </label>
-                     <input 
-                        type="password"
-                        value={apiKeyInput}
-                        onChange={(e) => handleKeyChange(e.target.value)}
-                        placeholder={provider === 'gemini' ? "粘贴 AIzaSy... 开头的密钥" : "粘贴 sk-... 开头的 SiliconFlow 密钥"}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
-                     />
-                     <p className="text-[10px] text-stone-500 leading-relaxed">
-                         {provider === 'gemini' 
-                            ? <span>* 请前往 Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline">申请 Key</a></span>
-                            : <span>* 请前往 硅基流动官网 <a href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">申请 Key</a></span>
-                         }
-                         <span className="ml-1">密钥仅存储在本地。</span>
-                     </p>
-                 </div>
-
-                 {/* Universal Proxy Toggle - Logic Adjusted for SiliconFlow */}
-                 <div 
-                    onClick={() => {
-                        // Only allow toggling if provider is Gemini
-                        if (provider === 'gemini') {
-                            setUseProxy(!useProxy);
-                        }
-                    }}
-                    className={`
-                        relative flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer group
-                        ${provider === 'gemini' && useProxy 
-                            ? 'bg-gradient-to-r from-orange-900/20 to-rose-900/20 border-lucid-glow/30' 
-                            : 'bg-white/[0.03] border-white/5'
-                        }
-                        ${provider !== 'gemini' ? 'opacity-60 cursor-default' : 'hover:bg-white/[0.05]'}
-                    `}
-                 >
-                     <div className="flex items-center gap-3">
-                         <div className={`p-2 rounded-full ${provider === 'gemini' && useProxy ? 'bg-lucid-glow text-black' : 'bg-white/10 text-stone-400'}`}>
-                             <Globe className="w-4 h-4" />
-                         </div>
-                         <div className="flex flex-col">
-                             <span className={`text-sm font-serif tracking-wide ${provider === 'gemini' && useProxy ? 'text-white' : 'text-stone-400'}`}>
-                                 {provider === 'siliconflow' ? 'SiliconFlow 直连模式 (无需代理)' : (useProxy ? '国内访问加速 / 自定义代理' : '海外直连模式')}
-                             </span>
-                             <span className="text-[10px] text-stone-500 font-sans">
-                                 {provider === 'siliconflow' 
-                                    ? 'Connecting directly to api.siliconflow.cn' 
-                                    : (useProxy ? 'Using Custom Base URL' : 'Direct Connection')
-                                 }
-                             </span>
-                         </div>
-                     </div>
-                     
-                     <div>
-                         {provider === 'gemini' ? (
-                             useProxy ? (
-                                 <ToggleRight className="w-8 h-8 text-lucid-glow transition-all" />
-                             ) : (
-                                 <ToggleLeft className="w-8 h-8 text-stone-600 transition-all" />
-                             )
-                         ) : (
-                             <div className="w-8 h-8"></div>
-                         )}
-                     </div>
-                 </div>
-
-                 {/* Proxy URL Input (Only visible when Proxy is enabled and provider is Gemini) */}
-                 {provider === 'gemini' && useProxy && (
-                    <div className="space-y-2 animate-fade-in bg-black/20 p-3 rounded-xl border border-white/5">
-                         <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
-                             <LinkIcon className="w-3 h-3" /> 代理地址 Proxy URL
-                         </label>
-                         <input 
-                            type="text"
-                            value={proxyUrlInput}
-                            onChange={(e) => setProxyUrlInput(e.target.value)}
-                            placeholder="例如: https://your-worker.workers.dev"
-                            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
-                         />
-                         <p className="text-[10px] text-stone-500 leading-relaxed">
-                            * 默认使用公共代理 (可能不稳定)。<br/>
-                            * 建议使用 Cloudflare Workers 搭建私有代理。<br/>
-                            * 如果使用 Vercel/Next.js 部署，可填写 API 路由地址。
-                         </p>
-                    </div>
-                 )}
-                 
-                 {/* Connection Info Display - REMOVED TARGET URL FOR SILICONFLOW */}
-
-                 <div className="flex justify-end mt-2">
                      <button 
-                        onClick={handleTestConnection}
-                        disabled={isTesting || apiKeyInput.length < 5}
-                        className="text-[10px] flex items-center gap-1 bg-white/5 px-2 py-1 rounded hover:bg-white/10 text-stone-400 hover:text-white transition-colors disabled:opacity-50"
+                        onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+                        className="text-xs text-stone-500 hover:text-stone-300 flex items-center gap-2 transition-colors w-full justify-between"
                      >
-                        {isTesting ? <LoadingSpinner /> : <Wifi className="w-3 h-3" />}
-                        {isTesting ? '连接中...' : '测试连通性'}
+                         <div className="flex items-center gap-2 font-bold uppercase tracking-wider">
+                             <Settings className="w-3 h-3" /> 高级配置 (API Key / 代理)
+                         </div>
+                         {showAdvancedConfig ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                      </button>
                  </div>
 
-                 {testResult === 'success' && (
-                     <div className="text-[10px] text-emerald-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-emerald-500/10 py-1 rounded">
-                         <CheckCircle className="w-3 h-3" /> 连接成功！信号满格，可以启动。
+                 {showAdvancedConfig && (
+                 <div className="space-y-4 pt-4 animate-fade-in">
+                     {/* Provider Selection */}
+                     <div className="space-y-3 pt-2 border-t border-white/5">
+                         <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
+                             <Server className="w-3 h-3" /> 模型服务商 Provider
+                         </label>
+                         <div className="grid grid-cols-2 gap-2 bg-black/20 p-1 rounded-xl">
+                             <button
+                                onClick={() => setProvider('gemini')}
+                                className={`py-2 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'gemini' ? 'bg-lucid-glow text-black shadow-lg' : 'text-stone-400 hover:text-white'}`}
+                             >
+                                 Google Gemini
+                             </button>
+                             <button
+                                onClick={() => setProvider('siliconflow')}
+                                className={`py-2 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'siliconflow' ? 'bg-indigo-500 text-white shadow-lg' : 'text-stone-400 hover:text-white'}`}
+                             >
+                                 硅基流动 (SiliconFlow)
+                             </button>
+                         </div>
                      </div>
-                 )}
-                 {testResult === 'error' && (
-                     <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-rose-500/10 py-1 rounded">
-                         <AlertTriangle className="w-3 h-3" /> {errorMessage || "连接失败。请检查密钥是否正确。"}
+
+                     <div className="space-y-2">
+                         <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                                <Key className="w-3 h-3" /> API 密钥 ({provider === 'gemini' ? 'Gemini' : 'SiliconFlow'} Key)
+                             </div>
+                         </label>
+                         <input 
+                           type="password"
+                           value={apiKeyInput === DEFAULT_API_KEY ? '' : apiKeyInput}
+                           onChange={(e) => handleKeyChange(e.target.value)}
+                           placeholder={
+                               apiKeyInput === DEFAULT_API_KEY && DEFAULT_API_KEY.length > 0 
+                                   ? "已使用默认配置 (安全隐藏)" 
+                                   : (provider === 'gemini' ? "粘贴 AIzaSy... 开头的密钥" : "粘贴 sk-... 开头的 SiliconFlow 密钥")
+                           }
+                           className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
+                        />
+                         <p className="text-[10px] text-stone-500 leading-relaxed">
+                             {provider === 'gemini' 
+                                ? <span>* 请前往 Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline">申请 Key</a></span>
+                                : <span>* 请前往 硅基流动官网 <a href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">申请 Key</a></span>
+                             }
+                             <span className="ml-1">密钥将绑定到您的账号。</span>
+                         </p>
                      </div>
+
+                     {/* Universal Proxy Toggle - Logic Adjusted for SiliconFlow */}
+                     <div 
+                        onClick={() => {
+                            // Only allow toggling if provider is Gemini
+                            if (provider === 'gemini') {
+                                setUseProxy(!useProxy);
+                            }
+                        }}
+                        className={`
+                            relative flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer group
+                            ${provider === 'gemini' && useProxy 
+                                ? 'bg-gradient-to-r from-orange-900/20 to-rose-900/20 border-lucid-glow/30' 
+                                : 'bg-white/[0.03] border-white/5'
+                            }
+                            ${provider !== 'gemini' ? 'opacity-60 cursor-default' : 'hover:bg-white/[0.05]'}
+                        `}
+                     >
+                         <div className="flex items-center gap-3">
+                             <div className={`p-2 rounded-full ${provider === 'gemini' && useProxy ? 'bg-lucid-glow text-black' : 'bg-white/10 text-stone-400'}`}>
+                                 <Globe className="w-4 h-4" />
+                             </div>
+                             <div className="flex flex-col">
+                                 <span className={`text-sm font-serif tracking-wide ${provider === 'gemini' && useProxy ? 'text-white' : 'text-stone-400'}`}>
+                                     {provider === 'siliconflow' ? 'SiliconFlow 直连模式 (无需代理)' : (useProxy ? '国内访问加速 / 自定义代理' : '海外直连模式')}
+                                 </span>
+                             </div>
+                         </div>
+                         
+                         <div>
+                             {provider === 'gemini' ? (
+                                 useProxy ? (
+                                     <ToggleRight className="w-8 h-8 text-lucid-glow transition-all" />
+                                 ) : (
+                                     <ToggleLeft className="w-8 h-8 text-stone-600 transition-all" />
+                                 )
+                             ) : (
+                                 <div className="w-8 h-8"></div>
+                             )}
+                         </div>
+                     </div>
+
+                     {/* Proxy URL Input (Only visible when Proxy is enabled and provider is Gemini) */}
+                     {provider === 'gemini' && useProxy && (
+                        <div className="space-y-2 animate-fade-in bg-black/20 p-3 rounded-xl border border-white/5">
+                             <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
+                                 <LinkIcon className="w-3 h-3" /> 代理地址 Proxy URL
+                             </label>
+                             <input 
+                               type="text"
+                               value={proxyUrlInput === DEFAULT_PROXY ? '' : proxyUrlInput}
+                               onChange={(e) => setProxyUrlInput(e.target.value)}
+                               placeholder={
+                                   proxyUrlInput === DEFAULT_PROXY && DEFAULT_PROXY.length > 0
+                                       ? "已使用默认配置 (安全隐藏)"
+                                       : "例如: https://your-worker.workers.dev"
+                               }
+                               className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
+                            />
+                             <p className="text-[10px] text-stone-500 leading-relaxed">
+                                * 建议使用 <a href="https://workers.cloudflare.com/" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline">Cloudflare Workers</a> 搭建私有代理。
+                             </p>
+                        </div>
+                     )}
+                     
+                     <div className="flex justify-end mt-2">
+                         <button 
+                            onClick={handleTestConnection}
+                            disabled={isTesting || apiKeyInput.length < 5}
+                            className="text-[10px] flex items-center gap-1 bg-white/5 px-2 py-1 rounded hover:bg-white/10 text-stone-400 hover:text-white transition-colors disabled:opacity-50"
+                         >
+                            {isTesting ? <LoadingSpinner /> : <Wifi className="w-3 h-3" />}
+                            {isTesting ? '连接中...' : '测试连通性'}
+                         </button>
+                     </div>
+
+                     {testResult === 'success' && (
+                         <div className="text-[10px] text-emerald-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-emerald-500/10 py-1 rounded">
+                             <CheckCircle className="w-3 h-3" /> 连接成功！信号满格，可以启动。
+                         </div>
+                     )}
+                     {testResult === 'error' && (
+                         <div className="text-[10px] text-rose-400 flex items-center gap-1 animate-fade-in mt-2 justify-center bg-rose-500/10 py-1 rounded">
+                             <AlertTriangle className="w-3 h-3" /> {errorMessage || "连接失败。请检查密钥是否正确。"}
+                         </div>
+                     )}
+                 </div>
                  )}
                  
                  <div className="flex flex-col gap-3">
@@ -540,27 +707,16 @@ const App: React.FC = () => {
                       启动 LUCID 系统 <ArrowRight className="w-4 h-4 ml-2" />
                    </Button>
                    
-                   {!user ? (
-                     <button 
-                       onClick={() => setIsAuthModalOpen(true)}
-                       className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white transition-all text-xs tracking-wider uppercase font-medium flex items-center justify-center gap-2 relative z-50 cursor-pointer"
-                     >
-                       <User size={14} />
-                       Login / Register
-                     </button>
-                   ) : (
-                     <div className="w-full py-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs tracking-wider flex items-center justify-between px-4 relative z-50">
-                       <span className="flex items-center gap-2">
-                         <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
-                         {user.email.split('@')[0]}
-                       </span>
-                       <button onClick={logout} className="hover:text-white transition-colors cursor-pointer">Sign Out</button>
-                     </div>
-                   )}
+                   <div className="w-full py-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs tracking-wider flex items-center justify-between px-4 relative z-50 hidden">
+                     <span className="flex items-center gap-2">
+                       <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                       {user.email.split('@')[0]}
+                     </span>
+                     <button onClick={logout} className="hover:text-white transition-colors cursor-pointer">Sign Out</button>
+                   </div>
                  </div>
              </div>
          </div>
-         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </div>
     );
   }
@@ -575,7 +731,7 @@ const App: React.FC = () => {
 
       <main className="relative z-10 h-screen flex flex-col md:flex-row">
         
-        <nav className="order-2 md:order-1 w-full md:w-28 flex md:flex-col items-center md:items-center justify-between md:justify-start py-4 md:py-8 z-50 transition-all duration-300 md:border-r border-white/5 bg-white/[0.01] backdrop-blur-md flex-shrink-0">
+        <nav className="order-2 md:order-1 w-full md:w-24 flex md:flex-col items-center md:items-center justify-between md:justify-start py-4 md:py-8 z-50 transition-all duration-300 md:border-r border-white/5 bg-white/[0.01] backdrop-blur-md flex-shrink-0">
            
            <div 
              className="hidden md:flex flex-col items-center mb-10 opacity-90 hover:opacity-100 transition-opacity cursor-pointer"

@@ -3,6 +3,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 interface User {
   id: string;
   email: string;
+  name?: string;
+  apiKey?: string;
+  proxyUrl?: string;
+  provider?: string;
 }
 
 interface AuthContextType {

@@ -2,10 +2,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// NOTE: Provider is set to "sqlite" for local development. 
+// Change to "postgresql" for production/Supabase deployment.
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -13,6 +14,11 @@ model User {
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+
+  name         String?
+  apiKey       String?
+  proxyUrl     String?
+  provider     String?  @default("gemini")
   
   wishes       Wish[]
   journals     JournalEntry[]
