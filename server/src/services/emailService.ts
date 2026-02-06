@@ -82,9 +82,9 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
                 servername: originalHost,
                 rejectUnauthorized: false,
               },
-              connectionTimeout: 5000, // Reduced to 5s for faster failover
-              greetingTimeout: 3000,
-              socketTimeout: 10000
+              connectionTimeout: 20000, // Increased to 20s
+              greetingTimeout: 20000,
+              socketTimeout: 30000
             } as nodemailer.TransportOptions);
 
             const info = await transporter.sendMail({

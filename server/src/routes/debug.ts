@@ -3,9 +3,73 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { sendEmail } from '../services/emailService';
 import { generateFutureLetterEmail } from '../services/emailTemplates';
+import net from 'net';
+import dns from 'dns';
+import { promisify } from 'util';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const resolve4 = promisify(dns.resolve4);
+
+// Connectivity Test Endpoint
+router.get('/connectivity-check', async (req, res) => {
+    const host = process.env.SMTP_HOST || 'smtp.ethereal.email';
+    const results: any = { host };
+    
+    try {
+        // 1. DNS Resolution
+        const ips = await resolve4(host);
+        results.dns = { status: 'ok', ips };
+
+        if (ips.length > 0) {
+            const targetIp = ips[0];
+            results.targetIp = targetIp;
+
+            // 2. TCP Connect Test (Port 465)
+            results.port465 = await checkConnection(targetIp, 465);
+            
+            // 3. TCP Connect Test (Port 587)
+            results.port587 = await checkConnection(targetIp, 587);
+        }
+    } catch (e: any) {
+        results.dns = { status: 'error', message: e.message };
+    }
+
+    res.json(results);
+});
+
+function checkConnection(host: string, port: number): Promise<any> {
+    return new Promise((resolve) => {
+        const start = Date.now();
+        const socket = new net.Socket();
+        let status = 'pending';
+
+        socket.setTimeout(5000); // 5s timeout for check
+
+        socket.on('connect', () => {
+            status = 'connected';
+            socket.destroy();
+            resolve({ status: 'open', timeMs: Date.now() - start });
+        });
+
+        socket.on('timeout', () => {
+            status = 'timeout';
+            socket.destroy();
+            resolve({ status: 'timeout', timeMs: Date.now() - start });
+        });
+
+        socket.on('error', (err) => {
+            status = 'error';
+            resolve({ status: 'closed', error: err.message, timeMs: Date.now() - start });
+        });
+
+        try {
+            socket.connect(port, host);
+        } catch (e: any) {
+             resolve({ status: 'failed_init', error: e.message });
+        }
+    });
+}
 
 // Debug endpoint to manually force check and send letters
 router.get('/force-send', async (req, res) => {
