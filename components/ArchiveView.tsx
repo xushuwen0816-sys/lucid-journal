@@ -626,6 +626,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
     const reply = await generateFutureLetterReply(letterInput);
     
+    // Generate ID for the new letter
+    const newLetterId = crypto.randomUUID();
+
     try {
         if (token) {
             // Debug: Log the URL we are trying to hit
@@ -640,6 +643,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    id: newLetterId,
                     content: letterInput,
                     sendDate: actualUnlockTime,
                     aiReply: reply,
