@@ -109,6 +109,7 @@ const App: React.FC = () => {
   
   // Connection Test State
   const [isTesting, setIsTesting] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
@@ -267,11 +268,16 @@ const App: React.FC = () => {
 
   const handleStartSystem = async () => {
     if (apiKeyInput.trim().length > 5) {
-      if (user) {
-          await updateProfile();
+      setIsStarting(true);
+      try {
+        if (user) {
+            await updateProfile();
+        }
+        setAiConfig(apiKeyInput.trim(), userNameInput.trim(), getEffectiveBaseUrl(), provider);
+        setIsAuthorized(true);
+      } finally {
+        setIsStarting(false);
       }
-      setAiConfig(apiKeyInput.trim(), userNameInput.trim(), getEffectiveBaseUrl(), provider);
-      setIsAuthorized(true);
     }
   };
 
@@ -716,6 +722,7 @@ const App: React.FC = () => {
                    <Button 
                       onClick={handleStartSystem} 
                       disabled={apiKeyInput.length < 5}
+                      loading={isStarting}
                       variant="primary" 
                       className="w-full rounded-xl py-4 text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
                    >

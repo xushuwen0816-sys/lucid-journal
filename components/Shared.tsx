@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { X, Disc, Volume2, SkipBack, Play, Pause, SkipForward } from 'lucide-react';
 
-export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'glass' | 'outline' }> = ({ className = '', variant = 'primary', ...props }) => {
+export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'glass' | 'outline'; loading?: boolean }> = ({ className = '', variant = 'primary', loading = false, children, disabled, ...props }) => {
   const baseStyles = "px-6 py-3.5 rounded-2xl font-serif text-sm tracking-wider transition-all duration-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden";
   
   const variants = {
@@ -16,8 +16,12 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
     outline: "border border-white/10 text-lucid-glow hover:bg-white/5"
   };
 
+  const spinnerColor = variant === 'primary' ? 'bg-white/80' : 'bg-lucid-glow/50';
+
   return (
-    <button className={`${baseStyles} ${variants[variant]} ${className}`} {...props} />
+    <button disabled={disabled || loading} className={`${baseStyles} ${variants[variant]} ${className}`} {...props}>
+      {loading ? <LoadingSpinner className={spinnerColor} /> : children}
+    </button>
   );
 };
 
@@ -28,11 +32,11 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
 ));
 Card.displayName = 'Card';
 
-export const LoadingSpinner = () => (
+export const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "bg-lucid-glow/50" }) => (
   <div className="flex items-center justify-center space-x-2">
-    <div className="w-1.5 h-1.5 bg-lucid-glow/50 rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
-    <div className="w-1.5 h-1.5 bg-lucid-glow/50 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
-    <div className="w-1.5 h-1.5 bg-lucid-glow/50 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
+    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${className}`} style={{ animationDelay: '0s' }}></div>
+    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${className}`} style={{ animationDelay: '0.3s' }}></div>
+    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${className}`} style={{ animationDelay: '0.6s' }}></div>
   </div>
 );
 
