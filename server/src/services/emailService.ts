@@ -9,13 +9,18 @@ dotenv.config();
 const resolve4 = promisify(dns.resolve4);
 
 // Initialize Resend if API key is present
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// IMPORTANT: We must read from process.env dynamically inside the function, 
+// because process.env might be loaded after this file is imported.
+// const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
+    const resendKey = process.env.RESEND_API_KEY;
+    
     // 1. Try Resend API (HTTP) - Preferred method for Railway/Vercel
-    if (resend) {
+    if (resendKey) {
         try {
+            const resend = new Resend(resendKey);
             console.log(`Attempting to send email via Resend API to ${to}...`);
             const data = await resend.emails.send({
                 from: process.env.EMAIL_FROM || 'Lucid Journal <onboarding@resend.dev>', // Default Resend test domain
@@ -35,6 +40,8 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
             console.warn('⚠️ Resend failed, falling back to SMTP:', resendError.message);
             // Fallthrough to SMTP
         }
+    } else {
+        console.log('ℹ️ No RESEND_API_KEY found, skipping Resend.');
     }
 
     // 2. Fallback to SMTP (Original Logic)
