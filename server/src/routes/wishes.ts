@@ -37,7 +37,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Create a new wish
+// Create or Update a wish (Upsert)
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -48,9 +48,18 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
     const { id, content, status, tags, deepDiveChat, beliefs, affirmations, createdAt } = req.body;
 
-    const wish = await prisma.wish.create({
-      data: {
-        id, // Use client-provided UUID if available, or let Prisma generate (but we prefer syncing ID)
+    const wish = await prisma.wish.upsert({
+      where: { id: id },
+      update: {
+        content,
+        status: status || 'active',
+        tags: JSON.stringify(tags || {}),
+        deepDiveChat: typeof deepDiveChat === 'object' ? JSON.stringify(deepDiveChat) : (deepDiveChat || ''),
+        beliefs: JSON.stringify(beliefs || {}),
+        affirmations: JSON.stringify(affirmations || [])
+      },
+      create: {
+        id, // Use client-provided UUID
         userId,
         content,
         status: status || 'active',
@@ -62,10 +71,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       }
     });
 
-    res.status(201).json(wish);
+    res.status(200).json(wish);
   } catch (error) {
-    console.error('Error creating wish:', error);
-    res.status(500).json({ error: 'Failed to create wish' });
+    console.error('Error saving wish:', error);
+    res.status(500).json({ error: 'Failed to save wish' });
   }
 });
 

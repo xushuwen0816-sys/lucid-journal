@@ -572,6 +572,65 @@ const App: React.FC = () => {
               if (l) localStorage.setItem('lucid_future_letters', JSON.stringify(l));
               
               alert('数据导入成功！您的时空记录已恢复。\nData imported successfully.');
+
+              // Cloud Sync Logic
+              if (user && token) {
+                  const baseUrl = import.meta.env.VITE_API_URL || '';
+                  const headers = { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                  };
+
+                  // Use Promise.all to sync in parallel, but catch errors individually
+                  // to avoid one failure stopping everything.
+                  const syncPromises: Promise<any>[] = [];
+
+                  if (Array.isArray(w)) {
+                      w.forEach((wish: any) => {
+                          syncPromises.push(
+                              fetch(`${baseUrl}/api/wishes`, { method: 'POST', headers, body: JSON.stringify(wish) })
+                                .catch(e => console.error("Wish sync failed", e))
+                          );
+                      });
+                  }
+
+                  if (Array.isArray(j)) {
+                      j.forEach((journal: any) => {
+                          syncPromises.push(
+                              fetch(`${baseUrl}/api/journals`, { method: 'POST', headers, body: JSON.stringify(journal) })
+                                .catch(e => console.error("Journal sync failed", e))
+                          );
+                      });
+                  }
+
+                  if (Array.isArray(r)) {
+                      r.forEach((ritual: any) => {
+                          syncPromises.push(
+                              fetch(`${baseUrl}/api/rituals`, { method: 'POST', headers, body: JSON.stringify(ritual) })
+                                .catch(e => console.error("Ritual sync failed", e))
+                          );
+                      });
+                  }
+
+                  if (Array.isArray(l)) {
+                      l.forEach((letter: any) => {
+                          syncPromises.push(
+                              fetch(`${baseUrl}/api/letters`, { method: 'POST', headers, body: JSON.stringify(letter) })
+                                .catch(e => console.error("Letter sync failed", e))
+                          );
+                      });
+                  }
+
+                  if (syncPromises.length > 0) {
+                      console.log(`Starting cloud sync for ${syncPromises.length} items...`);
+                      // Optional: Show a toast or indicator
+                      Promise.all(syncPromises).then(() => {
+                          console.log('Cloud sync completed.');
+                          // Could alert user here if desired, but might be annoying if it pops up later
+                      });
+                  }
+              }
+
           } else {
               throw new Error('Invalid data structure');
           }

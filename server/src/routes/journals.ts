@@ -25,18 +25,22 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Create journal
+// Create or Update journal (Upsert)
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const { id, content, date, aiAnalysis } = req.body;
     
-    // Check if ID exists (upsert logic if syncing?)
-    // For now, let's assume create only or standard CRUD.
     // Front-end sends 'date' as timestamp.
     
-    const journal = await prisma.journalEntry.create({
-      data: {
-        id: id, // Optional: if frontend generates UUID
+    const journal = await prisma.journalEntry.upsert({
+      where: { id: id },
+      update: {
+        content,
+        date: new Date(date),
+        aiAnalysis: aiAnalysis ? JSON.stringify(aiAnalysis) : undefined
+      },
+      create: {
+        id: id,
         userId: req.user!.userId,
         content,
         date: new Date(date), 
@@ -44,14 +48,14 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       }
     });
     
-    res.status(201).json({
+    res.status(200).json({
       ...journal,
       aiAnalysis: journal.aiAnalysis ? JSON.parse(journal.aiAnalysis) : null,
       date: journal.date.getTime()
     });
   } catch (error) {
-    console.error('Create journal error:', error);
-    res.status(500).json({ error: 'Failed to create journal' });
+    console.error('Create/Update journal error:', error);
+    res.status(500).json({ error: 'Failed to save journal' });
   }
 });
 

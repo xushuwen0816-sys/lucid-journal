@@ -18,26 +18,44 @@ router.get('/', authenticateToken, async (req: any, res) => {
   }
 });
 
-// Create a new letter
+// Create or Update a letter (Upsert)
 router.post('/', authenticateToken, async (req: any, res) => {
   try {
-    const { content, sendDate, aiReply, isLocked } = req.body;
+    const { id, content, sendDate, aiReply, isLocked, isSent, createdAt } = req.body;
     
-    const letter = await prisma.futureLetter.create({
-      data: {
+    // Check for ID, if not provided, we can't upsert reliably unless we generate one here, 
+    // but usually client provides ID for sync.
+    // Assuming client ALWAYS provides ID for sync.
+    
+    if (!id) {
+       return res.status(400).json({ error: 'ID is required for syncing' });
+    }
+
+    const letter = await prisma.futureLetter.upsert({
+      where: { id: id },
+      update: {
+        content,
+        sendDate: new Date(sendDate),
+        aiReply,
+        isLocked,
+        isSent: isSent || false
+      },
+      create: {
+        id,
         userId: req.user.userId,
         content,
         sendDate: new Date(sendDate),
         aiReply,
         isLocked,
-        isSent: false
+        isSent: isSent || false,
+        createdAt: createdAt ? new Date(createdAt) : new Date()
       }
     });
     
-    res.status(201).json(letter);
+    res.status(200).json(letter);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Failed to create letter' });
+    res.status(500).json({ error: 'Failed to save letter' });
   }
 });
 
