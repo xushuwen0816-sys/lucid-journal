@@ -4,7 +4,7 @@ import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntr
 
 // Initialize Gemini Client Lazily
 let aiInstance: GoogleGenAI | null = null;
-const DEFAULT_PROXY = 'https://empty-feather-566a.xushuwen0816.workers.dev';
+const DEFAULT_PROXY = import.meta.env.VITE_DEFAULT_PROXY_URL || '';
 const SILICONFLOW_BASE_URL = 'https://api.siliconflow.cn/v1';
 
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';

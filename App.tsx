@@ -102,7 +102,7 @@ const App: React.FC = () => {
   // Always force proxy to be true and use the default URL unless specifically overridden
   useEffect(() => {
       setUseProxy(true);
-      if (DEFAULT_PROXY && (!proxyUrlInput || proxyUrlInput === 'https://empty-feather-566a.xushuwen0816.workers.dev')) {
+      if (DEFAULT_PROXY && (!proxyUrlInput || proxyUrlInput === DEFAULT_PROXY)) {
           setProxyUrlInput(DEFAULT_PROXY);
       }
   }, []);
