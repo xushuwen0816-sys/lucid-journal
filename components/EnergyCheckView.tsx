@@ -9,7 +9,7 @@ import { ORACLE_DECK } from './OracleDeckData';
 
 interface EnergyCheckViewProps {
     wishes?: Wish[];
-    onSaveRitual: (data: { date: number, reading?: TarotReading, practice?: DailyPractice }) => void;
+    onSaveRitual: (data: { date: number, reading?: TarotReading, oracleReading?: TarotReading, practice?: DailyPractice }) => void;
 }
 
 // Helper to safely render text that might be an object
@@ -245,7 +245,11 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
               const storageKey = activeTab === 'oracle' ? `lucid_oracle_${todayKey}` : `lucid_tarot_${todayKey}`;
               localStorage.setItem(storageKey, JSON.stringify(generatedReading));
               
-              onSaveRitual({ date: Date.now(), reading: generatedReading });
+              if (activeTab === 'oracle') {
+                  onSaveRitual({ date: Date.now(), oracleReading: generatedReading });
+              } else {
+                  onSaveRitual({ date: Date.now(), reading: generatedReading });
+              }
               
               // --- COMBINED DAILY PRACTICE LOGIC ---
               let combinedContext = "";

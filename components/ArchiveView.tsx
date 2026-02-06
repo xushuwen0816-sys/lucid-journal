@@ -781,6 +781,28 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                   </div>
                               )}
                               
+                              {selectedEntry.ritual.oracleReading && (
+                                  <div className="space-y-2 mt-4">
+                                      <div className="flex items-center gap-2 text-purple-400 text-xs uppercase tracking-widest font-bold">
+                                          <CreditCard className="w-3 h-3" /> Oracle Reading
+                                      </div>
+                                      <div className="grid grid-cols-3 gap-2">
+                                          {selectedEntry.ritual.oracleReading.cards.map((card, i) => (
+                                              <div key={i} className={`p-2 bg-white/5 rounded-lg border border-white/10 text-center ${card.isReversed ? 'border-rose-500/20' : 'border-purple-500/20'}`}>
+                                                  <span className="text-[10px] text-stone-500 block uppercase">{card.position}</span>
+                                                  <div className="text-sm font-serif text-white my-1">{card.name}</div>
+                                                  <span className="text-[9px] block text-stone-500">{card.isReversed ? 'Reversed' : 'Upright'}</span>
+                                              </div>
+                                          ))}
+                                      </div>
+                                      <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                                          <p className="text-xs text-stone-300 font-serif leading-relaxed">
+                                              {selectedEntry.ritual.oracleReading.guidance}
+                                          </p>
+                                      </div>
+                                  </div>
+                              )}
+                              
                               {selectedEntry.ritual.practice && (
                                   <div className="space-y-2">
                                        <div className="flex items-center gap-2 text-emerald-400 text-xs uppercase tracking-widest font-bold">
@@ -925,7 +947,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                   </div>
                                   
                                   <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                                      {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[10px] text-lucid-dim font-sans opacity-50">{d}</span>)}
+                                      {['S','M','T','W','T','F','S'].map((d, i) => <span key={`${d}-${i}`} className="text-[10px] text-lucid-dim font-sans opacity-50">{d}</span>)}
                                   </div>
                                   
                                   <div className="grid grid-cols-7 gap-2">

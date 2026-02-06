@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import journalRoutes from './routes/journals';
 import letterRoutes from './routes/letters';
+import ritualRoutes from './routes/rituals';
 import debugRoutes from './routes/debug';
 import { startScheduler } from './services/schedulerService';
 
@@ -38,6 +39,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/journals', journalRoutes);
+app.use('/api/rituals', ritualRoutes);
 app.use('/api/letters', letterRoutes);
 app.use('/api/debug', debugRoutes);
 

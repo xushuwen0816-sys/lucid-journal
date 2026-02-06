@@ -181,15 +181,14 @@ const App: React.FC = () => {
       
       console.log('Syncing journals from:', `${baseUrl}/api/journals`);
       
+      // 1. Sync Journals
       fetch(`${baseUrl}/api/journals`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => {
         if (!res.ok) {
-            console.error('Sync failed status:', res.status, res.statusText);
-            // Don't throw for 404/401, just handle gracefully
             if (res.status === 404) return [];
-            throw new Error(`Failed to fetch: ${res.status}`);
+            throw new Error(`Failed to fetch journals: ${res.status}`);
         }
         return res.json();
       })
@@ -201,10 +200,29 @@ const App: React.FC = () => {
             })));
         }
       })
-      .catch(err => {
-          // Suppress the error if it's just a connection issue during dev
-          console.warn("Sync warning (offline or server down):", err.message);
-      });
+      .catch(console.warn);
+
+      // 2. Sync Rituals
+      fetch(`${baseUrl}/api/rituals`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+        if (!res.ok) {
+            if (res.status === 404) return [];
+            throw new Error(`Failed to fetch rituals: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+            setRitualEntries(data.map((r: any) => ({
+                ...r,
+                date: typeof r.date === 'string' ? new Date(r.date).getTime() : r.date
+            })));
+        }
+      })
+      .catch(console.warn);
+
     }
   }, [user, token]);
 
@@ -271,7 +289,8 @@ const App: React.FC = () => {
       setIsStarting(true);
       try {
         if (user) {
-            await updateProfile();
+            // Do not await - sync in background to unblock UI
+            updateProfile().catch(err => console.error("Background profile sync failed:", err));
         }
         setAiConfig(apiKeyInput.trim(), userNameInput.trim(), getEffectiveBaseUrl(), provider);
         setIsAuthorized(true);
@@ -352,7 +371,7 @@ const App: React.FC = () => {
     } catch { return []; }
   });
 
-  const handleSaveRitual = (data: { date: number, reading?: TarotReading, practice?: DailyPractice }) => {
+  const handleSaveRitual = (data: { date: number, reading?: TarotReading, oracleReading?: TarotReading, practice?: DailyPractice }) => {
     setRitualEntries(prev => {
         const dateKey = new Date(data.date).toDateString();
         const existingIndex = prev.findIndex(e => new Date(e.date).toDateString() === dateKey);
@@ -365,14 +384,43 @@ const App: React.FC = () => {
             };
             const newArr = [...prev];
             newArr[existingIndex] = updatedEntry;
+            
+            // Sync to server (Update)
+            if (user && token) {
+                const baseUrl = import.meta.env.VITE_API_URL || '';
+                fetch(`${baseUrl}/api/rituals`, {
+                    method: 'POST', // We used Upsert logic on server
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updatedEntry)
+                }).catch(console.error);
+            }
+            
             return newArr;
         } else {
             updatedEntry = {
                 id: crypto.randomUUID(),
                 date: data.date,
                 reading: data.reading,
+                oracleReading: data.oracleReading,
                 practice: data.practice
             };
+            
+            // Sync to server (Create)
+            if (user && token) {
+                const baseUrl = import.meta.env.VITE_API_URL || '';
+                fetch(`${baseUrl}/api/rituals`, {
+                    method: 'POST', // We used Upsert logic on server
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updatedEntry)
+                }).catch(console.error);
+            }
+            
             return [updatedEntry, ...prev];
         }
     });

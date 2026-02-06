@@ -56,8 +56,9 @@ model RitualArchiveEntry {
   user         User     @relation(fields: [userId], references: [id])
   date         DateTime
   
-  reading      String?  
-  practice     String?  
+  reading      String?  // JSON: TarotReading
+  oracleReading String? // JSON: OracleReading
+  practice     String?  // JSON: DailyPractice
 }
 
 model FutureLetter {

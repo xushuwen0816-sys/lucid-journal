@@ -93,6 +93,7 @@ export interface RitualArchiveEntry {
   id: string;
   date: number;
   reading?: TarotReading;
+  oracleReading?: TarotReading;
   practice?: DailyPractice;
 }
 
