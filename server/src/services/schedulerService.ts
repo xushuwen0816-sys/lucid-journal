@@ -43,6 +43,9 @@ export const startScheduler = () => {
             letter.aiReply
           );
 
+          // Respect rate limit: 1 second delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
           const sent = await sendEmail(letter.user.email, subject, html);
 
           if (sent) {
