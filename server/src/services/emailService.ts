@@ -22,8 +22,13 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
         try {
             const resend = new Resend(resendKey);
             console.log(`Attempting to send email via Resend API to ${to}...`);
+            
+            // Allow override via EMAIL_FROM, but ensure we have a fallback that matches the verified domain
+            // IMPORTANT: If EMAIL_FROM is not set correctly in .env, use a safe default that matches the user's verified domain
+            const fromAddress = process.env.EMAIL_FROM || 'Lucid Postoffice <noreply@email.lucidjournal.space>';
+            
             const data = await resend.emails.send({
-                from: process.env.EMAIL_FROM || 'Lucid Journal <onboarding@resend.dev>', // Default Resend test domain
+                from: fromAddress,
                 to: [to],
                 subject: subject,
                 html: html,
