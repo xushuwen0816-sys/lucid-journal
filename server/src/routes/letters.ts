@@ -38,7 +38,6 @@ router.post('/', authenticateToken, async (req: any, res) => {
         sendDate: new Date(sendDate),
         aiReply,
         isLocked,
-        isSent: isSent || false,
         isRead: isRead || false
       },
       create: {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { JournalEntry, RitualArchiveEntry } from '../types';
 import { SimpleMarkdown } from './Shared';
 import { ChevronLeft, CreditCard, Sun, Calendar as CalendarIcon, Check, X, Trash2, Sparkles, AlertCircle } from 'lucide-react';
@@ -13,33 +13,34 @@ interface JournalCalendarProps {
 
 // Helper: Get Heatmap Color Class based on emotions (Duplicated for now, ideally in utils)
 const getMoodStyle = (emotions: string[] = []): string => {
-    if (!emotions || emotions.length === 0) return 'bg-white/[0.05] border-white/10 text-stone-400';
+    if (!emotions || emotions.length === 0) return 'bg-white/[0.05] text-stone-400';
 
     const e = emotions.join(' ').toLowerCase();
     
     // 1. High Energy / Joy (Orange/Amber)
     if (e.match(/joy|happy|excited|confident|proud|喜悦|快乐|兴奋|自信|自豪|inspired|灵感/)) {
-        return 'bg-orange-500/30 border-orange-500/40 text-orange-100 shadow-[0_0_10px_rgba(249,115,22,0.2)]';
+        return 'bg-orange-500/30 text-orange-100 shadow-[0_0_10px_rgba(249,115,22,0.2)]';
     }
     // 2. Love / Gratitude (Rose/Pink)
     if (e.match(/love|grateful|hope|爱|感恩|希望|touch|感动/)) {
-        return 'bg-rose-500/30 border-rose-500/40 text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+        return 'bg-rose-500/30 text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
     }
     // 3. Peace / Calm (Emerald/Teal)
     if (e.match(/peace|calm|content|relieved|平静|安宁|满足|释然|safe|安全/)) {
-        return 'bg-emerald-500/30 border-emerald-500/40 text-emerald-100 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        return 'bg-emerald-500/30 text-emerald-100 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
     }
     // 4. Low Energy / Sadness (Indigo/Blue)
     if (e.match(/sad|lonely|tired|bored|hopeless|悲伤|孤独|疲惫|无聊|绝望|depress/)) {
-        return 'bg-indigo-500/30 border-indigo-500/40 text-indigo-200';
+        return 'bg-indigo-500/30 text-indigo-200';
     }
-    // 5. Intense Negative / Anger (Red/Stone)
+    // 5. Intense Negative / Anger (Red)
     if (e.match(/angry|frustrated|anxious|fear|guilty|愤怒|挫败|焦虑|恐惧|内疚|压力/)) {
-        return 'bg-stone-700/80 border-rose-500/30 text-rose-200';
+        return 'bg-red-900/40 text-red-100 shadow-[0_0_10px_rgba(220,38,38,0.2)]';
     }
 
-    // Default active but unknown emotion
-    return 'bg-stone-700 border-white/20 text-stone-200';
+    // Default active but unknown emotion (Khaki/Sand)
+    // Using a custom hex for Khaki to be more accurate than stone/yellow
+    return 'bg-[#C2B280]/20 text-[#E0D8B0]';
 };
 
 const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalEntries, ritualEntries, onDeleteJournalEntry, onDeleteRitual }) => {
@@ -59,9 +60,9 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
             map[d].journals.push(e);
         });
         
-        // Ensure journals are sorted (newest first)
+        // Ensure journals are sorted (Oldest first)
         Object.keys(map).forEach(key => {
-            map[key].journals.sort((a,b) => b.date - a.date);
+            map[key].journals.sort((a,b) => a.date - b.date);
         });
 
         // Sort ritual entries by date ascending (Oldest -> Newest) before processing.
@@ -133,17 +134,58 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
         }
         if (result.length === 0) result.push(new Date());
         
-        return result;
+        // Return months in ascending order (Oldest -> Newest)
+        return result.reverse();
     }, [journalEntries, ritualEntries]);
+
+    const bottomRef = useRef<HTMLDivElement>(null);
+    const lastViewedDateRef = useRef<string | null>(null);
+    const journalRef = useRef<HTMLDivElement>(null);
+    const ritualRef = useRef<HTMLDivElement>(null);
+
+    // Scroll to specific section when opening a date
+    useLayoutEffect(() => {
+        if (selectedDateKey) {
+            if (journalRef.current) {
+                journalRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
+            } else if (ritualRef.current) {
+                ritualRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
+            }
+        }
+    }, [selectedDateKey]);
+
+    // Scroll to bottom on mount or when returning to calendar view
+    useLayoutEffect(() => {
+        if (!selectedDateKey) {
+            if (lastViewedDateRef.current) {
+                const el = document.getElementById(`date-${lastViewedDateRef.current}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'auto', block: 'center' });
+                }
+                lastViewedDateRef.current = null;
+            } else if (bottomRef.current) {
+                bottomRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+            }
+        }
+    }, [selectedDateKey, monthsToDisplay]);
 
     return (
         <div className="flex flex-col h-full">
             {selectedEntry ? (
-                <div className="animate-fade-in space-y-6">
-                    <button onClick={() => setSelectedDateKey(null)} className="flex items-center text-xs text-lucid-dim hover:text-white mb-2">
-                        <ChevronLeft className="w-4 h-4 mr-1"/> 返回日历
-                    </button>
+                <div className="flex flex-col h-full">
+                    <div className="sticky top-0 z-30 bg-[#1C1917]/95 backdrop-blur-md border-b border-white/5 py-3 px-4 md:px-6 transition-all duration-300">
+                        <button 
+                            onClick={() => {
+                                lastViewedDateRef.current = selectedDateKey;
+                                setSelectedDateKey(null);
+                            }} 
+                            className="flex items-center text-xs text-lucid-dim hover:text-white transition-colors"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-1"/> 返回日历
+                        </button>
+                    </div>
                     
+                    <div className="px-4 md:px-6 pb-6 space-y-6">
                     <div className="flex items-center justify-between">
                         <span className="text-xl text-white font-serif tracking-wide">
                             {selectedEntry.dateStr}
@@ -152,9 +194,9 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
 
                     {/* Ritual Section */}
                     {selectedEntry.ritual && (
-                        <div className="space-y-4">
+                        <div ref={ritualRef} className="space-y-4 pt-4 border-t border-white/10 scroll-mt-16">
                             {/* Ritual Section Header */}
-                            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+                            <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2 text-stone-400 text-xs uppercase tracking-widest font-bold">
                                     <Sparkles className="w-3 h-3" /> Daily Ritual
                                 </div>
@@ -258,11 +300,11 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                     )}
 
                     {/* Journals Section */}
-                    {selectedEntry.journals.length > 0 && (
-                        <div className="space-y-4 pt-4 border-t border-white/10">
-                            <div className="flex items-center gap-2 text-stone-400 text-xs uppercase tracking-widest font-bold">
-                                <CalendarIcon className="w-3 h-3" /> Journal Entries ({selectedEntry.journals.length})
-                            </div>
+                {selectedEntry.journals.length > 0 && (
+                    <div ref={journalRef} className="space-y-4 pt-4 border-t border-white/10 scroll-mt-16">
+                        <div className="flex items-center gap-2 text-stone-400 text-xs uppercase tracking-widest font-bold">
+                            <CalendarIcon className="w-3 h-3" /> Journal Entries ({selectedEntry.journals.length})
+                        </div>
                             
                             <div className="relative pl-2 space-y-6">
                                 {/* Vertical Line */}
@@ -363,9 +405,10 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                             </div>
                         </div>
                     )}
+                    </div>
                 </div>
             ) : (
-                <div className="space-y-8 pb-4">
+                <div className="space-y-8 p-4 md:p-6 pb-20">
                     {/* Vertical Scroll List of Months */}
                     {monthsToDisplay.map((dateObj, monthIdx) => {
                         const year = dateObj.getFullYear();
@@ -413,7 +456,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                             
                                             moodStyle = getMoodStyle(flatEmotions);
                                         } else if (hasRitual) {
-                                            moodStyle = 'bg-indigo-900/30 border-indigo-500/20 text-indigo-300';
+                                            moodStyle = 'bg-transparent text-stone-200 hover:bg-white/5';
                                         }
 
                                         const title = hasJournal 
@@ -423,6 +466,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                         return (
                                             <button
                                                 key={`${day}-${i}`}
+                                                id={`date-${dateKey}`}
                                                 onClick={() => hasEntry && setSelectedDateKey(currentDayDate.toDateString())}
                                                 disabled={!hasEntry}
                                                 className={`
@@ -433,7 +477,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                                 title={title}
                                             >
                                                 <span className={hasEntry ? 'font-medium' : ''}>{day}</span>
-                                                {entry && entry.journals.length > 1 && (
+                                                {entry && hasJournal && entry.journals.length > 1 && (
                                                     <div className="absolute top-1 right-1 w-1 h-1 bg-white/50 rounded-full"></div>
                                                 )}
                                             </button>
@@ -443,6 +487,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                             </div>
                         );
                     })}
+                    <div ref={bottomRef} />
                 </div>
             )}
         </div>

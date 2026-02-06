@@ -189,8 +189,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                      else cleanB = String(b);
                      
                      if (cleanB) {
-                        allBlocksRaw.push({ text: cleanB, date: entry.date, entryId: entry.id });
-                        blockCounts[cleanB] = (blockCounts[cleanB] || 0) + 1;
+                        cleanB = cleanB.trim();
+                        if (cleanB) {
+                            allBlocksRaw.push({ text: cleanB, date: entry.date, entryId: entry.id });
+                            blockCounts[cleanB] = (blockCounts[cleanB] || 0) + 1;
+                        }
                      }
                  });
              }
@@ -204,8 +207,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                      else cleanT = String(t);
 
                      if (cleanT) {
-                         allTraitsRaw.push({ text: cleanT, date: entry.date });
-                         traitCounts[cleanT] = (traitCounts[cleanT] || 0) + 1;
+                         cleanT = cleanT.trim();
+                         if (cleanT) {
+                             allTraitsRaw.push({ text: cleanT, date: entry.date });
+                             traitCounts[cleanT] = (traitCounts[cleanT] || 0) + 1;
+                         }
                      }
                  });
              }
@@ -1297,8 +1303,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
               detailsModal === 'wishes' ? '所有愿望 All Wishes' :
               detailsModal === 'journals' ? '觉察记录 Calendar' : ''
           }
+          bodyClassName={detailsModal === 'journals' ? 'p-0' : undefined}
       >
-          <div className="space-y-4">
+          <div className={`space-y-4 ${detailsModal === 'journals' ? 'h-full' : ''}`}>
               {detailsModal === 'wishes' && wishes.map(w => (
                   <div key={w.id} className="p-4 bg-white/5 rounded-xl border border-white/5">
                       <p className="text-white font-serif">{w.content}</p>

@@ -83,7 +83,7 @@ export const TabNav: React.FC<{
   </div>
 );
 
-export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: React.ReactNode; title?: string }> = ({ isOpen, onClose, children, title }) => {
+export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: React.ReactNode; title?: string; bodyClassName?: string }> = ({ isOpen, onClose, children, title, bodyClassName }) => {
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
@@ -113,7 +113,7 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: R
                 </div>
                 
                 {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+                <div className={`flex-1 overflow-y-auto custom-scrollbar ${bodyClassName ?? 'p-4 md:p-6'}`}>
                     {children}
                 </div>
             </div>
