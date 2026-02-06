@@ -8,8 +8,8 @@ const prisma = new PrismaClient();
 export const startScheduler = () => {
   console.log('⏰ Scheduler service started...');
 
-  // Run every 10 seconds to check for due letters (for debugging/immediate delivery)
-  cron.schedule('*/10 * * * * *', async () => {
+  // Run every 1 minute to check for due letters (balanced for production)
+  cron.schedule('* * * * *', async () => {
     console.log(`[${new Date().toISOString()}] ⏳ Checking for due letters...`);
     try {
       const now = new Date();
