@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": "22.13.1"
+  },
   "scripts": {
     "dev": "node scripts/check-provider.js && nodemon src/index.ts",
     "build": "node scripts/check-provider.js && tsc && npx prisma generate",
