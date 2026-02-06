@@ -114,6 +114,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
       if (savedPractice) {
           try {
               setPractice(JSON.parse(savedPractice));
+              setActiveTab('practice');
           } catch(e) { console.error(e) }
       }
   }, []);

@@ -35,12 +35,12 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
   const sortedData = [...data].sort((a, b) => b.count - a.count);
   
   // Calculate dynamic height based on number of items (approx 40px per item)
-  // Min height 300px, Max height handled by scroll in modal
-  const chartHeight = Math.max(400, sortedData.length * 40);
+  // Ensure minimum height to fit container or let it scroll if content is larger
+  const chartHeight = Math.max(260, sortedData.length * 40);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="w-full overflow-y-auto max-h-[70vh] pr-2 custom-scrollbar">
+      <div className="w-full h-[400px] overflow-y-auto custom-scrollbar bg-white/[0.02] border border-white/5 rounded-2xl p-4">
         {sortedData.length === 0 ? (
           <p className="text-center text-stone-500 py-10">暂无数据记录</p>
         ) : (

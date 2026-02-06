@@ -223,6 +223,31 @@ const App: React.FC = () => {
       })
       .catch(console.warn);
 
+      // 3. Sync Wishes
+      fetch(`${baseUrl}/api/wishes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+        if (!res.ok) {
+            if (res.status === 404) return [];
+            throw new Error(`Failed to fetch wishes: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+            setWishes(data.map((w: any) => ({
+                ...w,
+                createdAt: typeof w.createdAt === 'string' ? new Date(w.createdAt).getTime() : w.createdAt,
+                // Ensure JSON fields are parsed (though server sends them parsed, double check type safety)
+                tags: typeof w.tags === 'string' ? JSON.parse(w.tags) : w.tags,
+                beliefs: typeof w.beliefs === 'string' ? JSON.parse(w.beliefs) : w.beliefs,
+                affirmations: typeof w.affirmations === 'string' ? JSON.parse(w.affirmations) : w.affirmations
+            })));
+        }
+      })
+      .catch(console.warn);
+
     }
   }, [user, token]);
 
@@ -430,6 +455,20 @@ const App: React.FC = () => {
     localStorage.setItem('lucid_ritual_archive', JSON.stringify(ritualEntries));
   }, [ritualEntries]);
 
+  const handleDeleteRitual = (id: string) => {
+    setRitualEntries(prev => prev.filter(r => r.id !== id));
+    
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/rituals/${id}`, {
+            method: 'DELETE',
+            headers: { 
+                'Authorization': `Bearer ${token}`
+            }
+        }).catch(console.error);
+    }
+  };
+
   // 4. Future Letters
   const [letters, setLetters] = useState<FutureLetter[]>(() => {
      try {
@@ -440,6 +479,33 @@ const App: React.FC = () => {
   const handleAddLetter = (letter: FutureLetter) => {
     const updated = [letter, ...letters];
     setLetters(updated);
+
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/letters`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(letter)
+        }).catch(console.error);
+    }
+  };
+
+  const handleDeleteLetter = (id: string) => {
+    const updated = letters.filter(l => l.id !== id);
+    setLetters(updated);
+    
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/letters/${id}`, {
+            method: 'DELETE',
+            headers: { 
+                'Authorization': `Bearer ${token}`
+            }
+        }).catch(console.error);
+    }
   };
 
   useEffect(() => {
@@ -485,15 +551,49 @@ const App: React.FC = () => {
     setActiveWishId(wish.id);
     setArchiveInitialTab('wishes');
     setTimeout(() => setCurrentView(AppView.ARCHIVE), 0);
+
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/wishes`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(wish)
+        }).catch(console.error);
+    }
   };
 
   const handleWishUpdate = (updatedWish: Wish) => {
     setWishes(prev => prev.map(w => w.id === updatedWish.id ? updatedWish : w));
+    
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/wishes/${updatedWish.id}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updatedWish)
+        }).catch(console.error);
+    }
   };
 
   const handleDeleteWish = (id: string) => {
     setWishes(prev => prev.filter(w => w.id !== id));
     if (activeWishId === id) setActiveWishId(null);
+
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/wishes/${id}`, {
+            method: 'DELETE',
+            headers: { 
+                'Authorization': `Bearer ${token}`
+            }
+        }).catch(console.error);
+    }
   };
 
   const navItems = [
@@ -878,7 +978,9 @@ const App: React.FC = () => {
                     onUpdateWish={handleWishUpdate}
                     onDeleteWish={handleDeleteWish}
                     onAddLetter={handleAddLetter}
-                    onImportData={handleImportData}
+                    onDeleteLetter={handleDeleteLetter}
+          onDeleteRitual={handleDeleteRitual}
+          onImportData={handleImportData}
                     onDeleteJournalEntry={handleDeleteJournalEntry}
                     onUpdateJournalEntry={handleUpdateJournalEntry}
                     initialTab={archiveInitialTab}

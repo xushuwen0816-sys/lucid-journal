@@ -19,13 +19,15 @@ interface ArchiveViewProps {
   onUpdateWish: (wish: Wish) => void;
   onDeleteWish: (id: string) => void;
   onAddLetter: (letter: FutureLetter) => void;
+  onDeleteLetter: (id: string) => void;
+  onDeleteRitual?: (id: string) => void;
   onImportData: (data: any) => void;
   onDeleteJournalEntry?: (id: string) => void;
   onUpdateJournalEntry?: (entry: JournalEntry) => void;
   initialTab?: 'milestones' | 'letters' | 'wishes' | 'library';
 }
 
-type DetailsType = 'wishes' | 'journals' | 'blocks' | 'traits' | 'emotions' | null;
+type DetailsType = 'wishes' | 'journals' | 'blocks' | 'traits' | 'emotions' | 'stat_emotions' | null;
 
 // Helper: Get emotional score (valence)
 const getSentimentScore = (emotion: string): number => {
@@ -89,7 +91,7 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onImportData, onDeleteJournalEntry, onUpdateJournalEntry, initialTab = 'milestones' }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onDeleteLetter, onDeleteRitual, onImportData, onDeleteJournalEntry, onUpdateJournalEntry, initialTab = 'milestones' }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
   const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>(initialTab);
   
@@ -130,6 +132,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   const [isSending, setIsSending] = useState(false);
   const [showLetterInput, setShowLetterInput] = useState(false);
   const [selectedLetter, setSelectedLetter] = useState<FutureLetter | null>(null);
+  const [confirmDeleteLetterId, setConfirmDeleteLetterId] = useState<string | null>(null);
   
   const { token } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -666,9 +669,16 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   };
 
   const getWishPhase = (wish: Wish) => {
-      if (wish.status === 'manifested') return { name: '已显化', color: 'text-emerald-400', border: 'border-emerald-500/30' };
-      if (Object.keys(wish.beliefs || {}).length > 0) return { name: '校准 · Align', color: 'text-blue-400', border: 'border-blue-500/30' };
-      return { name: '意图 · Intent', color: 'text-stone-400', border: 'border-stone-500/30' };
+      if (wish.status === 'manifested') return { 
+          name: '★ 已显化 Manifested', 
+          className: 'bg-green-500/10 text-green-400 border-green-500/20',
+          border: 'border-emerald-500/30' 
+      };
+      return { 
+          name: '● 进行中 In Progress', 
+          className: 'bg-lucid-glow/10 text-lucid-glow border-lucid-glow/20',
+          border: 'border-lucid-glow/30' 
+      };
   };
 
   // --- Sub-components ---
@@ -676,6 +686,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   const JournalCalendar = ({ initialDate }: { initialDate?: Date | null }) => {
       const [selectedEntry, setSelectedEntry] = useState<{ journals: JournalEntry[], ritual?: RitualArchiveEntry, dateStr: string } | null>(null);
       const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+      const [confirmDeleteRitualId, setConfirmDeleteRitualId] = useState<string | null>(null);
 
       // Map entries to days string key "YYYY-MM-DD"
       // CHANGED: Support array of journals for each day
@@ -759,6 +770,40 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                       {/* Ritual Section */}
                       {selectedEntry.ritual && (
                           <div className="space-y-4">
+                              {/* Ritual Delete Button */}
+                              {onDeleteRitual && (
+                                  <div className="flex justify-end">
+                                      {confirmDeleteRitualId === selectedEntry.ritual!.id ? (
+                                          <div className="flex items-center gap-2 bg-stone-800 rounded-full px-2 py-1 border border-rose-500/30 animate-fade-in">
+                                              <span className="text-[10px] text-rose-300">Delete Ritual?</span>
+                                              <button 
+                                                  onClick={() => {
+                                                      onDeleteRitual(selectedEntry.ritual!.id);
+                                                      setSelectedEntry(prev => prev ? ({ ...prev, ritual: undefined }) : null);
+                                                      setConfirmDeleteRitualId(null);
+                                                  }}
+                                                  className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                              >
+                                                  <Check className="w-3 h-3" />
+                                              </button>
+                                              <button 
+                                                  onClick={() => setConfirmDeleteRitualId(null)}
+                                                  className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
+                                              >
+                                                  <X className="w-3 h-3" />
+                                              </button>
+                                          </div>
+                                      ) : (
+                                          <button 
+                                              onClick={() => setConfirmDeleteRitualId(selectedEntry.ritual!.id)}
+                                              className="text-stone-600 hover:text-rose-400 transition-colors flex items-center gap-1 text-[10px] uppercase tracking-wider hover:bg-rose-500/10 px-2 py-1 rounded-full"
+                                          >
+                                              <Trash2 className="w-3 h-3" /> Delete Ritual
+                                          </button>
+                                      )}
+                                  </div>
+                              )}
+
                               {selectedEntry.ritual.reading && (
                                   <div className="space-y-2">
                                       <div className="flex items-center gap-2 text-lucid-glow text-xs uppercase tracking-widest font-bold">
@@ -1122,7 +1167,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     <div className="grid md:grid-cols-2 gap-6">
                         
                         {/* 1. Emotion Frequency */}
-                        <Card onClick={() => setDetailsModal('emotions')} className="flex flex-col h-full hover:bg-white/[0.03] transition-colors cursor-pointer group">
+                        <Card onClick={() => setDetailsModal('stat_emotions')} className="flex flex-col h-full hover:bg-white/[0.03] transition-colors cursor-pointer group">
                             <div className="flex items-center justify-between mb-6">
                                 <h4 className="text-sm font-serif text-lucid-dim uppercase tracking-widest flex items-center gap-2 group-hover:text-lucid-glow transition-colors">
                                     <Smile className="w-4 h-4 text-lucid-glow" /> 情绪频次 (Top 20)
@@ -1370,21 +1415,62 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                         }`}
                                     >
                                         <div className="flex justify-between items-start mb-4">
-                                            <div className="flex items-center gap-2">
-                                                {!isLocked ? (
-                                                    <div className="bg-lucid-glow/10 text-lucid-glow px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                        <Unlock className="w-3 h-3" />
-                                                        <span className="text-[10px] uppercase tracking-wider font-bold">Unlocked</span>
+                                        <div className="flex items-center gap-2">
+                                            {!isLocked ? (
+                                                <div className="bg-lucid-glow/10 text-lucid-glow px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                    <Unlock className="w-3 h-3" />
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold">Unlocked</span>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-stone-800 text-stone-500 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                    <Lock className="w-3 h-3" />
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold">Locked</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-stone-600 font-serif">{new Date(letter.createdAt).toLocaleDateString()}</span>
+                                            <div onClick={e => e.stopPropagation()}>
+                                                {confirmDeleteLetterId === letter.id ? (
+                                                    <div className="flex items-center gap-1 bg-stone-800 rounded-full px-1 py-0.5 border border-rose-500/30 animate-fade-in">
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onDeleteLetter(letter.id);
+                                                                setConfirmDeleteLetterId(null);
+                                                                if (selectedLetter?.id === letter.id) setSelectedLetter(null);
+                                                            }}
+                                                            className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                                            title="确认删除"
+                                                        >
+                                                            <Check className="w-3 h-3" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setConfirmDeleteLetterId(null);
+                                                            }}
+                                                            className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
+                                                            title="取消"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
                                                     </div>
                                                 ) : (
-                                                    <div className="bg-stone-800 text-stone-500 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                        <Lock className="w-3 h-3" />
-                                                        <span className="text-[10px] uppercase tracking-wider font-bold">Locked</span>
-                                                    </div>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setConfirmDeleteLetterId(letter.id);
+                                                        }}
+                                                        className="text-stone-600 hover:text-rose-400 transition-colors p-1.5 rounded-full hover:bg-rose-500/10"
+                                                        title="删除信件"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
                                                 )}
                                             </div>
-                                            <span className="text-xs text-stone-600 font-serif">{new Date(letter.createdAt).toLocaleDateString()}</span>
                                         </div>
+                                    </div>
 
                                         <h4 className="text-white font-serif text-lg mb-2 truncate">To Future Self</h4>
                                         
@@ -1429,7 +1515,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                         className={`group relative bg-white/[0.02] hover:bg-white/[0.05] border ${phase.border} rounded-3xl p-6 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-lucid-glow/5`}
                                     >
                                         <div className="flex justify-between items-start mb-4">
-                                            <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-black/20 ${phase.color}`}>
+                                            <span className={`text-[10px] font-sans tracking-wider px-2 py-1 rounded-full border ${phase.className}`}>
                                                 {phase.name}
                                             </span>
                                             <div className="flex items-center gap-2 relative z-20">
@@ -1588,6 +1674,14 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
         color="#818CF8"
       />
 
+      <StatDetailModal
+        isOpen={detailsModal === 'stat_emotions'}
+        onClose={() => setDetailsModal(null)}
+        title="情绪频次分布 · Emotion Frequency"
+        data={stats.allEmotionsList}
+        color="#FBBF24"
+      />
+
       {/* 3. Wish Detail Modal */}
       <Modal 
          isOpen={!!selectedWish} 
@@ -1714,13 +1808,46 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                   </div>
 
                   <div className="relative">
-                       <div className="flex items-center gap-2 mb-4 px-2">
-                           <div className="w-8 h-8 rounded-full bg-stone-700 text-stone-300 flex items-center justify-center">
-                               <Archive className="w-4 h-4" />
+                       <div className="flex items-center justify-between mb-4 px-2">
+                           <div className="flex items-center gap-2">
+                               <div className="w-8 h-8 rounded-full bg-stone-700 text-stone-300 flex items-center justify-center">
+                                   <Archive className="w-4 h-4" />
+                               </div>
+                               <div>
+                                   <span className="text-xs uppercase text-stone-400 tracking-widest block font-bold">Your Letter</span>
+                                   <span className="text-xs text-stone-600">Written on {new Date(selectedLetter.createdAt).toLocaleDateString()}</span>
+                               </div>
                            </div>
-                           <div>
-                               <span className="text-xs uppercase text-stone-400 tracking-widest block font-bold">Your Letter</span>
-                               <span className="text-xs text-stone-600">Written on {new Date(selectedLetter.createdAt).toLocaleDateString()}</span>
+                           <div className="relative z-50">
+                               {confirmDeleteLetterId === selectedLetter.id ? (
+                                   <div className="flex items-center gap-2 bg-stone-800 rounded-full px-2 py-1 border border-rose-500/30 animate-fade-in">
+                                       <span className="text-[10px] text-rose-300">Delete?</span>
+                                       <button 
+                                           onClick={() => {
+                                               onDeleteLetter(selectedLetter.id);
+                                               setConfirmDeleteLetterId(null);
+                                               setSelectedLetter(null);
+                                           }}
+                                           className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                       >
+                                           <Check className="w-3 h-3" />
+                                       </button>
+                                       <button 
+                                           onClick={() => setConfirmDeleteLetterId(null)}
+                                           className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
+                                       >
+                                           <X className="w-3 h-3" />
+                                       </button>
+                                   </div>
+                               ) : (
+                                   <button 
+                                       onClick={() => setConfirmDeleteLetterId(selectedLetter.id)}
+                                       className="text-stone-600 hover:text-rose-400 transition-colors p-2 rounded-full hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20"
+                                       title="删除信件"
+                                   >
+                                       <Trash2 className="w-4 h-4" />
+                                   </button>
+                               )}
                            </div>
                        </div>
                        

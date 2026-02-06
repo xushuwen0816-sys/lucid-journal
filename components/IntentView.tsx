@@ -176,16 +176,10 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
-                                    handleStartDeepDive();
                                 }
                             }}
                         />
-                        {/* Enter hint */}
-                        {state.wishInput && (
-                            <div className="absolute bottom-4 right-6 text-[10px] text-stone-500 font-sans tracking-widest uppercase animate-fade-in opacity-50">
-                                Press Enter
-                            </div>
-                        )}
+
                     </div>
                 </div>
                 

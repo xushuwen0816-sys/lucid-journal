@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import journalRoutes from './routes/journals';
 import letterRoutes from './routes/letters';
 import ritualRoutes from './routes/rituals';
+import wishRoutes from './routes/wishes';
 import debugRoutes from './routes/debug';
 import { startScheduler } from './services/schedulerService';
 
@@ -40,6 +41,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/journals', journalRoutes);
 app.use('/api/rituals', ritualRoutes);
+app.use('/api/wishes', wishRoutes);
 app.use('/api/letters', letterRoutes);
 app.use('/api/debug', debugRoutes);
 
