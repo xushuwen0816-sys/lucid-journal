@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import journalRoutes from './routes/journals';
 import letterRoutes from './routes/letters';
+import debugRoutes from './routes/debug';
 import { startScheduler } from './services/schedulerService';
 
 dotenv.config();
