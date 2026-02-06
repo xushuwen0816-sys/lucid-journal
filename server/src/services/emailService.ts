@@ -1,7 +1,11 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import dns from 'dns';
 
 dotenv.config();
+
+// Force IPv4 for node process to avoid ENETUNREACH on Railway/AWS
+dns.setDefaultResultOrder('ipv4first');
 
 // Create transporter
 // For production, use environment variables for SMTP settings
