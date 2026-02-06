@@ -71,4 +71,5 @@ model FutureLetter {
   aiReply      String?
   isLocked     Boolean
   isSent       Boolean  @default(false)
+  isRead       Boolean  @default(false)
 }

@@ -81,6 +81,11 @@
     - **数据导入 (Import)**: 支持导入本地 JSON 备份并自动同步至云端 (Upsert)。
   - 🔒 **数据安全**: 所有 API 请求均经过 JWT 身份验证。
 
+- **2026-02-06 (Railway Fix & Import Sync)**:
+  - 🛠 **构建修复**: 锁定 Node.js 版本为 `22.13.1` (LTS)，解决了 Railway 上 `mise` 安装 `node@22.22.0` 失败的问题。
+  - 📥 **导入同步**: 增强了前端 "Import Data" 功能，导入本地数据后会自动触发批量云端同步 (Batch Sync)。
+  - 🛡 **后端增强**: 所有核心数据接口 (Journal, Wish, Letter) 均升级为 `Upsert` (更新或创建) 逻辑，确保重复导入时数据的一致性。
+
 ## 🛠 调试工具 (Debugging Tools)
 
 - **强制发送邮件**: `GET /api/debug/force-send?email=your@email.com`

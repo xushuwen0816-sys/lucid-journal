@@ -21,7 +21,7 @@ router.get('/', authenticateToken, async (req: any, res) => {
 // Create or Update a letter (Upsert)
 router.post('/', authenticateToken, async (req: any, res) => {
   try {
-    const { id, content, sendDate, aiReply, isLocked, isSent, createdAt } = req.body;
+    const { id, content, sendDate, aiReply, isLocked, isSent, createdAt, isRead } = req.body;
     
     // Check for ID, if not provided, we can't upsert reliably unless we generate one here, 
     // but usually client provides ID for sync.
@@ -38,7 +38,8 @@ router.post('/', authenticateToken, async (req: any, res) => {
         sendDate: new Date(sendDate),
         aiReply,
         isLocked,
-        isSent: isSent || false
+        isSent: isSent || false,
+        isRead: isRead || false
       },
       create: {
         id,
@@ -48,6 +49,7 @@ router.post('/', authenticateToken, async (req: any, res) => {
         aiReply,
         isLocked,
         isSent: isSent || false,
+        isRead: isRead || false,
         createdAt: createdAt ? new Date(createdAt) : new Date()
       }
     });

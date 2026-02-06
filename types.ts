@@ -104,4 +104,5 @@ export interface FutureLetter {
   sendDate: number;
   aiReply?: string;
   isLocked: boolean;
+  isRead?: boolean;
 }

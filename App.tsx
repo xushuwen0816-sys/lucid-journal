@@ -552,6 +552,23 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateLetter = (updatedLetter: FutureLetter) => {
+    const updated = letters.map(l => l.id === updatedLetter.id ? updatedLetter : l);
+    setLetters(updated);
+
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/letters`, {
+            method: 'POST', // Using POST for upsert/update
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updatedLetter)
+        }).catch(console.error);
+    }
+  };
+
   useEffect(() => {
       localStorage.setItem('lucid_future_letters', JSON.stringify(letters));
   }, [letters]);
@@ -1087,6 +1104,7 @@ const App: React.FC = () => {
                     onDeleteJournalEntry={handleDeleteJournalEntry}
                     onUpdateJournalEntry={handleUpdateJournalEntry}
                     initialTab={archiveInitialTab}
+                    onUpdateLetter={handleUpdateLetter}
                 />
               )}
            </div>

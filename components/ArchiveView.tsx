@@ -25,6 +25,7 @@ interface ArchiveViewProps {
   onDeleteJournalEntry?: (id: string) => void;
   onUpdateJournalEntry?: (entry: JournalEntry) => void;
   initialTab?: 'milestones' | 'letters' | 'wishes' | 'library';
+  onUpdateLetter?: (letter: FutureLetter) => void;
 }
 
 type DetailsType = 'wishes' | 'journals' | 'blocks' | 'traits' | 'emotions' | 'stat_emotions' | null;
@@ -61,7 +62,7 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
         .slice(0, limit);
 };
 
-const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onDeleteLetter, onDeleteRitual, onImportData, onDeleteJournalEntry, onUpdateJournalEntry, initialTab = 'milestones' }) => {
+const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onDeleteLetter, onDeleteRitual, onImportData, onDeleteJournalEntry, onUpdateJournalEntry, initialTab = 'milestones', onUpdateLetter }) => {
   // Priority: Insights (Milestones) -> Time Capsule -> Wishes -> Library
   const [tab, setTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>(initialTab);
   
@@ -248,8 +249,19 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
   // Check for unlocked letters
   const hasUnlockedLetters = useMemo(() => {
-      return letters.some(l => !l.isLocked && Date.now() >= l.sendDate && (l as any).read !== true);
+      return letters.some(l => !l.isLocked && Date.now() >= l.sendDate && !l.isRead);
   }, [letters]);
+
+  // Mark letter as read when opened and unlocked
+  useEffect(() => {
+    if (selectedLetter && !selectedLetter.isLocked && !selectedLetter.isRead && onUpdateLetter) {
+        onUpdateLetter({
+            ...selectedLetter,
+            isRead: true
+        });
+        setSelectedLetter(prev => prev ? ({ ...prev, isRead: true }) : null);
+    }
+  }, [selectedLetter, onUpdateLetter]);
 
   // --- Auto Generate Report Logic ---
   useEffect(() => {
@@ -1053,7 +1065,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                 return (
                                     <div 
                                         key={letter.id} 
-                                        onClick={() => setSelectedLetter(letter)}
+                                        onClick={() => {
+                                            setSelectedLetter(letter);
+                                            // Mark as read if unlocked and currently unread
+                                            if (!isLocked && !letter.isRead && onUpdateLetter) {
+                                                onUpdateLetter({ ...letter, isRead: true });
+                                            }
+                                        }}
                                         className={`relative group rounded-3xl p-6 border transition-all duration-300 cursor-pointer overflow-hidden ${
                                             !isLocked 
                                             ? 'bg-white/[0.04] border-white/10 hover:border-lucid-glow/30 hover:shadow-lg hover:shadow-lucid-glow/5' 
@@ -1128,7 +1146,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                             )}
                                         </div>
 
-                                        {!isLocked && (
+                                        {!isLocked && !letter.isRead && (
                                             <div className="absolute top-3 right-3 w-2 h-2 bg-lucid-glow rounded-full animate-pulse"></div>
                                         )}
                                     </div>
