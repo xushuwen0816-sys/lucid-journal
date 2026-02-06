@@ -2,21 +2,42 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import dns from 'dns';
 import { promisify } from 'util';
+import { Resend } from 'resend';
 
 dotenv.config();
 
 const resolve4 = promisify(dns.resolve4);
 
-// Force IPv4 for node process to avoid ENETUNREACH on Railway/AWS
-// We keep this as a fallback, but will also manually resolve below
-try {
-    dns.setDefaultResultOrder('ipv4first');
-} catch (e) {
-    // Ignore if not supported in this node version
-}
+// Initialize Resend if API key is present
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
+    // 1. Try Resend API (HTTP) - Preferred method for Railway/Vercel
+    if (resend) {
+        try {
+            console.log(`Attempting to send email via Resend API to ${to}...`);
+            const data = await resend.emails.send({
+                from: process.env.EMAIL_FROM || 'Lucid Journal <onboarding@resend.dev>', // Default Resend test domain
+                to: [to],
+                subject: subject,
+                html: html,
+            });
+            
+            if (data.error) {
+                console.error('Resend API Error:', data.error);
+                throw new Error(data.error.message);
+            }
+            
+            console.log('✅ Email sent via Resend:', data.data?.id);
+            return true;
+        } catch (resendError: any) {
+            console.warn('⚠️ Resend failed, falling back to SMTP:', resendError.message);
+            // Fallthrough to SMTP
+        }
+    }
+
+    // 2. Fallback to SMTP (Original Logic)
     if (!process.env.SMTP_USER) {
         console.log('---------------------------------------------------');
         console.log('⚠️  No SMTP Credentials provided. Email simulation:');
