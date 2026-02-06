@@ -39,6 +39,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/journals', journalRoutes);
 app.use('/api/letters', letterRoutes);
+app.use('/api/debug', debugRoutes);
 
 app.get('/', (req, res) => {
   res.status(200).send(`
