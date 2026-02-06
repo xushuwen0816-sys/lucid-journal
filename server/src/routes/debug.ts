@@ -13,7 +13,7 @@ const resolve4 = promisify(dns.resolve4);
 
 // Connectivity Test Endpoint
 router.get('/connectivity-check', async (req, res) => {
-    const host = process.env.SMTP_HOST || 'smtp.ethereal.email';
+    const host = (req.query.host as string) || process.env.SMTP_HOST || 'smtp.ethereal.email';
     const results: any = { host };
     
     try {
