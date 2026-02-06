@@ -492,7 +492,12 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                                 {card.position === 'oracle' ? 'Oracle Message' : card.position}
                                             </span>
                                             <div className="my-3 text-center flex-shrink-0">
-                                                <h4 className="text-xl font-serif text-white mb-2">{safeRender(card.name)}</h4>
+                                                <h4 className="text-xl font-serif text-white mb-2">
+                                                    {activeTab === 'oracle' 
+                                                        ? safeRender(card.name).split('(')[0].trim() 
+                                                        : safeRender(card.name)
+                                                    }
+                                                </h4>
                                                 {activeTab === 'tarot' && (
                                                     card.isReversed ? (
                                                         <span className="text-xs text-rose-300 uppercase tracking-widest font-sans opacity-90">逆位 Reversed</span>
@@ -501,10 +506,10 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                                     )
                                                 )}
                                                 {activeTab === 'oracle' && (
-                                                    <span className="text-xs text-purple-300 uppercase tracking-widest font-sans opacity-90">
+                                                    <h4 className="text-xs text-purple-300 uppercase tracking-widest font-sans opacity-90">
                                                         <Sparkles className="w-3 h-3 inline mr-1" />
-                                                        Oracle Message
-                                                    </span>
+                                                        {safeRender(card.name).match(/\((.*?)\)/)?.[1] || "Oracle Message"}
+                                                    </h4>
                                                 )}
                                             </div>
                                             <div className="w-full flex-grow flex items-start mt-2 px-2">

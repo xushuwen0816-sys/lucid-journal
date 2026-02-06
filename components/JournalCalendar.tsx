@@ -8,6 +8,7 @@ interface JournalCalendarProps {
     journalEntries: JournalEntry[];
     ritualEntries: RitualArchiveEntry[];
     onDeleteJournalEntry?: (id: string) => void;
+    onDeleteRitual?: (id: string) => void;
 }
 
 // Helper: Get Heatmap Color Class based on emotions (Duplicated for now, ideally in utils)
@@ -16,28 +17,35 @@ const getMoodStyle = (emotions: string[] = []): string => {
 
     const e = emotions.join(' ').toLowerCase();
     
+    // 1. High Energy / Joy (Orange/Amber)
     if (e.match(/joy|happy|excited|confident|proud|喜悦|快乐|兴奋|自信|自豪|inspired|灵感/)) {
         return 'bg-orange-500/30 border-orange-500/40 text-orange-100 shadow-[0_0_10px_rgba(249,115,22,0.2)]';
     }
+    // 2. Love / Gratitude (Rose/Pink)
     if (e.match(/love|grateful|hope|爱|感恩|希望|touch|感动/)) {
         return 'bg-rose-500/30 border-rose-500/40 text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
     }
+    // 3. Peace / Calm (Emerald/Teal)
     if (e.match(/peace|calm|content|relieved|平静|安宁|满足|释然|safe|安全/)) {
         return 'bg-emerald-500/30 border-emerald-500/40 text-emerald-100 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
     }
+    // 4. Low Energy / Sadness (Indigo/Blue)
     if (e.match(/sad|lonely|tired|bored|hopeless|悲伤|孤独|疲惫|无聊|绝望|depress/)) {
         return 'bg-indigo-500/30 border-indigo-500/40 text-indigo-200';
     }
+    // 5. Intense Negative / Anger (Red/Stone)
     if (e.match(/angry|frustrated|anxious|fear|guilty|愤怒|挫败|焦虑|恐惧|内疚|压力/)) {
         return 'bg-stone-700/80 border-rose-500/30 text-rose-200';
     }
 
+    // Default active but unknown emotion
     return 'bg-stone-700 border-white/20 text-stone-200';
 };
 
-const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalEntries, ritualEntries, onDeleteJournalEntry }) => {
-    const [selectedEntry, setSelectedEntry] = useState<{ journals: JournalEntry[], ritual?: RitualArchiveEntry, dateStr: string } | null>(null);
+const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalEntries, ritualEntries, onDeleteJournalEntry, onDeleteRitual }) => {
+    const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [confirmDeleteRitualId, setConfirmDeleteRitualId] = useState<string | null>(null);
 
     // Map entries to days string key "YYYY-MM-DD"
     const entriesByDay = useMemo(() => {
@@ -56,30 +64,59 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
             map[key].journals.sort((a,b) => b.date - a.date);
         });
 
-        ritualEntries.forEach(r => {
+        // Sort ritual entries by date ascending (Oldest -> Newest) before processing.
+        // This ensures that when we merge duplicates (same day), the newer data overwrites the older data.
+        // App.tsx typically prepends new entries ([New, Old]), so without sorting, we would process New then Old,
+        // and our merge logic (Old || New) would result in Old data persisting.
+        const sortedRituals = [...ritualEntries].sort((a, b) => a.date - b.date);
+
+        sortedRituals.forEach(r => {
             const d = new Date(r.date).toDateString();
             if (!map[d]) {
                 map[d] = { journals: [], ritual: undefined };
             }
-            map[d] = { ...map[d], ritual: r };
+            
+            // Merge logic: If a ritual already exists for this day, merge the fields.
+            // Since we are iterating Old -> New, 'r' is always the newer (or equal) entry.
+            // We prioritize 'r's data if it exists.
+            if (map[d].ritual) {
+                map[d].ritual = {
+                    ...map[d].ritual,
+                    ...r,
+                    reading: r.reading || map[d].ritual.reading,
+                    oracleReading: r.oracleReading || map[d].ritual.oracleReading,
+                    practice: r.practice || map[d].ritual.practice
+                };
+            } else {
+                map[d].ritual = r;
+            }
         });
         return map;
     }, [journalEntries, ritualEntries]);
+
+    // Derived state for the selected entry details
+    const selectedEntry = useMemo(() => {
+        if (!selectedDateKey) return null;
+        const entry = entriesByDay[selectedDateKey];
+        if (!entry) return null; // Or return a structure with empty arrays if you want to show empty state for a valid date
+        
+        return {
+            ...entry,
+            dateStr: new Date(selectedDateKey).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        };
+    }, [selectedDateKey, entriesByDay]);
 
     // Initialize selected entry from prop if provided
     useEffect(() => {
         if (initialDate) {
             const dateStr = initialDate.toDateString();
-            const entry = entriesByDay[dateStr];
-            if (entry && (entry.journals.length > 0 || entry.ritual)) {
-                setSelectedEntry({
-                    journals: entry.journals,
-                    ritual: entry.ritual,
-                    dateStr: initialDate.toLocaleDateString()
-                });
+            if (entriesByDay[dateStr]) {
+                setSelectedDateKey(dateStr);
             }
         }
-    }, [initialDate, entriesByDay]);
+    }, [initialDate]); // Removed entriesByDay from dependency to avoid resetting on data update if user navigated away? 
+    // Actually, if we want initialDate to force open a date, we should keep it simple.
+    // But usually initialDate is passed once on mount or when navigation happens.
 
     // Determine range of months to display
     const monthsToDisplay = useMemo(() => {
@@ -103,7 +140,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
         <div className="flex flex-col h-full">
             {selectedEntry ? (
                 <div className="animate-fade-in space-y-6">
-                    <button onClick={() => setSelectedEntry(null)} className="flex items-center text-xs text-lucid-dim hover:text-white mb-2">
+                    <button onClick={() => setSelectedDateKey(null)} className="flex items-center text-xs text-lucid-dim hover:text-white mb-2">
                         <ChevronLeft className="w-4 h-4 mr-1"/> 返回日历
                     </button>
                     
@@ -116,6 +153,47 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                     {/* Ritual Section */}
                     {selectedEntry.ritual && (
                         <div className="space-y-4">
+                            {/* Ritual Section Header */}
+                            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+                                <div className="flex items-center gap-2 text-stone-400 text-xs uppercase tracking-widest font-bold">
+                                    <Sparkles className="w-3 h-3" /> Daily Ritual
+                                </div>
+                                
+                                {/* Ritual Delete Button */}
+                                {onDeleteRitual && (
+                                    <div className="relative z-20 flex items-center">
+                                        {confirmDeleteRitualId === selectedEntry.ritual.id ? (
+                                            <div className="flex items-center gap-1 bg-stone-800 rounded-full px-1 py-0.5 border border-rose-500/30 animate-fade-in">
+                                                <span className="text-[9px] text-rose-300 pl-1">删除?</span>
+                                                <button 
+                                                    onClick={() => {
+                                                        onDeleteRitual(selectedEntry.ritual!.id);
+                                                        setConfirmDeleteRitualId(null);
+                                                    }}
+                                                    className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                                >
+                                                    <Check className="w-3 h-3" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => setConfirmDeleteRitualId(null)}
+                                                    className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button 
+                                                onClick={() => setConfirmDeleteRitualId(selectedEntry.ritual!.id)}
+                                                className="text-stone-600 hover:text-rose-400 transition-colors p-1.5 rounded-full hover:bg-rose-500/10 active:scale-95"
+                                                title="Delete Ritual"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             {selectedEntry.ritual.reading && (
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-lucid-glow text-xs uppercase tracking-widest font-bold">
@@ -137,6 +215,28 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                     </div>
                                 </div>
                             )}
+
+                            {selectedEntry.ritual.oracleReading && (
+                                <div className="space-y-2 mt-4">
+                                    <div className="flex items-center gap-2 text-purple-400 text-xs uppercase tracking-widest font-bold">
+                                        <CreditCard className="w-3 h-3" /> Oracle Reading
+                                    </div>
+                                    <div className="flex justify-center gap-2 flex-wrap">
+                                        {selectedEntry.ritual.oracleReading.cards.map((card, i) => (
+                                            <div key={i} className={`min-w-[30%] p-2 bg-white/5 rounded-lg border border-white/10 text-center ${card.isReversed ? 'border-rose-500/20' : 'border-purple-500/20'}`}>
+                                                <span className="text-[10px] text-stone-500 block uppercase">{card.position}</span>
+                                                <div className="text-sm font-serif text-white my-1">{card.name}</div>
+                                                <span className="text-[9px] block text-stone-500">{card.isReversed ? 'Reversed' : 'Upright'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                                        <p className="text-xs text-stone-300 font-serif leading-relaxed">
+                                            {selectedEntry.ritual.oracleReading.guidance}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             
                             {selectedEntry.ritual.practice && (
                                 <div className="space-y-2">
@@ -144,6 +244,9 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                         <Sun className="w-3 h-3" /> Daily Practice
                                     </div>
                                     <div className="bg-gradient-to-br from-emerald-900/10 to-transparent p-3 rounded-lg border border-emerald-500/10">
+                                        <h3 className="text-lg font-serif text-emerald-100 mb-3 border-b border-emerald-500/10 pb-2">
+                                            {selectedEntry.ritual.practice.energyStatus}
+                                        </h3>
                                         <div className="text-xs text-emerald-200 mb-1">Affirmation:</div>
                                         <div className="text-sm text-white font-serif italic mb-3">"{selectedEntry.ritual.practice.todaysAffirmation}"</div>
                                         <div className="text-xs text-emerald-200 mb-1">Action:</div>
@@ -185,11 +288,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         onDeleteJournalEntry(journal.id);
-                                                                        // Update local UI immediately so it disappears
-                                                                        setSelectedEntry(prev => prev ? ({
-                                                                            ...prev,
-                                                                            journals: prev.journals.filter(j => j.id !== journal.id)
-                                                                        }) : null);
+                                                                        // UI updates automatically via props -> derived state
                                                                         setConfirmDeleteId(null);
                                                                     }}
                                                                     className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
@@ -282,7 +381,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                 </div>
                                 
                                 <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                                    {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[10px] text-lucid-dim font-sans opacity-50">{d}</span>)}
+                                    {['S','M','T','W','T','F','S'].map((d, i) => <span key={`${d}-${i}`} className="text-[10px] text-lucid-dim font-sans opacity-50">{d}</span>)}
                                 </div>
                                 
                                 <div className="grid grid-cols-7 gap-2">
@@ -323,12 +422,8 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
 
                                         return (
                                             <button
-                                                key={day}
-                                                onClick={() => hasEntry && setSelectedEntry({ 
-                                                    journals: entry?.journals || [], 
-                                                    ritual: entry?.ritual,
-                                                    dateStr: currentDayDate.toLocaleDateString()
-                                                })}
+                                                key={`${day}-${i}`}
+                                                onClick={() => hasEntry && setSelectedDateKey(currentDayDate.toDateString())}
                                                 disabled={!hasEntry}
                                                 className={`
                                                     aspect-square rounded-lg flex flex-col items-center justify-center text-xs font-serif transition-all relative border border-transparent

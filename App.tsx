@@ -248,6 +248,28 @@ const App: React.FC = () => {
       })
       .catch(console.warn);
 
+      // 4. Sync Letters
+      fetch(`${baseUrl}/api/letters`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+        if (!res.ok) {
+            if (res.status === 404) return [];
+            throw new Error(`Failed to fetch letters: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+            setLetters(data.map((l: any) => ({
+                ...l,
+                createdAt: typeof l.createdAt === 'string' ? new Date(l.createdAt).getTime() : l.createdAt,
+                sendDate: typeof l.sendDate === 'string' ? new Date(l.sendDate).getTime() : l.sendDate
+            })));
+        }
+      })
+      .catch(console.warn);
+
     }
   }, [user, token]);
 
@@ -380,12 +402,34 @@ const App: React.FC = () => {
     const updated = journalEntries.filter(j => j.id !== id);
     setJournalEntries(updated);
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
+
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/journals/${id}`, {
+            method: 'DELETE',
+            headers: { 
+                'Authorization': `Bearer ${token}`
+            }
+        }).catch(console.error);
+    }
   };
 
   const handleUpdateJournalEntry = (updatedEntry: JournalEntry) => {
     const updated = journalEntries.map(j => j.id === updatedEntry.id ? updatedEntry : j);
     setJournalEntries(updated);
     localStorage.setItem('lucid_all_journals', JSON.stringify(updated));
+
+    if (user && token) {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        fetch(`${baseUrl}/api/journals/${updatedEntry.id}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updatedEntry)
+        }).catch(console.error);
+    }
   };
 
   // 3. Ritual Entries

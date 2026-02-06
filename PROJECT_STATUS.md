@@ -8,6 +8,9 @@
 | :--- | :--- | :--- | :--- |
 | **后端** | Railway | 🟢 已部署 | Node.js / Express (Port 5432 Session Pooler) |
 | **数据库** | Supabase | 🟢 已连接 | PostgreSQL (IPv4 Compatible) |
+项目中有一个专门的脚本 check-provider.js ，在启动或构建时自动检测当前环境：
+- 如果在本地，它会自动把 schema.prisma 改为 sqlite 。
+- 如果在生产环境，它会自动把配置改回 postgresql 。
 | **邮件服务** | Resend | 🟢 已验证 | HTTP API (端口 443) |
 | **前端** | Vercel | 🟢 已部署 | React / Vite |
 | **AI 服务** | Google Gemini | 🟢 已优化 | Cloudflare Proxy + Retry Logic |
@@ -35,6 +38,8 @@
 
 ### 环境变量 (Vercel - Frontend)
 - `VITE_API_URL`: 后端 API 地址 (e.g., `https://lucid-journal-production.up.railway.app`)
+- `VITE_DEFAULT_API_KEY`: Google AI Studio API Key
+- `VITE_DEFAULT_PROXY_URL`: Cloudflare Worker 代理地址
 
 ### 环境变量 (Expo Client)
 - `EXPO_PUBLIC_GEMINI_API_KEY`: Google AI Studio API Key
@@ -66,6 +71,14 @@
   - 🐛 **修复**: 通过使用 HTTP 传输解决了 `ENETUNREACH` 和 `ETIMEDOUT` 错误。
   - 🛠 **工具**: 添加了 `/api/debug/force-send` 和 `/api/debug/connectivity-check` 接口。
   - 🌐 **域名**: 配置了自定义域名 `email.lucidjournal.space`。
+
+- **2026-02-06 (Data Sync)**:
+  - ☁️ **云端同步**: 实现了核心数据的全量云端同步，支持多端数据一致性。
+    - **每日仪式 (Daily Ritual)**: 存档、读取、删除。
+    - **日记 (Journal)**: 创建、读取、更新、删除。
+    - **愿望 (Wish)**: 创建、读取、更新、删除。
+    - **时间胶囊 (Time Capsule)**: 寄信、读取、删除。
+  - 🔒 **数据安全**: 所有 API 请求均经过 JWT 身份验证。
 
 ## 🛠 调试工具 (Debugging Tools)
 

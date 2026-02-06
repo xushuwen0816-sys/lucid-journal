@@ -711,9 +711,10 @@ export const generateOracleReading = async (
     
     // Sanitize
     if (raw.cards && Array.isArray(raw.cards)) {
-         raw.cards = raw.cards.map((c: any) => ({
+         raw.cards = raw.cards.map((c: any, index: number) => ({
              ...c,
-             name: sanitizeString(c.name),
+             // Use original name if possible to preserve English, fallback to AI name
+             name: drawnCards[index]?.name || sanitizeString(c.name),
              meaning: sanitizeString(c.meaning)
          }));
     }
@@ -787,13 +788,15 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
 
     请返回 JSON，请确保内容有良好的可读性，适当使用换行符(\\n\\n)分段：
     1. blocksIdentified: 识别出的限制性信念 (Array of strings)。
-       **核心定义**：限制性信念是深层的、固化的**思维范式**或**世界观**（例如："我不配得"、"我必须完美才值得被爱"、"世界是不安全的"）。
-       **严格禁止**：
+       **核心定义**：限制性信念应提炼为**心理学术语**或**高度概括的核心图式**（Core Schema）。
+       **严格要求**：
+       - **禁止口语化**：不要使用短句（如“总是怕这怕那”、“觉得自己很差”）。
+       - **必须专业化**：请使用专业的心理学名词或抽象概念（如“灾难化思维”、“匮乏心态”、“习得性无助”、“冒名顶替综合症”、“不配得感”、“全能自恋”、“非黑即白思维”）。
        - **禁止**包含情绪感受（如"被抛弃感"、"孤独感"、"焦虑" —— 这些是情绪，不是信念）。
-       - **禁止**单纯列举性格标签（如"完美主义" —— 这只是现象，请挖掘其背后的信念，如"容错度低"或"必须完美"）。
+       - **禁止**单纯列举性格标签（如"完美主义"、"过度思虑"—— 这只是现象）。
        - **禁止**无中生有。如果日记中没有明显的限制性信念，请留空，不要强行凑数。
        - 保持客观中立，不要让用户感到被评判或挑刺。
-       每个词建议2-8个字，保持抽象和通用性。
+       每个词建议2-8个字，保持学术感和深度。
 
     2. emotionalState: 用户当下的情绪状态关键词 (Array of strings, e.g. ["释然", "期待", "疲惫"])。
 
@@ -809,6 +812,7 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
        - **禁止**使用"自我觉察"、"内省"、"愿意改变"等词汇（因为写日记本身就代表了这些，说了等于没说）。
        - 请挖掘更具体的特质（如："诚实面对自我"、"逻辑清晰"、"富有同理心"、"坚韧"、"细腻的感知力"）。
        - 态度要真诚客观，不要过度溢美（捧杀）。
+       每个词建议2-6个字，保持抽象和通用性。
   `;
 
   try {
