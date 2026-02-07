@@ -122,17 +122,24 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: R
 };
 
 export const SimpleMarkdown: React.FC<{ content: any }> = ({ content }) => {
-  if (!content) return null;
+  if (content === null || content === undefined) return null;
 
   // Defensive conversion to string
   let safeContent = "";
   if (typeof content === 'string') {
       safeContent = content;
   } else if (typeof content === 'object') {
-      safeContent = content.text || content.content || JSON.stringify(content);
+      // Handle case where content might be null inside object or missing keys
+      safeContent = content.text || content.content || "";
+      if (!safeContent && Object.keys(content).length > 0) {
+          safeContent = JSON.stringify(content);
+      }
   } else {
       safeContent = String(content);
   }
+
+  // If safeContent is still empty/null after processing, return null to avoid errors
+  if (!safeContent) return null;
 
   // Pre-process content: handle escaped newlines (\n) that might come from JSON responses
   // and ensure they are treated as real newlines for splitting.

@@ -145,12 +145,13 @@ export const generateFutureLetterEmail = (
           ${formattedContent}
         </div>
 
-        ${aiReply ? `
+        ${/* AI Reply section disabled by user request
+        aiReply ? `
         <div class="ai-reply">
           <h3>Resonance / 回响</h3>
           <p>${aiReply.replace(/\n/g, '<br/>')}</p>
         </div>
-        ` : ''}
+        ` : ''*/ ''}
       </div>
 
       <div class="footer">

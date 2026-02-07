@@ -890,7 +890,8 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
     // Calculate unlock time
     const unlockTime = Date.now() + (letterDelay * 24 * 60 * 60 * 1000); 
     // Give AI some time (e.g. 2 minutes) if sending immediately, to avoid sending email before AI reply is synced
-    const actualUnlockTime = letterDelay === 0 ? Date.now() + 120000 : unlockTime;
+    // NOTE: AI reply is currently disabled, so we can just use a short buffer or even 0.
+    const actualUnlockTime = letterDelay === 0 ? Date.now() + 10000 : unlockTime;
 
     // Generate ID upfront
     const newLetterId = crypto.randomUUID();
@@ -901,7 +902,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
         id: newLetterId,
         content: letterInput,
         sendDate: actualUnlockTime,
-        aiReply: null, // Placeholder
+        aiReply: null, // AI disabled
         isLocked: true
     };
 
@@ -955,14 +956,15 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
               createdAt: Date.now(),
               content: letterInput,
               sendDate: actualUnlockTime,
-              aiReply: "（网络连接中断，AI 回信暂不可用）",
+              aiReply: null, // AI disabled
               isLocked: true
             };
             onAddLetter(newLetter);
-            alert('网络连接不稳定，信件已保存在本地。');
+            // alert('网络连接不稳定，信件已保存在本地。'); // Suppress this alert as user finds it confusing
             setLetterInput('');
             setIsSending(false);
             setShowLetterInput(false);
+            alert('信件已保存（离线模式）。'); // Clearer message
             return; // Exit, do not attempt AI
     }
 
@@ -970,10 +972,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
     setIsSending(false);
     setLetterInput('');
     setShowLetterInput(false);
-    alert('信件已寄出！未来维度的回信正在生成中...');
+    alert('信件已寄出！');
 
     // 2. Background AI & Update (Step 2 & 3)
     // Run this asynchronously without blocking the UI
+    /* AI FEATURE DISABLED BY USER REQUEST
     (async () => {
         try {
             console.log('Step 2: Generating AI reply (Background)...');
@@ -1007,6 +1010,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
             // The letter is already saved (Step 1), just without AI reply.
         }
     })();
+    */
   };
 
   const toggleWishStatus = () => {
@@ -1470,7 +1474,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                             {letter.aiReply ? (
                                                 <span className="text-lucid-glow italic">" {typeof letter.aiReply === 'object' ? (letter.aiReply as any).text : letter.aiReply} "</span>
                                             ) : (
-                                                "Waiting for future resonance..."
+                                                <span className="text-stone-500">
+                                                    {letter.content && typeof letter.content === 'object' 
+                                                        ? ((letter.content as any).text || (letter.content as any).content || JSON.stringify(letter.content)) 
+                                                        : (letter.content || '')}
+                                                </span>
                                             )}
                                         </div>
 
@@ -1949,6 +1957,8 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       >
           {selectedLetter && (
               <div className="space-y-8 pb-4">
+                  {/* AI Reply Section */}
+                  {selectedLetter.aiReply && (
                   <div className="bg-gradient-to-br from-lucid-glow/10 to-transparent p-6 rounded-2xl border border-lucid-glow/20 relative overflow-hidden">
                       <div className="absolute top-0 right-0 p-4 opacity-10">
                           <Sparkles className="w-24 h-24" />
@@ -1963,9 +1973,14 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                           </div>
                       </div>
                       <div className="text-white/90 font-serif leading-loose text-base relative z-10 italic">
-                          <SimpleMarkdown content={typeof selectedLetter.aiReply === 'object' ? (selectedLetter.aiReply as any).text : selectedLetter.aiReply || ''} />
+                          <SimpleMarkdown content={
+                            selectedLetter.aiReply && typeof selectedLetter.aiReply === 'object' 
+                            ? ((selectedLetter.aiReply as any).text || (selectedLetter.aiReply as any).content || JSON.stringify(selectedLetter.aiReply)) 
+                            : (selectedLetter.aiReply || '')
+                          } />
                       </div>
                   </div>
+                  )}
 
                   <div className="relative">
                        <div className="flex items-center justify-between mb-4 px-2">
@@ -2032,7 +2047,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                        <span>来自过去的信件已送达</span>
                                    </div>
                                    <div className="text-stone-300 font-serif leading-loose whitespace-pre-wrap">
-                                       <SimpleMarkdown content={typeof selectedLetter.content === 'object' ? (selectedLetter.content as any).text : selectedLetter.content} />
+                                       <SimpleMarkdown content={
+                                           selectedLetter.content && typeof selectedLetter.content === 'object' 
+                                           ? ((selectedLetter.content as any).text || (selectedLetter.content as any).content || JSON.stringify(selectedLetter.content)) 
+                                           : (selectedLetter.content || '')
+                                       } />
                                    </div>
                                </>
                            )}
