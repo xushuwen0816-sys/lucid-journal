@@ -114,17 +114,24 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res): Promise<any>
 // Update Profile
 router.put('/profile', authenticateToken, async (req: AuthRequest, res): Promise<any> => {
   try {
-    const { name, apiKey, proxyUrl, provider } = req.body;
+    const { name, apiKey, proxyUrl, provider, password } = req.body;
     const userId = req.user?.userId;
+
+    const updateData: any = {
+      name,
+      apiKey,
+      proxyUrl,
+      provider
+    };
+
+    if (password) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      updateData.passwordHash = passwordHash;
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        name,
-        apiKey,
-        proxyUrl,
-        provider
-      },
+      data: updateData,
       select: {
         id: true,
         email: true,

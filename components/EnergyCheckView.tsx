@@ -550,11 +550,11 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
             {activeTab === 'practice' && (
             <div className="max-w-xl mx-auto py-6 animate-fade-in">
                 {!practice ? (
-                    <div className="text-center space-y-4 py-16 flex flex-col items-center">
+                    <div className="text-center space-y-8 pt-32 pb-16 flex flex-col items-center">
                         <Sun className="w-12 h-12 text-stone-600 opacity-50" />
                         <div>
                             <h3 className="text-lg font-serif text-stone-300">今日能量未激活</h3>
-                            <p className="text-stone-500 text-sm mt-1">请先进行“灵感塔罗”或“神谕指引”抽取，以获取专属指引。</p>
+                            <p className="text-stone-500 text-sm mt-4">请先进行“灵感塔罗”或“神谕指引”抽取，以获取专属指引。</p>
                         </div>
                         <Button onClick={() => setActiveTab('tarot')} variant="outline" className="rounded-full px-8 text-xs">
                             前往抽取

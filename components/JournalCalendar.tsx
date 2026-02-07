@@ -9,6 +9,7 @@ interface JournalCalendarProps {
     ritualEntries: RitualArchiveEntry[];
     onDeleteJournalEntry?: (id: string) => void;
     onDeleteRitual?: (id: string) => void;
+    className?: string;
 }
 
 // Helper: Get Heatmap Color Class based on emotions (Duplicated for now, ideally in utils)
@@ -43,7 +44,7 @@ const getMoodStyle = (emotions: string[] = []): string => {
     return 'bg-[#C2B280]/20 text-[#E0D8B0]';
 };
 
-const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalEntries, ritualEntries, onDeleteJournalEntry, onDeleteRitual }) => {
+const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalEntries, ritualEntries, onDeleteJournalEntry, onDeleteRitual, className }) => {
     const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [confirmDeleteRitualId, setConfirmDeleteRitualId] = useState<string | null>(null);
@@ -142,14 +143,26 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
     const lastViewedDateRef = useRef<string | null>(null);
     const journalRef = useRef<HTMLDivElement>(null);
     const ritualRef = useRef<HTMLDivElement>(null);
+    const detailContainerRef = useRef<HTMLDivElement>(null);
+    const calendarContainerRef = useRef<HTMLDivElement>(null);
+    const savedScrollTopRef = useRef<number>(0);
 
     // Scroll to specific section when opening a date
     useLayoutEffect(() => {
         if (selectedDateKey) {
-            if (journalRef.current) {
-                journalRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
-            } else if (ritualRef.current) {
-                ritualRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
+            // Use setTimeout to ensure DOM is fully ready, though useLayoutEffect should suffice.
+            // But we use scrollTop on container to avoid page jump.
+            if (detailContainerRef.current) {
+                const target = journalRef.current || ritualRef.current;
+                if (target) {
+                    // Calculate target position relative to the container
+                    // We need to account for sticky header height (~50px)
+                    // offsetTop is relative to the closest positioned ancestor.
+                    // The container has relative position (flex child), so it should work.
+                    // If target is nested deep, we might need more math, but structure is flat enough.
+                    const top = target.offsetTop;
+                    detailContainerRef.current.scrollTop = Math.max(0, top - 60); // 60px buffer
+                }
             }
         }
     }, [selectedDateKey]);
@@ -157,40 +170,44 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
     // Scroll to bottom on mount or when returning to calendar view
     useLayoutEffect(() => {
         if (!selectedDateKey) {
-            if (lastViewedDateRef.current) {
+            if (savedScrollTopRef.current > 0 && calendarContainerRef.current) {
+                calendarContainerRef.current.scrollTop = savedScrollTopRef.current;
+            } else if (lastViewedDateRef.current) {
                 const el = document.getElementById(`date-${lastViewedDateRef.current}`);
                 if (el) {
                     el.scrollIntoView({ behavior: 'auto', block: 'center' });
                 }
                 lastViewedDateRef.current = null;
-            } else if (bottomRef.current) {
-                bottomRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+            } else if (calendarContainerRef.current) {
+                calendarContainerRef.current.scrollTop = calendarContainerRef.current.scrollHeight;
             }
         }
     }, [selectedDateKey, monthsToDisplay]);
 
     return (
-        <div className="flex flex-col h-full">
+        <div className={`flex flex-col h-full ${className || ''}`}>
             {selectedEntry ? (
-                <div className="flex flex-col h-full">
-                    <div className="sticky top-0 z-30 bg-[#1C1917]/95 backdrop-blur-md border-b border-white/5 py-3 px-4 md:px-6 transition-all duration-300">
+                <div className="flex flex-col h-full overflow-hidden relative">
+                    {/* Integrated Sticky Header - Minimal & Seamless */}
+                    <div className="sticky top-0 z-30 flex items-center gap-4 py-4 px-4 md:px-6 bg-stone-900/10 backdrop-blur-md transition-all duration-300 shrink-0">
                         <button 
                             onClick={() => {
                                 lastViewedDateRef.current = selectedDateKey;
                                 setSelectedDateKey(null);
                             }} 
-                            className="flex items-center text-xs text-lucid-dim hover:text-white transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white transition-all border border-white/5 group"
+                            title="返回日历"
                         >
-                            <ChevronLeft className="w-4 h-4 mr-1"/> 返回日历
+                            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"/>
                         </button>
-                    </div>
-                    
-                    <div className="px-4 md:px-6 pb-6 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xl text-white font-serif tracking-wide">
+                        <span className="text-lg text-white/90 font-serif tracking-wide drop-shadow-sm">
                             {selectedEntry.dateStr}
                         </span>
                     </div>
+                    
+                    <div ref={detailContainerRef} className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-6 space-y-6 relative">
+                    {/* Removed duplicated title since it's now in header */}
+
 
                     {/* Ritual Section */}
                     {selectedEntry.ritual && (
@@ -408,7 +425,7 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                     </div>
                 </div>
             ) : (
-                <div className="space-y-8 p-4 md:p-6 pb-20">
+                <div ref={calendarContainerRef} className="flex-1 overflow-y-auto custom-scrollbar space-y-8 p-4 md:p-6 pb-20">
                     {/* Vertical Scroll List of Months */}
                     {monthsToDisplay.map((dateObj, monthIdx) => {
                         const year = dateObj.getFullYear();
@@ -467,7 +484,14 @@ const JournalCalendar: React.FC<JournalCalendarProps> = ({ initialDate, journalE
                                             <button
                                                 key={`${day}-${i}`}
                                                 id={`date-${dateKey}`}
-                                                onClick={() => hasEntry && setSelectedDateKey(currentDayDate.toDateString())}
+                                                onClick={() => {
+                                                    if (hasEntry) {
+                                                        if (calendarContainerRef.current) {
+                                                            savedScrollTopRef.current = calendarContainerRef.current.scrollTop;
+                                                        }
+                                                        setSelectedDateKey(currentDayDate.toDateString());
+                                                    }
+                                                }}
                                                 disabled={!hasEntry}
                                                 className={`
                                                     aspect-square rounded-lg flex flex-col items-center justify-center text-xs font-serif transition-all relative border border-transparent

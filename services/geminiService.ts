@@ -1,14 +1,11 @@
-
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { BeliefMap, Affirmation, TarotCard, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { BeliefMap, Affirmation, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage } from "../types";
 
 // Initialize Gemini Client Lazily
 let aiInstance: GoogleGenAI | null = null;
 const DEFAULT_PROXY = import.meta.env.VITE_DEFAULT_PROXY_URL || '';
-const SILICONFLOW_BASE_URL = 'https://api.siliconflow.cn/v1';
 
 let dynamicApiKey = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_api_key') || '' : '';
-let currentProvider: 'gemini' | 'siliconflow' = (typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_provider') as any : 'gemini') || 'gemini';
 
 // --- HELPER: DATA SANITIZATION ---
 // Prevents React errors when AI returns objects instead of strings (e.g. {title: "Joy"} instead of "Joy")
@@ -26,7 +23,7 @@ const sanitizeString = (val: any): string => {
   if (typeof val === 'string') return val;
   if (typeof val === 'number') return String(val);
   if (typeof val === 'object') {
-      // Prioritize common keys DeepSeek might return for a single string field
+      // Prioritize common keys DeepSeek/AI might return for a single string field
       return val.text || val.content || val.value || val.name || val.title || val.description || val.message || JSON.stringify(val);
   }
   return String(val);
@@ -55,12 +52,7 @@ const getInitialBaseUrl = () => {
   // Case 1: No stored URL -> Use New Default
   if (!stored) return DEFAULT_PROXY;
   
-  // Case 2: (Removed) Allow users to use their own workers.dev proxy
-  // if (stored.includes('workers.dev') && !stored.includes('empty-feather')) {
-  //   return DEFAULT_PROXY;
-  // }
-  
-  // Case 3: Stored URL is empty string (User tried to direct connect) -> Force Update to New Domain (Assuming they are in China)
+  // Case 2: Stored URL is empty string (User tried to direct connect) -> Force Update to New Domain (Assuming they are in China)
   if (stored.trim() === '') {
     return DEFAULT_PROXY;
   }
@@ -71,10 +63,9 @@ const getInitialBaseUrl = () => {
 let dynamicBaseUrl = getInitialBaseUrl();
 let userName = typeof localStorage !== 'undefined' ? localStorage.getItem('lucid_user_name') || '旅行者' : '旅行者';
 
-export const setAiConfig = (key: string, name: string, baseUrl?: string, provider: 'gemini' | 'siliconflow' = 'gemini') => {
+export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
   dynamicApiKey = key;
   userName = name || '旅行者';
-  currentProvider = provider;
   
   // Robust URL formatting for Proxy/Base URL
   if (baseUrl && baseUrl.trim().length > 0) {
@@ -83,34 +74,22 @@ export const setAiConfig = (key: string, name: string, baseUrl?: string, provide
       if (!/^https?:\/\//i.test(cleanUrl)) {
           cleanUrl = `https://${cleanUrl}`;
       }
-      
-      // SAFETY CHECK: If provider is SiliconFlow but URL looks like Gemini Proxy, force Direct
-      if (provider === 'siliconflow' && cleanUrl.includes('workers.dev')) {
-          dynamicBaseUrl = SILICONFLOW_BASE_URL;
-      } else {
-          dynamicBaseUrl = cleanUrl;
-      }
+      dynamicBaseUrl = cleanUrl;
   } else {
-      // If no custom URL provided:
-      if (provider === 'siliconflow') {
-          // Default SiliconFlow (Direct)
-          dynamicBaseUrl = SILICONFLOW_BASE_URL;
-      } else {
-          // Default Gemini (Direct or handled by SDK defaults if empty)
-          dynamicBaseUrl = '';
-      }
+      // Default Gemini (Direct or handled by SDK defaults if empty)
+      dynamicBaseUrl = '';
   }
   
   if (typeof localStorage !== 'undefined') {
-    // Only update the "generic" legacy key if we are in Gemini mode or to keep compat
     localStorage.setItem('lucid_api_key', key);
     localStorage.setItem('lucid_user_name', userName);
-    localStorage.setItem('lucid_provider', provider);
     if (dynamicBaseUrl) {
       localStorage.setItem('lucid_base_url', dynamicBaseUrl);
     } else {
       localStorage.setItem('lucid_base_url', '');
     }
+    // Cleanup legacy provider key
+    localStorage.removeItem('lucid_provider');
   }
   aiInstance = null; // Reset instance to apply new config
 };
@@ -123,21 +102,12 @@ const getAi = () => {
     if (!aiInstance) {
         const key = process.env.API_KEY || dynamicApiKey;
         
-        // Construct config
-        // NOTE: For @google/genai SDK, connection settings are passed differently depending on version.
-        // Based on search results, 'httpOptions.baseUrl' or root config 'baseUrl' might be used.
-        // We will try to set it in a way that covers most bases, but specifically for the new SDK:
-        // It seems the constructor takes { apiKey, httpOptions: { baseUrl: ... } }
-        
         const clientOptions: any = { apiKey: key || '' };
 
-        if (dynamicBaseUrl && dynamicBaseUrl !== SILICONFLOW_BASE_URL) {
+        if (dynamicBaseUrl) {
             // Ensure no trailing slash
             const cleanUrl = dynamicBaseUrl.replace(/\/+$/, '');
             console.log('[LUCID] Setting Custom Base URL:', cleanUrl);
-            
-            // Try Method 1: Top-level baseUrl (common in some versions)
-            clientOptions.baseUrl = cleanUrl;
             
             // Try Method 2: httpOptions.baseUrl (common in newer @google/genai)
             clientOptions.httpOptions = {
@@ -184,93 +154,21 @@ const callGeminiWithRetry = async <T>(
     }
 };
 
-// --- SiliconFlow Adapter (OpenAI Compatible) ---
-
-const callSiliconFlow = async (
-    systemPrompt: string, 
-    userPrompt: string | { role: string, content: string }[], 
-    jsonMode: boolean = false
-): Promise<string> => {
-    // IMPORTANT: Prioritize dynamicApiKey (User Input) over process.env.API_KEY if dynamic is present
-    const key = dynamicApiKey || process.env.API_KEY;
-    if (!key) throw new Error("API Key missing");
-
-    const messages = [];
-    
-    // Add System Prompt if exists
-    if (systemPrompt) {
-        messages.push({ role: "system", content: systemPrompt });
-    }
-
-    // Add User Prompt / History
-    if (Array.isArray(userPrompt)) {
-        messages.push(...userPrompt);
-    } else {
-        messages.push({ role: "user", content: userPrompt });
-    }
-
-    // Use dynamicBaseUrl if set, otherwise fallback to default
-    const baseUrl = dynamicBaseUrl || SILICONFLOW_BASE_URL;
-
-    try {
-        const response = await fetch(`${baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-            },
-            body: JSON.stringify({
-                model: "deepseek-ai/DeepSeek-V3", // SiliconFlow Model ID
-                messages: messages,
-                stream: false,
-                response_format: jsonMode ? { type: "json_object" } : undefined
-            })
-        });
-
-        if (!response.ok) {
-            const err = await response.text();
-            
-            // Handle common 402/401 explicitly for better UX
-            if (response.status === 402) {
-                 throw new Error("SiliconFlow Error: 余额不足 (Insufficient Balance). Please top up your SiliconFlow account.");
-            }
-            if (response.status === 401) {
-                 throw new Error("SiliconFlow Error: 认证失败 (Auth Failed). Check your API Key.");
-            }
-
-            throw new Error(`SiliconFlow API Error: ${response.status} - ${err}`);
-        }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content || "";
-    } catch (error: any) {
-        console.error("SiliconFlow Call Failed:", error);
-        throw error;
-    }
-};
-
 // --- Connection Check ---
 
 export const checkConnection = async (): Promise<{ success: boolean; message?: string }> => {
     try {
-        if (currentProvider === 'siliconflow') {
-             // SiliconFlow connection check - use empty system prompt
-             await callSiliconFlow("", "Hello");
-             return { success: true };
-        } else {
-            // Use gemini-1.5-flash-latest or gemini-2.0-flash which are active
-            // Refer to: https://ai.google.dev/gemini-api/docs/models/gemini
-            const model = "gemini-2.5-flash";
-            
-            await callGeminiWithRetry(() => getAi().models.generateContent({
-                model,
-                contents: "ping",
-                config: {
-                    maxOutputTokens: 1,
-                }
-            }));
-            return { success: true };
-        }
+        // Use gemini-1.5-flash-latest or gemini-2.0-flash which are active
+        const model = "gemini-2.5-flash";
+        
+        await callGeminiWithRetry(() => getAi().models.generateContent({
+            model,
+            contents: "ping",
+            config: {
+                maxOutputTokens: 1,
+            }
+        }));
+        return { success: true };
     } catch (error: any) {
         console.error("Connection check failed:", error);
         let msg = `连接失败: `;
@@ -321,34 +219,24 @@ export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]):
   `;
 
   try {
-      if (currentProvider === 'siliconflow') {
-          // Convert history to OpenAI format
-          const openAIMessages = history.map(msg => ({
-              role: msg.role === 'model' ? 'assistant' : 'user',
-              content: msg.text
-          }));
-          return await callSiliconFlow(systemInstructionText, openAIMessages);
-      } else {
-          // Gemini Logic
-          // Use gemini-2.0-flash as it is the current stable version
-          const model = "gemini-2.5-flash"; 
-          const contents = history.map((msg, index) => {
-            let text = msg.text;
-            if (index === 0 && msg.role === 'user') {
-              text = `${systemInstructionText}\n\n[User's Initial Input]: ${text}`;
-            }
-            return {
-              role: msg.role === 'model' ? 'model' : 'user',
-              parts: [{ text: text }]
-            };
-          });
+      // Use gemini-2.0-flash as it is the current stable version
+      const model = "gemini-2.5-flash"; 
+      const contents = history.map((msg, index) => {
+        let text = msg.text;
+        if (index === 0 && msg.role === 'user') {
+          text = `${systemInstructionText}\n\n[User's Initial Input]: ${text}`;
+        }
+        return {
+          role: msg.role === 'model' ? 'model' : 'user',
+          parts: [{ text: text }]
+        };
+      });
 
-          const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-            model,
-            contents,
-          }));
-          return response.text || "正在连接你的潜意识频率...";
-      }
+      const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+        model,
+        contents,
+      }));
+      return response.text || "正在连接你的潜意识频率...";
   } catch (error) {
     console.error("Deep dive error:", error);
     return "信号受到了干扰，请检查网络连接或API设置。";
@@ -377,49 +265,40 @@ export const generateBeliefMapAndTags = async (wish: string, chatContext: string
 
   try {
       let jsonStr = "";
-      
-      if (currentProvider === 'siliconflow') {
-          jsonStr = await callSiliconFlow(
-              "You are a subconscious analysis engine. You output strictly JSON.", 
-              prompt, 
-              true // Force JSON mode
-          );
-      } else {
-          const model = "gemini-2.5-flash";
-          const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-              model,
-              contents: prompt,
-              config: {
-                responseMimeType: "application/json",
-                responseSchema: {
+      const model = "gemini-2.5-flash";
+      const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                beliefs: {
                   type: Type.OBJECT,
                   properties: {
-                    beliefs: {
-                      type: Type.OBJECT,
-                      properties: {
-                        emotionalBlocks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        limitingBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        supportiveBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        newIdentity: { type: Type.STRING },
-                      },
-                      required: ["emotionalBlocks", "limitingBeliefs", "supportiveBeliefs", "newIdentity"]
-                    },
-                    tags: {
-                      type: Type.OBJECT,
-                      properties: {
-                        emotional: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        domain: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        style: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      },
-                      required: ["emotional", "domain", "style"]
-                    }
+                    emotionalBlocks: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    limitingBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    supportiveBeliefs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    newIdentity: { type: Type.STRING },
                   },
-                  required: ["beliefs", "tags"],
+                  required: ["emotionalBlocks", "limitingBeliefs", "supportiveBeliefs", "newIdentity"]
                 },
+                tags: {
+                  type: Type.OBJECT,
+                  properties: {
+                    emotional: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    domain: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    style: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  },
+                  required: ["emotional", "domain", "style"]
+                }
               },
-            }));
-            jsonStr = response.text || "{}";
-      }
+              required: ["beliefs", "tags"],
+            },
+          },
+        }));
+        jsonStr = response.text || "{}";
       
       const parsed = JSON.parse(cleanJsonString(jsonStr));
       
@@ -480,51 +359,27 @@ export const generateAffirmations = async (wish: string, beliefs: BeliefMap): Pr
 
   try {
       let jsonStr = "";
-      if (currentProvider === 'siliconflow') {
-           jsonStr = await callSiliconFlow(
-              "You are an affirmation generator. Output strictly JSON array.",
-              prompt,
-              true
-           );
-           const cleanStr = cleanJsonString(jsonStr);
-           const parsed = JSON.parse(cleanStr);
-           
-           let affirmations: any[] = [];
-           if (Array.isArray(parsed)) {
-               affirmations = parsed;
-           } else if (parsed.affirmations && Array.isArray(parsed.affirmations)) {
-               affirmations = parsed.affirmations;
-           }
-
-           // Sanitize affirmations
-           return affirmations.map((a: any) => ({
-               text: sanitizeString(a.text || a), // Use sanitizeString to extract text if object
-               type: a.type
-           }));
-
-      } else {
-           const model = "gemini-2.5-flash";
-           const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-              model,
-              contents: prompt,
-              config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      text: { type: Type.STRING },
-                      type: { type: Type.STRING, enum: ["conscious", "subconscious", "future_self"] },
-                    },
-                    required: ["text", "type"],
-                  },
+      const model = "gemini-2.5-flash";
+      const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  text: { type: Type.STRING },
+                  type: { type: Type.STRING, enum: ["conscious", "subconscious", "future_self"] },
                 },
+                required: ["text", "type"],
               },
-            }));
-            jsonStr = response.text || "[]";
-            return JSON.parse(jsonStr);
-      }
+            },
+          },
+        }));
+        jsonStr = response.text || "[]";
+        return JSON.parse(jsonStr);
   } catch (error) {
     // Fallback affirmations
     return [
@@ -571,45 +426,38 @@ export const generateTarotReading = async (
   `;
   try {
     let jsonStr = "";
-    if (currentProvider === 'siliconflow') {
-        jsonStr = await callSiliconFlow(
-            "You are a Tarot Reader. Output strictly JSON.",
-            prompt,
-            true
-        );
-    } else {
-        const model = "gemini-2.5-flash";
-        const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                cards: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      name: { type: Type.STRING },
-                      isReversed: { type: Type.BOOLEAN },
-                      meaning: { type: Type.STRING },
-                      position: { type: Type.STRING, enum: ["body", "mind", "spirit"] },
-                    },
-                    required: ["name", "isReversed", "meaning", "position"]
-                  }
+    const model = "gemini-2.5-flash";
+    const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            cards: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  isReversed: { type: Type.BOOLEAN },
+                  meaning: { type: Type.STRING },
+                  position: { type: Type.STRING, enum: ["body", "mind", "spirit"] },
                 },
-                guidance: { type: Type.STRING },
-                actionHint: { type: Type.STRING },
-                focusWishName: { type: Type.STRING },
-              },
-              required: ["cards", "guidance", "actionHint", "focusWishName"]
+                required: ["name", "isReversed", "meaning", "position"]
+              }
             },
+            guidance: { type: Type.STRING },
+            actionHint: { type: Type.STRING },
+            focusWishName: { type: Type.STRING },
           },
-        }));
-        jsonStr = response.text || "{}";
-    }
+          required: ["cards", "guidance", "actionHint", "focusWishName"]
+        },
+      },
+    }));
+    jsonStr = response.text || "{}";
+    
     const raw = JSON.parse(cleanJsonString(jsonStr));
     
     // Sanitize fields
@@ -667,45 +515,37 @@ export const generateOracleReading = async (
   
   try {
     let jsonStr = "";
-    if (currentProvider === 'siliconflow') {
-        jsonStr = await callSiliconFlow(
-            "You are an Oracle Card Reader. Output strictly JSON.",
-            prompt,
-            true
-        );
-    } else {
-        const model = "gemini-2.5-flash";
-        const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                cards: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      name: { type: Type.STRING },
-                      isReversed: { type: Type.BOOLEAN },
-                      meaning: { type: Type.STRING },
-                      position: { type: Type.STRING, enum: ["oracle"] },
-                    },
-                    required: ["name", "isReversed", "meaning", "position"]
-                  }
+    const model = "gemini-2.5-flash";
+    const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            cards: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  isReversed: { type: Type.BOOLEAN },
+                  meaning: { type: Type.STRING },
+                  position: { type: Type.STRING, enum: ["oracle"] },
                 },
-                guidance: { type: Type.STRING },
-                actionHint: { type: Type.STRING },
-                focusWishName: { type: Type.STRING },
-              },
-              required: ["cards", "guidance", "actionHint", "focusWishName"]
+                required: ["name", "isReversed", "meaning", "position"]
+              }
             },
+            guidance: { type: Type.STRING },
+            actionHint: { type: Type.STRING },
+            focusWishName: { type: Type.STRING },
           },
-        }));
-        jsonStr = response.text || "{}";
-    }
+          required: ["cards", "guidance", "actionHint", "focusWishName"]
+        },
+      },
+    }));
+    jsonStr = response.text || "{}";
     
     const raw = JSON.parse(cleanJsonString(jsonStr));
     
@@ -748,28 +588,25 @@ export const generateDailyPractice = async (readingContext: string): Promise<Dai
 
   try {
     let jsonStr = "";
-    if (currentProvider === 'siliconflow') {
-         jsonStr = await callSiliconFlow("You are a spiritual guide. Output strictly JSON.", prompt, true);
-    } else {
-         const model = "gemini-2.5-flash";
-         const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        energyStatus: { type: Type.STRING },
-                        todaysAffirmation: { type: Type.STRING },
-                        actionStep: { type: Type.STRING },
-                    },
-                    required: ["energyStatus", "todaysAffirmation", "actionStep"]
-                }
-            }
-         }));
-         jsonStr = response.text || "{}";
-    }
+    const model = "gemini-2.5-flash";
+    const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                  energyStatus: { type: Type.STRING },
+                  todaysAffirmation: { type: Type.STRING },
+                  actionStep: { type: Type.STRING },
+              },
+              required: ["energyStatus", "todaysAffirmation", "actionStep"]
+          }
+      }
+    }));
+    jsonStr = response.text || "{}";
+    
     const raw = JSON.parse(cleanJsonString(jsonStr));
     return {
         energyStatus: sanitizeString(raw.energyStatus),
@@ -817,30 +654,26 @@ export const analyzeJournalEntry = async (text: string): Promise<JournalEntry['a
 
   try {
       let jsonStr = "";
-      if (currentProvider === 'siliconflow') {
-          jsonStr = await callSiliconFlow("You are a psychology expert. Output strictly JSON.", prompt, true);
-      } else {
-          const model = "gemini-2.5-flash";
-          const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-              model,
-              contents: prompt,
-              config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: Type.OBJECT,
-                  properties: {
-                    blocksIdentified: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    emotionalState: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    summary: { type: Type.STRING },
-                    tomorrowsAdvice: { type: Type.STRING },
-                    highSelfTraits: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  },
-                  required: ["blocksIdentified", "emotionalState", "summary", "tomorrowsAdvice", "highSelfTraits"]
-                }
-              }
-            }));
-            jsonStr = response.text || "{}";
-      }
+      const model = "gemini-2.5-flash";
+      const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                blocksIdentified: { type: Type.ARRAY, items: { type: Type.STRING } },
+                emotionalState: { type: Type.ARRAY, items: { type: Type.STRING } },
+                summary: { type: Type.STRING },
+                tomorrowsAdvice: { type: Type.STRING },
+                highSelfTraits: { type: Type.ARRAY, items: { type: Type.STRING } },
+              },
+              required: ["blocksIdentified", "emotionalState", "summary", "tomorrowsAdvice", "highSelfTraits"]
+            }
+          }
+        }));
+        jsonStr = response.text || "{}";
       
       const rawData = JSON.parse(cleanJsonString(jsonStr));
       
@@ -881,16 +714,12 @@ export const generateWeeklyReport = async (entries: JournalEntry[]): Promise<str
     `;
 
     try {
-        if (currentProvider === 'siliconflow') {
-            return await callSiliconFlow("You are a spiritual mentor.", prompt);
-        } else {
-            const model = "gemini-2.5-flash";
-            const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-                model,
-                contents: prompt,
-            }));
-            return response.text || "能量整合中...";
-        }
+        const model = "gemini-2.5-flash";
+        const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+            model,
+            contents: prompt,
+        }));
+        return response.text || "能量整合中...";
     } catch (error) {
         return "无法生成报告。";
     }
@@ -919,16 +748,12 @@ export const generateFutureLetterReply = async (userLetter: string): Promise<str
     `;
 
     try {
-        if (currentProvider === 'siliconflow') {
-            return await callSiliconFlow("You are the Higher Self.", prompt);
-        } else {
-            const model = "gemini-2.5-flash";
-            const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-                model,
-                contents: prompt,
-            }));
-            return response.text || "收到。我在未来等你。";
-        }
+        const model = "gemini-2.5-flash";
+        const response = await callGeminiWithRetry(() => getAi().models.generateContent({
+            model,
+            contents: prompt,
+        }));
+        return response.text || "收到。我在未来等你。";
     } catch (error) {
         return "信号连接中...";
     }

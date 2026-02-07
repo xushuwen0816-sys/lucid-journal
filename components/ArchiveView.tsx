@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
-import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload, Trash2, Check, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload, Trash2, Check, PieChart as PieChartIcon, BarChart3, Search } from 'lucide-react';
 import { generateFutureLetterReply, generateWeeklyReport } from '../services/geminiService';
 import StatPieChart from './StatPieChart';
 import StatDetailModal from './StatDetailModal';
@@ -96,6 +96,41 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   const [detailsModal, setDetailsModal] = useState<DetailsType>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedDateForCalendar, setSelectedDateForCalendar] = useState<Date | null>(null);
+  const [journalSearch, setJournalSearch] = useState('');
+  const [selectedJournalEntry, setSelectedJournalEntry] = useState<JournalEntry | null>(null);
+  
+  // Scroll Management Refs
+  const journalListRef = useRef<HTMLDivElement>(null);
+  const journalDetailRef = useRef<HTMLDivElement>(null);
+  const modalBodyRef = useRef<HTMLDivElement>(null);
+  const savedJournalScrollTop = useRef<number>(0);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+
+  // Force scroll to top on mount
+  useLayoutEffect(() => {
+      if (mainContainerRef.current) {
+          mainContainerRef.current.scrollTop = 0;
+      }
+  }, []);
+
+  // Restore/Reset scroll position using Modal Body
+  React.useLayoutEffect(() => {
+      if (detailsModal === 'journals' && modalBodyRef.current) {
+          if (selectedJournalEntry) {
+              // Entering detail view: Scroll to top
+              requestAnimationFrame(() => {
+                  if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
+              });
+          } else {
+              // Returning to list view: Restore position
+              requestAnimationFrame(() => {
+                  if (modalBodyRef.current) {
+                      modalBodyRef.current.scrollTop = savedJournalScrollTop.current;
+                  }
+              });
+          }
+      }
+  }, [selectedJournalEntry, detailsModal]);
   
   // --- Letters State ---
   const [letterInput, setLetterInput] = useState('');
@@ -754,14 +789,14 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                 tabs={[
                     { id: 'milestones', icon: Zap, label: '生命洞察' },
                     { id: 'letters', icon: Clock, label: '时间胶囊', badge: hasUnlockedLetters },
-                    { id: 'wishes', icon: Star, label: '显化列表' },
-                    { id: 'library', icon: Type, label: '能量语库' },
+                    { id: 'wishes', icon: Star, label: '愿望列表' },
+                    { id: 'library', icon: Type, label: '肯定语库' },
                 ]}
             />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 custom-scrollbar animate-fade-in pb-20">
+      <div ref={mainContainerRef} className="flex-1 overflow-y-auto px-4 custom-scrollbar animate-fade-in pb-20">
         <div className="max-w-5xl mx-auto w-full">
             
             {/* 1. INSIGHTS DASHBOARD */}
@@ -928,6 +963,33 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                             </div>
                         </Card>
                     </div>
+
+                    {/* JOURNAL CALENDAR MODULE */}
+                    <Card className="border-stone-800 bg-stone-900/30 h-[500px] flex flex-col overflow-hidden relative">
+                         <div className="flex items-center justify-between mb-4 p-6 pb-0 z-10 pointer-events-none">
+                             <div className="flex items-center gap-4 pointer-events-auto">
+                                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                                     <CalendarIcon className="w-5 h-5 text-stone-400" />
+                                 </div>
+                                 <div>
+                                     <h4 className="text-sm font-serif text-stone-300">觉察记录 Calendar</h4>
+                                     <p className="text-xs text-stone-600 mt-1">Timeline of your journey.</p>
+                                 </div>
+                             </div>
+                         </div>
+                         
+                         {/* Calendar Component */}
+                         <div className="flex-1 w-full min-h-0">
+                             <JournalCalendar 
+                                 initialDate={selectedDateForCalendar}
+                                 journalEntries={journalEntries}
+                                 ritualEntries={ritualEntries}
+                                 onDeleteJournalEntry={onDeleteJournalEntry}
+                                 onDeleteRitual={onDeleteRitual}
+                                 className="bg-transparent"
+                             />
+                         </div>
+                    </Card>
 
                     {/* DATA BACKUP & SAFETY */}
                     <Card className="border-stone-800 bg-stone-900/30">
@@ -1298,14 +1360,18 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       {/* 1. Details Modal (Milestones - Standard Lists) */}
       <Modal 
           isOpen={!!detailsModal && ['wishes', 'journals'].includes(detailsModal)} 
-          onClose={() => setDetailsModal(null)} 
+          onClose={() => {
+              setDetailsModal(null);
+              setSelectedJournalEntry(null);
+          }} 
           title={
               detailsModal === 'wishes' ? '所有愿望 All Wishes' :
-              detailsModal === 'journals' ? '觉察记录 Calendar' : ''
+              detailsModal === 'journals' ? '觉察日记 Journal Entries' : ''
           }
-          bodyClassName={detailsModal === 'journals' ? 'p-0' : undefined}
+          bodyClassName={detailsModal === 'journals' ? "p-4 md:p-6 flex flex-col" : undefined}
+          bodyRef={detailsModal === 'journals' ? modalBodyRef : undefined}
       >
-          <div className={`space-y-4 ${detailsModal === 'journals' ? 'h-full' : ''}`}>
+          <div className="space-y-4 h-full flex flex-col">
               {detailsModal === 'wishes' && wishes.map(w => (
                   <div key={w.id} className="p-4 bg-white/5 rounded-xl border border-white/5">
                       <p className="text-white font-serif">{w.content}</p>
@@ -1317,13 +1383,160 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
               ))}
               
               {detailsModal === 'journals' && (
-                  <JournalCalendar 
-                      initialDate={selectedDateForCalendar}
-                      journalEntries={journalEntries}
-                      ritualEntries={ritualEntries}
-                      onDeleteJournalEntry={onDeleteJournalEntry}
-                      onDeleteRitual={onDeleteRitual}
-                  />
+                  selectedJournalEntry ? (
+                    <div className="space-y-6 h-full flex flex-col animate-fade-in">
+                        <div className="flex items-center gap-3 border-b border-white/5 pb-4 shrink-0">
+                            <button onClick={() => setSelectedJournalEntry(null)} className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors text-stone-400 hover:text-white">
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <div>
+                                 <span className="text-sm font-serif text-white block">
+                                    {new Date(selectedJournalEntry.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                 </span>
+                                 <span className="text-xs text-stone-500 font-sans">
+                                    {new Date(selectedJournalEntry.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                 </span>
+                            </div>
+                            {onDeleteJournalEntry && (
+                                <button 
+                                    onClick={() => {
+                                        if(window.confirm('确定要删除这条日记吗？')) {
+                                            onDeleteJournalEntry(selectedJournalEntry.id);
+                                            setSelectedJournalEntry(null);
+                                        }
+                                    }}
+                                    className="ml-auto p-2 hover:bg-rose-500/10 rounded-full transition-colors text-stone-500 hover:text-rose-400"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                        
+                        <div ref={journalDetailRef} className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
+                            {selectedJournalEntry.aiAnalysis?.emotionalState && (
+                                <div className="flex flex-wrap gap-2">
+                                    {(Array.isArray(selectedJournalEntry.aiAnalysis.emotionalState) 
+                                        ? selectedJournalEntry.aiAnalysis.emotionalState 
+                                        : [selectedJournalEntry.aiAnalysis.emotionalState]
+                                    ).map((mood: any, idx: number) => {
+                                        const moodText = typeof mood === 'object' ? mood.text || mood.title : mood;
+                                        return (
+                                            <span key={idx} className="text-xs px-3 py-1 rounded-full bg-white/5 text-stone-300 border border-white/10">
+                                                {moodText}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="text-stone-200 font-serif leading-loose whitespace-pre-wrap text-base">
+                                {selectedJournalEntry.content}
+                            </div>
+
+                            {selectedJournalEntry.aiAnalysis?.summary && (
+                                 <div className="bg-gradient-to-br from-lucid-glow/5 to-transparent p-5 rounded-2xl border border-lucid-glow/10 relative overflow-hidden">
+                                      <div className="flex items-start gap-3 relative z-10">
+                                          <Sparkles className="w-5 h-5 text-lucid-glow mt-0.5 flex-shrink-0" />
+                                          <div className="space-y-2">
+                                              <span className="text-xs font-bold text-lucid-glow uppercase tracking-widest">LUCID Insight</span>
+                                              <p className="text-sm text-stone-300 italic leading-relaxed">
+                                                  {selectedJournalEntry.aiAnalysis.summary}
+                                              </p>
+                                          </div>
+                                      </div>
+                                 </div>
+                            )}
+                        </div>
+                    </div>
+                  ) : (
+                  <div className="space-y-4 h-full flex flex-col">
+                      <div className="relative shrink-0 space-y-2">
+                          <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                              <input 
+                                 type="text"
+                                 placeholder="搜索日记内容、心情..."
+                                 value={journalSearch}
+                                 onChange={(e) => setJournalSearch(e.target.value)}
+                                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-stone-200 focus:outline-none focus:border-lucid-glow/30 transition-colors"
+                              />
+                          </div>
+                          
+                          {selectedDateForCalendar && (
+                              <div className="flex items-center gap-2 animate-fade-in">
+                                  <div className="bg-lucid-glow/10 text-lucid-glow border border-lucid-glow/20 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2">
+                                      <CalendarIcon className="w-3 h-3" />
+                                      <span>筛选日期: {selectedDateForCalendar.toLocaleDateString()}</span>
+                                      <button 
+                                          onClick={() => setSelectedDateForCalendar(null)} 
+                                          className="hover:bg-lucid-glow/20 rounded-full p-0.5 ml-1 transition-colors"
+                                      >
+                                          <X className="w-3 h-3" />
+                                      </button>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+
+                      <div ref={journalListRef} className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1 -mr-1">
+                          {journalEntries
+                            .filter(j => {
+                                const matchesSearch = !journalSearch || j.content.toLowerCase().includes(journalSearch.toLowerCase()) || (j.aiAnalysis?.emotionalState && String(j.aiAnalysis.emotionalState).toLowerCase().includes(journalSearch.toLowerCase()));
+                                const matchesDate = !selectedDateForCalendar || new Date(j.date).toDateString() === selectedDateForCalendar.toDateString();
+                                return matchesSearch && matchesDate;
+                            })
+                            .sort((a, b) => b.date - a.date)
+                            .map((entry) => (
+                              <div 
+                                  key={entry.id} 
+                                  onClick={() => {
+                                      if (modalBodyRef.current) savedJournalScrollTop.current = modalBodyRef.current.scrollTop;
+                                      setSelectedJournalEntry(entry);
+                                  }} 
+                                  className="group relative bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-2xl p-5 transition-all duration-300 cursor-pointer"
+                              >
+                                  <div className="flex justify-between items-start mb-3">
+                                      <div className="flex flex-col">
+                                          <span className="text-sm font-serif text-white/90">
+                                              {new Date(entry.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+                                          </span>
+                                          <span className="text-xs text-stone-500 font-sans mt-0.5">
+                                              {new Date(entry.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                          </span>
+                                      </div>
+                                      
+                                      {entry.aiAnalysis?.emotionalState && (
+                                          <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
+                                              {(Array.isArray(entry.aiAnalysis.emotionalState) 
+                                                  ? entry.aiAnalysis.emotionalState 
+                                                  : [entry.aiAnalysis.emotionalState]
+                                              ).slice(0, 3).map((mood: any, idx: number) => {
+                                                  const moodText = typeof mood === 'object' ? mood.text || mood.title : mood;
+                                                  return (
+                                                      <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-stone-400 border border-white/5 whitespace-nowrap">
+                                                          {moodText}
+                                                      </span>
+                                                  );
+                                              })}
+                                          </div>
+                                      )}
+                                  </div>
+
+                                  <div className="text-stone-300 font-serif leading-relaxed text-sm whitespace-pre-wrap line-clamp-4 transition-all duration-300">
+                                      {entry.content}
+                                  </div>
+                              </div>
+                          ))}
+                          
+                          {journalEntries.length === 0 && (
+                             <p className="text-center text-stone-500 py-10">暂无日记记录</p>
+                          )}
+                          {journalEntries.length > 0 && journalEntries.filter(j => !journalSearch || j.content.toLowerCase().includes(journalSearch.toLowerCase())).length === 0 && (
+                             <p className="text-center text-stone-500 py-10">未找到匹配的日记</p>
+                          )}
+                      </div>
+                  </div>
+                  )
               )}
           </div>
       </Modal>
@@ -1432,7 +1645,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                       <h4 className="text-sm text-stone-400 uppercase tracking-widest mb-4">Core Shifts</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                              <span className="text-xs text-rose-300 block mb-2">已释放阻碍</span>
+                              <span className="text-xs text-rose-300 block mb-2">需要释放的阻碍</span>
                               <ul className="list-disc list-inside text-stone-400 text-sm space-y-1">
                                   {selectedWish.beliefs.emotionalBlocks.map((b,i) => <li key={i}>{typeof b === 'object' ? (b as any).text || String(b) : b}</li>)}
                               </ul>
