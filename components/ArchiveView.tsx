@@ -1291,43 +1291,54 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
             
             {/* 2. TIME CAPSULE (LETTERS) */}
             {tab === 'letters' && (
-                <div className="space-y-8 pb-10 pt-4 animate-fade-in">
-                    
+                <div className="space-y-12 pb-20 pt-8 animate-fade-in min-h-[80vh] relative">
+                    {/* Background Texture for this section */}
+                    <div className="absolute inset-0 pointer-events-none opacity-50 mix-blend-multiply" 
+                         style={{ backgroundImage: 'radial-gradient(#888 0.5px, transparent 0.5px)', backgroundSize: '20px 20px' }}>
+                    </div>
+
                     {!showLetterInput && (
-                        <div className={`flex justify-center py-8 ${letters.length === 0 ? 'min-h-[50vh] flex-col items-center justify-center space-y-4' : ''}`}>
+                        <div className={`flex justify-center py-8 ${letters.length === 0 ? 'min-h-[50vh] flex-col items-center justify-center space-y-6' : ''}`}>
                             
-                            {/* REDESIGNED BUTTON: TIME CAPSULE CARD */}
+                            {/* REDESIGNED BUTTON: SCRAPBOOK STYLE */}
                             <button
                                onClick={() => setShowLetterInput(true)}
-                               className="relative group w-full max-w-sm px-8 py-6 rounded-3xl transition-all duration-700 hover:scale-[1.02] active:scale-95"
+                               className="relative group w-full max-w-sm h-48 transition-all duration-500 hover:scale-[1.02] active:scale-95"
                             >
-                               {/* Glow Effect */}
-                               <div className="absolute -inset-0.5 bg-lucid-glow/30 opacity-0 group-hover:opacity-100 blur-md transition-opacity duration-500 rounded-3xl"></div>
+                               {/* Stacked Paper Effect */}
+                               <div className="absolute inset-0 bg-white border border-stone-200 rounded-sm shadow-sm rotate-3 transform origin-bottom-right"></div>
+                               <div className="absolute inset-0 bg-[#Fdfbf7] border border-stone-200 rounded-sm shadow-sm -rotate-2 transform origin-bottom-left"></div>
                                
-                               {/* Backgrounds */}
-                               <div className="absolute inset-0 bg-gradient-to-br from-stone-800 to-stone-950 border border-white/10 opacity-90 backdrop-blur-xl group-hover:border-lucid-glow/30 transition-colors rounded-3xl" />
-                               
-                               {/* Content */}
-                               <div className="relative z-10 flex flex-col items-center gap-3">
-                                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-lucid-glow/10 group-hover:border-lucid-glow/30 transition-colors duration-500">
-                                     <Mail className="w-5 h-5 text-stone-300 group-hover:text-lucid-glow transition-colors" />
-                                  </div>
-                                  
-                                  <div className="text-center">
-                                      <span className="block font-serif text-white tracking-widest text-lg mb-1 group-hover:text-lucid-glow transition-colors">写给未来的自己</span>
-                                      <span className="block text-[10px] text-stone-500 uppercase tracking-[0.2em] group-hover:text-stone-400 transition-colors">Time Capsule</span>
-                                  </div>
+                               {/* Main Card */}
+                               <div className="absolute inset-0 bg-[#F2EFE9] border border-[#E6E1D6] rounded-sm shadow-[2px_4px_16px_rgba(0,0,0,0.08)] flex flex-col items-center justify-center gap-4 group-hover:shadow-[4px_8px_24px_rgba(0,0,0,0.12)] transition-all duration-500">
+                                   
+                                   {/* Tape */}
+                                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-rose-100/50 backdrop-blur-[1px] -rotate-1 shadow-sm border-l-2 border-r-2 border-white/40"></div>
+                                   
+                                   <div className="w-12 h-12 rounded-full bg-white/60 border border-stone-200 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-inner">
+                                      <Mail className="w-5 h-5 text-stone-600 group-hover:text-rose-500 transition-colors" />
+                                   </div>
+                                   
+                                   <div className="text-center">
+                                       <span className="block font-serif text-stone-800 tracking-widest text-lg mb-1 group-hover:text-rose-600 transition-colors">写给未来的自己</span>
+                                       <span className="block text-[10px] text-stone-500 uppercase tracking-[0.2em]">Time Capsule</span>
+                                   </div>
                                </div>
                             </button>
 
                             {letters.length === 0 && (
-                                <p className="text-stone-500 font-serif text-sm">暂无信件，开启第一封时空通信</p>
+                                <div className="relative">
+                                     <p className="text-stone-500 font-serif text-sm bg-[#fffdf5] px-6 py-3 rounded-sm shadow-sm border border-stone-100 -rotate-1">
+                                        暂无信件，开启第一封时空通信
+                                     </p>
+                                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-400/20 rounded-full blur-sm"></div>
+                                </div>
                             )}
                         </div>
                     )}
 
                     {showLetterInput && (
-                        <div className="max-w-3xl mx-auto animate-fade-in">
+                        <div className="max-w-3xl mx-auto animate-fade-in relative z-10">
                             <Card 
                                 ref={cardRef}
                                 onMouseMove={handleMouseMove}
@@ -1340,49 +1351,57 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                     transform: letterInput ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
                                     willChange: 'transform',
                                 } as React.CSSProperties}
-                                className={`border-lucid-glow/20 bg-gradient-to-b from-stone-900/50 to-transparent !p-0 overflow-hidden flex flex-col min-h-[60vh] relative group transition-all duration-200 ease-out ${
-                                    !letterInput ? 'hover:shadow-[0_0_40px_-10px_rgba(255,255,255,0.05)]' : ''
+                                className={`border-stone-200 !bg-[#F2EFE9] !p-0 overflow-hidden flex flex-col min-h-[60vh] relative group transition-all duration-200 ease-out shadow-2xl rounded-sm ${
+                                    !letterInput ? 'hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)]' : ''
                                 }`}
                             >
                                 {/* Header */}
-                                <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
-                                    <div className="flex items-center gap-2 text-lucid-glow">
+                                <div className="flex items-center justify-between p-6 border-b border-stone-900/5 bg-stone-900/[0.02]">
+                                    <div className="flex items-center gap-2 text-stone-600">
                                         <Mail className="w-4 h-4" />
                                         <span className="text-xs font-serif tracking-widest">致未来的信 To Future Self</span>
                                     </div>
-                                    <button onClick={() => setShowLetterInput(false)} className="text-lucid-dim hover:text-white transition-colors p-1">
+                                    <button onClick={() => setShowLetterInput(false)} className="text-stone-400 hover:text-stone-800 transition-colors p-1">
                                          <X className="w-4 h-4"/> 
                                     </button>
                                 </div>
 
                                 {/* Textarea */}
-                                <textarea 
-                                    className="flex-1 w-full bg-transparent p-6 md:p-8 text-lg md:text-xl font-serif focus:outline-none text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide custom-scrollbar"
-                                    placeholder="亲爱的未来自己，希望此刻的你..."
-                                    value={letterInput}
-                                    onChange={(e) => setLetterInput(e.target.value)}
-                                    autoFocus
-                                />
+                                <div className="relative flex-1 w-full bg-[#F2EFE9]">
+                                     {/* Subtle Noise Texture */}
+                                     <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply" 
+                                          style={{ 
+                                              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E")`,
+                                          }}>
+                                     </div>
+                                     <textarea 
+                                        className="relative z-10 w-full h-full bg-transparent p-8 md:p-10 text-lg md:text-xl font-serif focus:outline-none text-stone-800 placeholder-stone-400 resize-none transition-all leading-relaxed custom-scrollbar"
+                                        placeholder="亲爱的未来自己，希望此刻的你..."
+                                        value={letterInput}
+                                        onChange={(e) => setLetterInput(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
                                 
                                 {/* Footer Controls */}
-                                <div className="p-4 border-t border-white/5 bg-white/[0.02] flex flex-wrap items-center justify-between gap-4">
-                                     <div className="flex items-center gap-3 bg-black/20 px-3 py-1.5 rounded-lg border border-white/5">
-                                        <Clock className="w-4 h-4 text-lucid-dim" />
-                                        <span className="text-xs text-stone-400 font-serif">送达时间:</span>
+                                <div className="p-4 border-t border-stone-900/5 bg-stone-900/[0.02] flex flex-wrap items-center justify-between gap-4">
+                                     <div className="flex items-center gap-3 bg-white/50 px-3 py-1.5 rounded-lg border border-stone-200 shadow-sm">
+                                        <Clock className="w-4 h-4 text-stone-500" />
+                                        <span className="text-xs text-stone-500 font-serif">送达时间:</span>
                                         <select 
                                             value={letterDelay} 
                                             onChange={(e) => setLetterDelay(Number(e.target.value))}
-                                            className="bg-transparent text-sm text-lucid-glow focus:outline-none cursor-pointer font-serif"
+                                            className="bg-transparent text-sm text-stone-800 focus:outline-none cursor-pointer font-serif min-w-[80px]"
                                         >
-                                            <option value={0} className="bg-stone-800">10秒后 (测试)</option>
-                                            <option value={7} className="bg-stone-800">1周后</option>
-                                            <option value={30} className="bg-stone-800">1个月后</option>
-                                            <option value={180} className="bg-stone-800">6个月后</option>
-                                            <option value={365} className="bg-stone-800">1年后</option>
+                                            <option value={0} className="bg-[#F2EFE9]">10秒后 (测试)</option>
+                                            <option value={7} className="bg-[#F2EFE9]">1周后</option>
+                                            <option value={30} className="bg-[#F2EFE9]">1个月后</option>
+                                            <option value={180} className="bg-[#F2EFE9]">6个月后</option>
+                                            <option value={365} className="bg-[#F2EFE9]">1年后</option>
                                         </select>
                                     </div>
 
-                                    <Button onClick={handleSendLetter} disabled={isSending || !letterInput} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 text-lucid-glow hover:bg-lucid-glow/10">
+                                    <Button onClick={handleSendLetter} disabled={isSending || !letterInput} variant="glass" className="rounded-full px-8 py-2 text-sm bg-stone-800 text-white hover:bg-stone-700 shadow-lg shadow-stone-900/10 border-none">
                                         {isSending ? <LoadingSpinner /> : <span className="flex items-center gap-2">封存信件 <Send className="w-4 h-4" /></span>}
                                     </Button>
                                 </div>
@@ -1391,9 +1410,25 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     )}
 
                     {letters.length > 0 && !showLetterInput && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {letters.map((letter) => {
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-2 md:px-8">
+                            {letters.map((letter, index) => {
                                 const isLocked = Date.now() < letter.sendDate;
+                                const seed = getStableRandom(letter.id);
+                                const rotation = (seed % 4) - 2; // Reduced rotation
+                                
+                                // Envelope Colors Palette
+                                const ENVELOPE_COLORS = [
+                                    { bg: 'bg-[#F2EFE9]', text: 'text-stone-700', border: 'border-stone-900/5' }, // Cream
+                                    { bg: 'bg-[#E6E0D4]', text: 'text-stone-800', border: 'border-stone-900/5' }, // Kraft Light
+                                    { bg: 'bg-[#D6CFC4]', text: 'text-stone-800', border: 'border-stone-900/10' }, // Kraft Dark
+                                    { bg: 'bg-[#E8E8E8]', text: 'text-stone-700', border: 'border-stone-900/5' }, // Grey White
+                                ];
+                                
+                                const styleIndex = Math.abs(seed) % ENVELOPE_COLORS.length;
+                                const style = ENVELOPE_COLORS[styleIndex];
+                                
+                                const activeStyle = style;
+
                                 return (
                                     <div 
                                         key={letter.id} 
@@ -1404,87 +1439,108 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                                 onUpdateLetter({ ...letter, isRead: true });
                                             }
                                         }}
-                                        className={`relative group rounded-3xl p-6 border transition-all duration-300 cursor-pointer overflow-hidden ${
-                                            !isLocked 
-                                            ? 'bg-white/[0.04] border-white/10 hover:border-lucid-glow/30 hover:shadow-lg hover:shadow-lucid-glow/5' 
-                                            : 'bg-white/[0.02] border-white/5 opacity-80'
-                                        }`}
+                                        style={{ transform: `rotate(${rotation}deg)` }}
+                                        className={`relative group rounded-sm p-8 transition-all duration-300 cursor-pointer overflow-hidden shadow-[2px_4px_12px_rgba(0,0,0,0.05)] hover:shadow-[4px_12px_24px_rgba(0,0,0,0.08)] hover:scale-[1.01] hover:z-10 ${activeStyle.bg} min-h-[180px] flex flex-col justify-between`}
                                     >
-                                        <div className="flex justify-between items-start mb-4">
-                                        <div className="flex items-center gap-2">
-                                            {!isLocked ? (
-                                                <div className="bg-lucid-glow/10 text-lucid-glow px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                    <Unlock className="w-3 h-3" />
-                                                    <span className="text-[10px] uppercase tracking-wider font-bold">Unlocked</span>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-stone-800 text-stone-500 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                    <Lock className="w-3 h-3" />
-                                                    <span className="text-[10px] uppercase tracking-wider font-bold">Locked</span>
-                                                </div>
-                                            )}
+                                        {/* Paper Texture Overlay */}
+                                        <div className="absolute inset-0 bg-white/20 pointer-events-none mix-blend-overlay"></div>
+                                        
+                                        {/* Noise Texture */}
+                                        <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply" 
+                                             style={{ 
+                                                 backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E")`,
+                                             }}>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-stone-600 font-serif">{new Date(letter.createdAt).toLocaleDateString()}</span>
-                                            <div onClick={e => e.stopPropagation()}>
-                                                {confirmDeleteLetterId === letter.id ? (
-                                                    <div className="flex items-center gap-1 bg-stone-800 rounded-full px-1 py-0.5 border border-rose-500/30 animate-fade-in">
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onDeleteLetter(letter.id);
-                                                                setConfirmDeleteLetterId(null);
-                                                                if (selectedLetter?.id === letter.id) setSelectedLetter(null);
-                                                            }}
-                                                            className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
-                                                            title="确认删除"
-                                                        >
-                                                            <Check className="w-3 h-3" />
-                                                        </button>
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setConfirmDeleteLetterId(null);
-                                                            }}
-                                                            className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
-                                                            title="取消"
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
+
+                                        {/* Envelope Flap Visual - Triangle */}
+                                        <div className="absolute top-0 left-0 right-0 h-32 pointer-events-none z-0 opacity-10 mix-blend-multiply">
+                                            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full text-stone-900 fill-current drop-shadow-sm">
+                                                <path d="M0 0 L50 90 L100 0 Z" />
+                                            </svg>
+                                        </div>
+
+                                        <div className="relative z-10 flex flex-col h-full">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <div className="flex items-center gap-2">
+                                                    {!isLocked ? (
+                                                        <div className="bg-emerald-600/10 text-emerald-700 px-2 py-1.5 rounded-sm border border-emerald-600/10 flex items-center gap-1">
+                                                            <Unlock className="w-3 h-3" />
+                                                            <span className="text-[9px] uppercase tracking-wider font-bold">Unlocked</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-stone-800/10 text-stone-600 px-2 py-1.5 rounded-sm border border-stone-800/10 flex items-center gap-1">
+                                                            <Lock className="w-3 h-3" />
+                                                            <span className="text-[9px] uppercase tracking-wider font-bold">Locked</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div onClick={e => e.stopPropagation()}>
+                                                        {confirmDeleteLetterId === letter.id ? (
+                                                            <div className="flex items-center gap-1 bg-white/50 rounded-full px-1 py-0.5 border border-rose-500/30 animate-fade-in">
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onDeleteLetter(letter.id);
+                                                                        setConfirmDeleteLetterId(null);
+                                                                        if (selectedLetter?.id === letter.id) setSelectedLetter(null);
+                                                                    }}
+                                                                    className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                                                    title="确认删除"
+                                                                >
+                                                                    <Check className="w-3 h-3" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setConfirmDeleteLetterId(null);
+                                                                    }}
+                                                                    className="bg-stone-200 text-stone-600 p-1 rounded-full hover:bg-stone-300 transition-colors"
+                                                                    title="取消"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setConfirmDeleteLetterId(letter.id);
+                                                                }}
+                                                                className="text-stone-400 hover:text-rose-500 transition-colors p-1.5 rounded-full hover:bg-rose-500/10"
+                                                                title="删除信件"
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        )}
                                                     </div>
+                                                </div>
+                                            </div>
+
+                                            <h4 className={`font-serif text-lg mb-3 truncate ${activeStyle.text} font-medium`}>{`来自${new Date(letter.createdAt).toLocaleDateString()}的信`}</h4>
+                                            
+                                            <div className="text-sm text-stone-500 font-serif line-clamp-3 leading-relaxed min-h-[4.5em] bg-white/20 p-2 rounded-sm border border-stone-900/5">
+                                                {isLocked ? (
+                                                    <span className="text-stone-500 italic flex items-center justify-center h-full gap-2">
+                                                        <Lock className="w-3 h-3 opacity-50" /> 内容已封存，{new Date(letter.sendDate).toLocaleDateString()}开启...
+                                                    </span>
                                                 ) : (
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setConfirmDeleteLetterId(letter.id);
-                                                        }}
-                                                        className="text-stone-600 hover:text-rose-400 transition-colors p-1.5 rounded-full hover:bg-rose-500/10"
-                                                        title="删除信件"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </button>
+                                                    letter.aiReply ? (
+                                                        <span className="text-stone-600 italic">" {typeof letter.aiReply === 'object' ? (letter.aiReply as any).text : letter.aiReply} "</span>
+                                                    ) : (
+                                                        <span className="text-stone-600">
+                                                            {letter.content && typeof letter.content === 'object' 
+                                                                ? ((letter.content as any).text || (letter.content as any).content || JSON.stringify(letter.content)) 
+                                                                : (letter.content || '')}
+                                                        </span>
+                                                    )
                                                 )}
                                             </div>
-                                        </div>
-                                    </div>
 
-                                        <h4 className="text-white font-serif text-lg mb-2 truncate">To Future Self</h4>
-                                        
-                                        <div className="text-sm text-stone-400 font-serif line-clamp-3 leading-relaxed">
-                                            {letter.aiReply ? (
-                                                <span className="text-lucid-glow italic">" {typeof letter.aiReply === 'object' ? (letter.aiReply as any).text : letter.aiReply} "</span>
-                                            ) : (
-                                                <span className="text-stone-500">
-                                                    {letter.content && typeof letter.content === 'object' 
-                                                        ? ((letter.content as any).text || (letter.content as any).content || JSON.stringify(letter.content)) 
-                                                        : (letter.content || '')}
-                                                </span>
+                                            {!isLocked && !letter.isRead && (
+                                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-rose-400 rounded-full animate-pulse border-2 border-[#F2EFE9]"></div>
                                             )}
                                         </div>
-
-                                        {!isLocked && !letter.isRead && (
-                                            <div className="absolute top-3 right-3 w-2 h-2 bg-lucid-glow rounded-full animate-pulse"></div>
-                                        )}
                                     </div>
                                 );
                             })}
@@ -1954,109 +2010,116 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
         isOpen={!!selectedLetter}
         onClose={() => setSelectedLetter(null)}
         title="时间信箱 · Time Capsule"
+        className="!bg-[#f4f1ea] !text-stone-800 !rounded-sm !border-stone-900/5 !shadow-2xl !max-w-2xl overflow-hidden"
       >
+          {/* Paper Texture */}
+          <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply" 
+               style={{ 
+                   backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E")`,
+               }}>
+          </div>
+          
           {selectedLetter && (
-              <div className="space-y-8 pb-4">
-                  {/* AI Reply Section */}
-                  {selectedLetter.aiReply && (
-                  <div className="bg-gradient-to-br from-lucid-glow/10 to-transparent p-6 rounded-2xl border border-lucid-glow/20 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-10">
-                          <Sparkles className="w-24 h-24" />
-                      </div>
-                      <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-full bg-lucid-glow text-lucid-bg flex items-center justify-center">
-                              <Sparkles className="w-4 h-4" />
+              <div className="relative z-10 space-y-8 pb-4">
+                  {/* Header Info */}
+                  <div className="flex items-center justify-between border-b border-stone-900/10 pb-4">
+                      <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center border border-stone-900/5">
+                              <Archive className="w-5 h-5" />
                           </div>
                           <div>
-                              <span className="text-xs uppercase text-lucid-glow tracking-widest block font-bold">Future Self</span>
-                              <span className="text-xs text-lucid-dim">Immediate Resonance</span>
+                              <span className="text-xs uppercase text-stone-500 tracking-widest block font-bold">来自过去</span>
+                              <span className="text-sm text-stone-800 font-serif italic">
+                                  写于 {new Date(selectedLetter.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                              </span>
                           </div>
                       </div>
-                      <div className="text-white/90 font-serif leading-loose text-base relative z-10 italic">
-                          <SimpleMarkdown content={
-                            selectedLetter.aiReply && typeof selectedLetter.aiReply === 'object' 
-                            ? ((selectedLetter.aiReply as any).text || (selectedLetter.aiReply as any).content || JSON.stringify(selectedLetter.aiReply)) 
-                            : (selectedLetter.aiReply || '')
-                          } />
+                      
+                      <div className="flex items-center gap-2">
+                          {confirmDeleteLetterId === selectedLetter.id ? (
+                              <div className="flex items-center gap-2 bg-white/50 rounded-full px-2 py-1 border border-rose-500/30">
+                                  <span className="text-[10px] text-rose-500 font-medium">Delete?</span>
+                                  <button 
+                                      onClick={() => {
+                                          onDeleteLetter(selectedLetter.id);
+                                          setConfirmDeleteLetterId(null);
+                                          setSelectedLetter(null);
+                                      }}
+                                      className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
+                                  >
+                                      <Check className="w-3 h-3" />
+                                  </button>
+                                  <button 
+                                      onClick={() => setConfirmDeleteLetterId(null)}
+                                      className="bg-stone-300 text-stone-600 p-1 rounded-full hover:bg-stone-400 transition-colors"
+                                  >
+                                      <X className="w-3 h-3" />
+                                  </button>
+                              </div>
+                          ) : (
+                              <button 
+                                  onClick={() => setConfirmDeleteLetterId(selectedLetter.id)}
+                                  className="text-stone-400 hover:text-rose-500 transition-colors p-2 rounded-full hover:bg-rose-500/10"
+                                  title="删除信件"
+                              >
+                                  <Trash2 className="w-4 h-4" />
+                              </button>
+                          )}
                       </div>
                   </div>
-                  )}
 
-                  <div className="relative">
-                       <div className="flex items-center justify-between mb-4 px-2">
-                           <div className="flex items-center gap-2">
-                               <div className="w-8 h-8 rounded-full bg-stone-700 text-stone-300 flex items-center justify-center">
-                                   <Archive className="w-4 h-4" />
+                  {/* Letter Content */}
+                  <div className="min-h-[200px]">
+                       {Date.now() < selectedLetter.sendDate ? (
+                           <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center border-2 border-dashed border-stone-900/10 rounded-xl bg-stone-900/5 mx-4">
+                               <div className="w-16 h-16 rounded-full bg-stone-200 flex items-center justify-center mb-2">
+                                   <Lock className="w-8 h-8 text-stone-500" />
                                </div>
-                               <div>
-                                   <span className="text-xs uppercase text-stone-400 tracking-widest block font-bold">Your Letter</span>
-                                   <span className="text-xs text-stone-600">Written on {new Date(selectedLetter.createdAt).toLocaleDateString()}</span>
+                               <h3 className="text-xl font-serif text-stone-700">时间胶囊已封存</h3>
+                               <p className="text-stone-500 font-serif italic max-w-xs">
+                                   这封信正在时间长河中漫游，静待未来开启。
+                               </p>
+                               <span className="inline-block mt-4 text-xs font-bold tracking-widest text-stone-600 border border-stone-300 px-3 py-1.5 rounded-full bg-white/50">
+                                   开启时间 {new Date(selectedLetter.sendDate).toLocaleDateString()}
+                               </span>
+                           </div>
+                       ) : (
+                           <div className="prose prose-stone max-w-none">
+                               <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-wrap pl-4 border-l-2 border-stone-900/10">
+                                   <SimpleMarkdown content={
+                                       selectedLetter.content && typeof selectedLetter.content === 'object' 
+                                       ? ((selectedLetter.content as any).text || (selectedLetter.content as any).content || JSON.stringify(selectedLetter.content)) 
+                                       : (selectedLetter.content || '')
+                                   } />
                                </div>
                            </div>
-                           <div className="relative z-50">
-                               {confirmDeleteLetterId === selectedLetter.id ? (
-                                   <div className="flex items-center gap-2 bg-stone-800 rounded-full px-2 py-1 border border-rose-500/30 animate-fade-in">
-                                       <span className="text-[10px] text-rose-300">Delete?</span>
-                                       <button 
-                                           onClick={() => {
-                                               onDeleteLetter(selectedLetter.id);
-                                               setConfirmDeleteLetterId(null);
-                                               setSelectedLetter(null);
-                                           }}
-                                           className="bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors"
-                                       >
-                                           <Check className="w-3 h-3" />
-                                       </button>
-                                       <button 
-                                           onClick={() => setConfirmDeleteLetterId(null)}
-                                           className="bg-stone-700 text-stone-300 p-1 rounded-full hover:bg-stone-600 transition-colors"
-                                       >
-                                           <X className="w-3 h-3" />
-                                       </button>
-                                   </div>
-                               ) : (
-                                   <button 
-                                       onClick={() => setConfirmDeleteLetterId(selectedLetter.id)}
-                                       className="text-stone-600 hover:text-rose-400 transition-colors p-2 rounded-full hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20"
-                                       title="删除信件"
-                                   >
-                                       <Trash2 className="w-4 h-4" />
-                                   </button>
-                               )}
-                           </div>
-                       </div>
-                       
-                       <div className={`p-6 rounded-2xl border min-h-[150px] relative transition-all ${
-                           Date.now() < selectedLetter.sendDate 
-                           ? 'bg-black/40 border-stone-800/50' 
-                           : 'bg-white/5 border-white/10'
-                       }`}>
-                           {Date.now() < selectedLetter.sendDate ? (
-                               <div className="flex flex-col items-center justify-center h-full py-8 space-y-3">
-                                   <Lock className="w-8 h-8 text-stone-600" />
-                                   <p className="text-stone-500 font-serif text-sm">此信件正在时间长河中旅行...</p>
-                                   <span className="text-xs text-stone-700 font-sans tracking-widest border border-stone-800 px-2 py-1 rounded">
-                                       解锁日期: {new Date(selectedLetter.sendDate).toLocaleDateString()}
-                                   </span>
-                                   <div className="absolute inset-0 backdrop-blur-sm rounded-2xl pointer-events-none"></div>
-                               </div>
-                           ) : (
-                               <>
-                                   <div className="bg-lucid-glow/10 text-lucid-glow text-xs px-3 py-1.5 rounded-lg inline-flex items-center mb-4 border border-lucid-glow/20">
-                                       <Unlock className="w-3 h-3 mr-2" />
-                                       <span>来自过去的信件已送达</span>
-                                   </div>
-                                   <div className="text-stone-300 font-serif leading-loose whitespace-pre-wrap">
-                                       <SimpleMarkdown content={
-                                           selectedLetter.content && typeof selectedLetter.content === 'object' 
-                                           ? ((selectedLetter.content as any).text || (selectedLetter.content as any).content || JSON.stringify(selectedLetter.content)) 
-                                           : (selectedLetter.content || '')
-                                       } />
-                                   </div>
-                               </>
-                           )}
-                       </div>
+                       )}
                   </div>
+
+                  {/* AI Reply Section (if exists and unlocked) */}
+                  {selectedLetter.aiReply && (
+                      <div className="mt-8 relative">
+                          <div className="absolute -inset-2 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 rounded-lg -z-10 transform -rotate-1"></div>
+                          <div className="bg-white/60 p-6 rounded-md border border-indigo-900/10 shadow-sm relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-900">
+                                  <Sparkles className="w-20 h-20" />
+                              </div>
+                              
+                              <div className="flex items-center gap-2 mb-4 border-b border-indigo-900/5 pb-3">
+                                  <Sparkles className="w-4 h-4 text-indigo-500" />
+                                  <span className="text-xs uppercase text-indigo-900/60 tracking-widest font-bold">Future Self Resonance</span>
+                              </div>
+                              
+                              <div className="text-stone-700 font-serif leading-relaxed text-base italic">
+                                  <SimpleMarkdown content={
+                                    selectedLetter.aiReply && typeof selectedLetter.aiReply === 'object' 
+                                    ? ((selectedLetter.aiReply as any).text || (selectedLetter.aiReply as any).content || JSON.stringify(selectedLetter.aiReply)) 
+                                    : (selectedLetter.aiReply || '')
+                                  } />
+                              </div>
+                          </div>
+                      </div>
+                  )}
               </div>
           )}
       </Modal>

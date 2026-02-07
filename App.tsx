@@ -794,6 +794,7 @@ const App: React.FC = () => {
               {currentView === AppView.JOURNAL && (
                 <JournalView 
                     onAddJournalEntry={handleAddJournalEntry}
+                    onAddLetter={handleAddLetter}
                 />
               )}
               

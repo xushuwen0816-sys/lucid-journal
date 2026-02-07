@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { analyzeJournalEntry } from '../services/geminiService';
-import { JournalEntry } from '../types';
+import { JournalEntry, FutureLetter } from '../types';
 import { Button, Card, SectionTitle, LoadingSpinner, SimpleMarkdown } from './Shared';
-import { BookOpen, Send, Sparkles, RefreshCw, AlertCircle, Smile } from 'lucide-react';
+import { BookOpen, Send, Sparkles, RefreshCw, AlertCircle, Smile, Mail, Clock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface JournalViewProps {
     onAddJournalEntry: (entry: JournalEntry) => void;
+    onAddLetter: (letter: FutureLetter) => void;
 }
 
 // Helper to safely render text that might be an object
@@ -20,15 +22,26 @@ const safeRender = (val: any): string => {
     return String(val);
 };
 
-const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
+const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLetter }) => {
+  // Journal State
   const [loading, setLoading] = useState(false);
   const [journalInput, setJournalInput] = useState('');
   const [journalAnalysis, setJournalAnalysis] = useState<JournalEntry['aiAnalysis'] | null>(null);
+
+  // Letter State
+  const [mode, setMode] = useState<'journal' | 'letter'>('journal');
+  const [letterInput, setLetterInput] = useState('');
+  const [letterDelay, setLetterDelay] = useState<number>(30); // days
+  const [isSendingLetter, setIsSendingLetter] = useState(false);
+  const { token } = useAuth();
   
   const cardRef = useRef<HTMLDivElement>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (cardRef.current && !journalInput) {
+    // Only apply effect if inputs are empty (to avoid distraction while typing)
+    const hasContent = mode === 'journal' ? !!journalInput : !!letterInput;
+    
+    if (cardRef.current && !hasContent) {
       const rect = cardRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -123,6 +136,94 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
     setLoading(false);
   };
 
+  const handleSendLetter = async () => {
+    if(!letterInput.trim()) return;
+    setIsSendingLetter(true);
+    
+    // Calculate unlock time
+    const unlockTime = Date.now() + (letterDelay * 24 * 60 * 60 * 1000); 
+    // Give AI some time (e.g. 2 minutes) if sending immediately, to avoid sending email before AI reply is synced
+    // NOTE: AI reply is currently disabled, so we can just use a short buffer or even 0.
+    const actualUnlockTime = letterDelay === 0 ? Date.now() + 10000 : unlockTime;
+
+    // Generate ID upfront
+    const newLetterId = crypto.randomUUID();
+
+    // 1. Initial Save (Optimistic & Data Safety)
+    const initialLetterData = {
+        id: newLetterId,
+        content: letterInput,
+        sendDate: actualUnlockTime,
+        aiReply: null, // AI disabled
+        isLocked: true
+    };
+
+    let savedToServer = false;
+    let savedLetterResult: FutureLetter | null = null;
+
+    try {
+        if (token) {
+            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const targetUrl = `${baseUrl}/api/letters`;
+            console.log('Step 1: Saving letter content to:', targetUrl);
+
+            // Add timeout for the initial save (10s)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const res = await fetch(targetUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(initialLetterData),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            if (res.ok) {
+                savedToServer = true;
+                savedLetterResult = await res.json();
+                if (savedLetterResult) {
+                     onAddLetter({
+                        ...savedLetterResult,
+                        createdAt: new Date(savedLetterResult.createdAt).getTime(),
+                        sendDate: new Date(savedLetterResult.sendDate).getTime()
+                    });
+                }
+            } else {
+                 console.warn(`Server error during initial save: ${res.status}`);
+                 throw new Error(`Server error: ${res.status}`);
+            }
+        } else {
+             // No token - Offline mode
+             throw new Error("No token");
+        }
+    } catch (e) {
+        console.warn("Failed to save initial letter (Step 1), falling back to offline:", e);
+        // Fallback to offline immediately if Step 1 fails
+         const newLetter: FutureLetter = {
+              id: newLetterId,
+              createdAt: Date.now(),
+              content: letterInput,
+              sendDate: actualUnlockTime,
+              aiReply: null, // AI disabled
+              isLocked: true
+            };
+            onAddLetter(newLetter);
+            setLetterInput('');
+            setIsSendingLetter(false);
+            alert('信件已保存（离线模式）。'); 
+            return; 
+    }
+
+    // SUCCESS: Notify User & Reset UI IMMEDIATELY
+    setIsSendingLetter(false);
+    setLetterInput('');
+    alert('信件已寄出！');
+  };
+
   return (
     <div className="w-full h-full flex flex-col">
         <SectionTitle title="觉察日记" subtitle="JOURNAL · 内在对话" />
@@ -138,31 +239,83 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry }) => {
                         '--mouse-y': '0px',
                         '--rotate-x': '0deg',
                         '--rotate-y': '0deg',
-                        transform: journalInput ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
+                        transform: (mode === 'journal' ? journalInput : letterInput) ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
                         willChange: 'transform',
                     } as React.CSSProperties}
                     className={`border-white/10 bg-gradient-to-b from-stone-800/20 to-transparent !p-0 overflow-hidden relative group transition-all duration-200 ease-out ${
-                        !journalInput ? 'hover:shadow-[0_0_40px_-10px_rgba(255,255,255,0.05)]' : ''
+                        (mode === 'journal' ? !journalInput : !letterInput) ? 'hover:shadow-[0_0_40px_-10px_rgba(255,255,255,0.05)]' : ''
                     }`}
                 >
-                    <div className="flex items-center gap-2 px-4 md:px-6 h-16 border-b border-white/5 bg-white/[0.02] text-lucid-dim">
-                        <BookOpen className="w-4 h-4" />
-                        <span className="text-xs font-serif tracking-widest">今日觉察 Writing Space</span>
-                    </div>
-                    <textarea
-                        className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
-                        placeholder="在此处深呼吸，记录当下的情绪、念头、梦境，或是任何浮现的直觉..."
-                        value={journalInput}
-                        onChange={(e) => setJournalInput(e.target.value)}
-                    />
-                    <div className="px-4 md:px-6 h-16 border-t border-white/5 bg-white/[0.02] flex items-center justify-end">
-                        <Button onClick={handleJournalSubmit} disabled={loading || !journalInput.trim()} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
-                            {loading ? <LoadingSpinner /> : <><Sparkles className="w-4 h-4 mr-2" /> AI 深度觉察</>}
+                    {/* Card Header with Toggle */}
+                    <div className="flex items-center justify-between px-4 md:px-6 h-16 border-b border-white/5 bg-white/[0.02] text-lucid-dim">
+                        <div className="flex items-center gap-2">
+                            {mode === 'journal' ? <BookOpen className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                            <span className="text-xs font-serif tracking-widest">
+                                {mode === 'journal' ? '今日觉察 Writing Space' : '致未来的信 Time Capsule'}
+                            </span>
+                        </div>
+                        <Button 
+                            onClick={() => setMode(mode === 'journal' ? 'letter' : 'journal')}
+                            variant="ghost" 
+                            className="text-xs hover:bg-white/5 px-3 py-1 h-8 rounded-full border border-white/10 text-stone-400 hover:text-stone-200 transition-colors"
+                        >
+                            {mode === 'journal' ? '写信给未来' : '返回日记'}
                         </Button>
+                    </div>
+
+                    {/* Content Area */}
+                    {mode === 'journal' ? (
+                        <textarea
+                            className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
+                            placeholder="在此处深呼吸，记录当下的情绪、念头、梦境，或是任何浮现的直觉..."
+                            value={journalInput}
+                            onChange={(e) => setJournalInput(e.target.value)}
+                        />
+                    ) : (
+                        <textarea
+                            className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
+                            placeholder={`这封信将被封存，直到设定的时间开启...`}
+                            value={letterInput}
+                            onChange={(e) => setLetterInput(e.target.value)}
+                        />
+                    )}
+
+                    {/* Footer / Actions */}
+                    <div className="px-4 md:px-6 h-16 border-t border-white/5 bg-white/[0.02] flex items-center justify-end">
+                        {mode === 'journal' ? (
+                            <Button onClick={handleJournalSubmit} disabled={loading || !journalInput.trim()} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
+                                {loading ? <LoadingSpinner /> : <><Sparkles className="w-4 h-4 mr-2" /> AI 深度觉察</>}
+                            </Button>
+                        ) : (
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2 text-stone-500 text-xs">
+                                    <Clock className="w-3 h-3" />
+                                    <span>寄送时间:</span>
+                                    <select 
+                                        value={letterDelay} 
+                                        onChange={(e) => setLetterDelay(Number(e.target.value))}
+                                        className="bg-black/20 border border-white/10 rounded px-2 py-1 text-stone-300 focus:outline-none"
+                                    >
+                                        <option value={0}>10秒后 (测试)</option>
+                                        <option value={7}>7天后</option>
+                                        <option value={30}>30天后</option>
+                                        <option value={90}>3个月后</option>
+                                        <option value={180}>6个月后</option>
+                                        <option value={365}>1年后</option>
+                                        <option value={1095}>3年后</option>
+                                        <option value={1825}>5年后</option>
+                                        <option value={3650}>10年后</option>
+                                    </select>
+                                </div>
+                                <Button onClick={handleSendLetter} disabled={isSendingLetter || !letterInput.trim()} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
+                                    {isSendingLetter ? <LoadingSpinner /> : <><Send className="w-4 h-4 mr-2" /> 封存信件</>}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </Card>
 
-                {journalAnalysis && (
+                {journalAnalysis && mode === 'journal' && (
                     <div className="space-y-6 animate-fade-in pb-10">
                         {/* 3-Column Grid for Core Analysis Stats - All Parallel */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
