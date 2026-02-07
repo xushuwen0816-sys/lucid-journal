@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import { motion, useMotionValue } from 'framer-motion';
 import { Wish, FutureLetter, JournalEntry, RitualArchiveEntry } from '../types';
 import { SectionTitle, Card, Button, LoadingSpinner, TabNav, Modal, SimpleMarkdown } from './Shared';
 import { Archive, Mail, Clock, Send, Star, Lock, Unlock, Zap, ArrowRight, Sparkles, RefreshCw, Calendar as CalendarIcon, ChevronRight, ChevronLeft, CreditCard, Sun, Type, Filter, TrendingUp, AlertCircle, Smile, X, Download, ShieldCheck, FileText, Upload, Trash2, Check, PieChart as PieChartIcon, BarChart3, Search } from 'lucide-react';
@@ -60,6 +61,148 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
     return Object.entries(map)
         .sort((a, b) => b[1] - a[1])
         .slice(0, limit);
+};
+
+const STICKY_STYLES = [
+    { bg: 'bg-[#F2EFE9]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-stone-800/5', tagText: 'text-stone-600', metaText: 'text-stone-400' }, // Classic Cream
+    { bg: 'bg-[#E8DCC4]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#C9A66B]/10', tagText: 'text-[#8C734B]', metaText: 'text-[#8C734B]/70' }, // Warm Beige
+    { bg: 'bg-[#E0D2C7]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#BF8C7E]/10', tagText: 'text-[#8C6056]', metaText: 'text-[#8C6056]/70' }, // Dusty Roseish
+    { bg: 'bg-[#CED9D0]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#7E9C84]/10', tagText: 'text-[#566B5A]', metaText: 'text-[#566B5A]/70' }, // Sage
+    { bg: 'bg-[#CBD4DB]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#7E8C9C]/10', tagText: 'text-[#56606B]', metaText: 'text-[#56606B]/70' }, // Blue Grey
+    { bg: 'bg-gradient-to-br from-[#F2EFE9] to-[#E6D4CE]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#D68C70]/10', tagText: 'text-[#9C604B]', metaText: 'text-[#9C604B]/70' }, // Gradient Orange-ish
+];
+
+const getStableRandom = (seed: string) => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash |= 0;
+    }
+    return hash;
+};
+
+const getWishPhase = (wish: Wish) => {
+    if (wish.status === 'manifested') return { 
+        name: '★ 已显化 Manifested', 
+        className: 'bg-emerald-600/10 text-emerald-700 border-emerald-600/20',
+        border: 'border-emerald-500/30' 
+    };
+    return { 
+        name: '● 进行中 In Progress', 
+        className: 'bg-stone-900/5 text-stone-600 border-stone-900/10',
+        border: 'border-stone-900/10' 
+    };
+};
+
+const WishStickyNote: React.FC<{
+    wish: Wish;
+    constraintsRef: React.RefObject<any>;
+    bringToFront: (id: string) => void;
+    setSelectedWish: (wish: Wish) => void;
+    zIndex: number;
+    position?: { x: number; y: number };
+    onPositionChange: (id: string, pos: { x: number; y: number }) => void;
+}> = ({ wish, constraintsRef, bringToFront, setSelectedWish, zIndex, position, onPositionChange }) => {
+    const isDragging = useRef(false);
+    const phase = getWishPhase(wish);
+    const days = Math.floor((Date.now() - wish.createdAt) / (1000 * 60 * 60 * 24));
+    
+    const seed = getStableRandom(wish.id + 'v2');
+    const rotate = (seed % 10) - 5; 
+    const currentX = position?.x ?? 0;
+    const currentY = position?.y ?? 0;
+
+    const x = useMotionValue(currentX);
+    const y = useMotionValue(currentY);
+
+    // Update MotionValues when position changes (e.g. initial load or reset)
+    useEffect(() => {
+        if (!isDragging.current) {
+            x.set(currentX);
+            y.set(currentY);
+        }
+    }, [currentX, currentY]);
+
+    const styleIndex = Math.abs(seed) % STICKY_STYLES.length;
+    const style = STICKY_STYLES[styleIndex];
+
+    // Only render if we have a valid position (prevent jumping from 0,0)
+    if (!position) return null;
+
+    return (
+        <motion.div 
+            drag
+            dragMomentum={false}
+            dragElastic={0}
+            onDragStart={() => {
+                isDragging.current = true;
+                bringToFront(wish.id);
+            }}
+            onDragEnd={() => {
+                onPositionChange(wish.id, { x: x.get(), y: y.get() });
+                // Small delay to prevent click event from firing immediately after drag
+                setTimeout(() => { isDragging.current = false; }, 50);
+            }}
+            onClick={(e) => {
+                if (isDragging.current) {
+                    e.stopPropagation();
+                    return;
+                }
+                bringToFront(wish.id);
+                setSelectedWish(wish);
+            }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ 
+                opacity: 1, 
+                scale: 1,
+                rotate: rotate,
+            }}
+            whileHover={{ scale: 1.05, rotate: 0, zIndex: 100 }}
+            whileDrag={{ scale: 1.1, rotate: 0, zIndex: 101, cursor: 'grabbing' }}
+            style={{ 
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                zIndex: zIndex,
+                x,
+                y,
+                touchAction: 'none'
+            }}
+            className={`relative w-64 ${style.bg} border ${style.border} rounded-sm p-5 cursor-grab
+                shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col backdrop-blur-sm
+                group transition-all duration-500 hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.6)]`}
+        >
+            {/* Paper Texture/Highlight */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.4] to-transparent pointer-events-none rounded-sm mix-blend-soft-light"></div>
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-white/40 opacity-50"></div>
+            
+            <div className="relative z-10 flex-1 pointer-events-none flex flex-col">
+                <div className="flex justify-between items-start mb-2">
+                    <span className={`text-[9px] font-sans tracking-widest px-2 py-0.5 rounded-sm border ${phase.className}`}>
+                        {phase.name}
+                    </span>
+                    <span className={`text-[10px] ${style.metaText} font-serif italic`}>{days}d</span>
+                </div>
+                
+                <h3 className={`text-lg font-serif ${style.text} leading-relaxed tracking-wide line-clamp-[8] flex-1 min-h-[60px]`}>
+                    {wish.content}
+                </h3>
+            </div>
+
+            <div className="relative z-10 mt-3 pointer-events-none">
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                    {wish.tags?.emotional?.slice(0, 3).map((tag, i) => (
+                        <span key={i} className={`text-[9px] uppercase tracking-wider ${style.tagText} ${style.tagBg} px-1.5 py-0.5 rounded border border-stone-900/5`}>
+                            #{typeof tag === 'object' ? 'Tag' : tag}
+                        </span>
+                    ))}
+                </div>
+                <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <ArrowRight className={`w-4 h-4 ${style.text} opacity-50`} />
+                </div>
+            </div>
+        </motion.div>
+    );
 };
 
 const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritualEntries, letters, onUpdateWish, onDeleteWish, onAddLetter, onDeleteLetter, onDeleteRitual, onImportData, onDeleteJournalEntry, onUpdateJournalEntry, initialTab = 'milestones', onUpdateLetter }) => {
@@ -142,6 +285,89 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   
   const { token } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
+  const constraintsRef = useRef(null);
+  const [zIndices, setZIndices] = useState<Record<string, number>>({});
+  const [wishPositions, setWishPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+      const saved = localStorage.getItem('lucid_wish_positions');
+      if (saved) {
+          try {
+              setWishPositions(JSON.parse(saved));
+          } catch (e) {
+              console.error('Failed to parse wish positions', e);
+          }
+      }
+  }, []);
+
+  useEffect(() => {
+      const updateSize = () => {
+            if (constraintsRef.current) {
+                const { offsetWidth, offsetHeight } = constraintsRef.current;
+                setContainerSize({ width: offsetWidth, height: offsetHeight });
+            }
+        };
+        
+        // Initial size
+        updateSize();
+        
+        // Resize observer would be better, but window resize is okay for now
+        window.addEventListener('resize', updateSize);
+        return () => window.removeEventListener('resize', updateSize);
+    }, [tab]);
+
+    // Initialize positions for unsaved wishes
+    useEffect(() => {
+        if (containerSize.width === 0) return;
+
+        setWishPositions(prev => {
+            const newPositions = { ...prev };
+            let hasUpdates = false;
+            
+            // Grid configuration
+            const CARD_WIDTH = 280; // approximate width + gap
+            const CARD_HEIGHT = 320;
+            const cols = Math.floor(containerSize.width / CARD_WIDTH) || 1;
+            
+            wishes.forEach((wish, index) => {
+                if (!newPositions[wish.id]) {
+                    const col = index % cols;
+                    const row = Math.floor(index / cols);
+                    
+                    // Add some randomness to the grid
+                    const seed = getStableRandom(wish.id);
+                    const randomX = (seed % 40) - 20;
+                    const randomY = ((seed >> 2) % 40) - 20;
+
+                    newPositions[wish.id] = {
+                        x: (col * CARD_WIDTH) + 50 + randomX,
+                        y: (row * CARD_HEIGHT) + 50 + randomY
+                    };
+                    hasUpdates = true;
+                }
+            });
+
+            return hasUpdates ? newPositions : prev;
+        });
+    }, [wishes, containerSize.width]);
+
+    const handleWishPositionChange = (id: string, pos: { x: number; y: number }) => {
+        setWishPositions(prev => {
+            const next = { ...prev, [id]: pos };
+            localStorage.setItem('lucid_wish_positions', JSON.stringify(next));
+            return next;
+        });
+    };
+
+  const bringToFront = (id: string) => {
+      setZIndices(prev => {
+          const values = Object.values(prev) as number[];
+          const currentMax = Math.max(0, ...values);
+          return { ...prev, [id]: currentMax + 1 };
+      });
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (cardRef.current && !letterInput) {
@@ -663,19 +889,34 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
     
     // Calculate unlock time
     const unlockTime = Date.now() + (letterDelay * 24 * 60 * 60 * 1000); 
-    const actualUnlockTime = letterDelay === 0 ? Date.now() + 10000 : unlockTime;
+    // Give AI some time (e.g. 2 minutes) if sending immediately, to avoid sending email before AI reply is synced
+    const actualUnlockTime = letterDelay === 0 ? Date.now() + 120000 : unlockTime;
 
-    const reply = await generateFutureLetterReply(letterInput);
-    
-    // Generate ID for the new letter
+    // Generate ID upfront
     const newLetterId = crypto.randomUUID();
+
+    // 1. Initial Save (Optimistic & Data Safety)
+    // Save the letter immediately without AI reply to ensure data persistence
+    const initialLetterData = {
+        id: newLetterId,
+        content: letterInput,
+        sendDate: actualUnlockTime,
+        aiReply: null, // Placeholder
+        isLocked: true
+    };
+
+    let savedToServer = false;
+    let savedLetterResult: FutureLetter | null = null;
 
     try {
         if (token) {
-            // Debug: Log the URL we are trying to hit
             const baseUrl = import.meta.env.VITE_API_URL || '';
             const targetUrl = `${baseUrl}/api/letters`;
-            console.log('Attempting to send letter to:', targetUrl);
+            console.log('Step 1: Saving letter content to:', targetUrl);
+
+            // Add timeout for the initial save (10s)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
 
             const res = await fetch(targetUrl, {
                 method: 'POST',
@@ -683,61 +924,89 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    id: newLetterId,
-                    content: letterInput,
-                    sendDate: actualUnlockTime,
-                    aiReply: reply,
-                    isLocked: true 
-                })
+                body: JSON.stringify(initialLetterData),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             
             if (res.ok) {
-                const savedLetter = await res.json();
-                console.log('Letter saved to server successfully:', savedLetter);
-                onAddLetter({
-                    ...savedLetter,
-                    createdAt: new Date(savedLetter.createdAt).getTime(),
-                    sendDate: new Date(savedLetter.sendDate).getTime()
-                });
-                alert('信件已成功封存，并同步到云端！');
+                savedToServer = true;
+                savedLetterResult = await res.json();
+                if (savedLetterResult) {
+                     onAddLetter({
+                        ...savedLetterResult,
+                        createdAt: new Date(savedLetterResult.createdAt).getTime(),
+                        sendDate: new Date(savedLetterResult.sendDate).getTime()
+                    });
+                }
             } else {
-                 const errorText = await res.text();
-                 console.error('Server responded with error:', res.status, errorText);
-                 throw new Error(`Failed to save to server: ${res.status} ${errorText}`);
+                 console.warn(`Server error during initial save: ${res.status}`);
+                 throw new Error(`Server error: ${res.status}`);
             }
         } else {
-            // Offline fallback
-            console.warn('No token found, saving locally (offline mode)');
-            const newLetter: FutureLetter = {
-              id: crypto.randomUUID(),
+             // No token - Offline mode
+             throw new Error("No token");
+        }
+    } catch (e) {
+        console.warn("Failed to save initial letter (Step 1), falling back to offline:", e);
+        // Fallback to offline immediately if Step 1 fails
+         const newLetter: FutureLetter = {
+              id: newLetterId,
               createdAt: Date.now(),
               content: letterInput,
               sendDate: actualUnlockTime,
-              aiReply: reply,
-              isLocked: true 
+              aiReply: "（网络连接中断，AI 回信暂不可用）",
+              isLocked: true
             };
             onAddLetter(newLetter);
-            alert('注意：由于未登录，信件仅保存在本地，无法发送邮件。');
-        }
-    } catch (e) {
-        console.error("Failed to send letter, falling back to local:", e);
-        alert(`连接服务器失败，信件将仅保存在本地，无法发送邮件。\n错误详情: ${e}`);
-        
-        const newLetter: FutureLetter = {
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
-            content: letterInput,
-            sendDate: actualUnlockTime,
-            aiReply: reply,
-            isLocked: true 
-        };
-        onAddLetter(newLetter);
+            alert('网络连接不稳定，信件已保存在本地。');
+            setLetterInput('');
+            setIsSending(false);
+            setShowLetterInput(false);
+            return; // Exit, do not attempt AI
     }
-    
-    setLetterInput('');
+
+    // SUCCESS: Notify User & Reset UI IMMEDIATELY (Non-blocking AI)
     setIsSending(false);
+    setLetterInput('');
     setShowLetterInput(false);
+    alert('信件已寄出！未来维度的回信正在生成中...');
+
+    // 2. Background AI & Update (Step 2 & 3)
+    // Run this asynchronously without blocking the UI
+    (async () => {
+        try {
+            console.log('Step 2: Generating AI reply (Background)...');
+            const aiResponse = await generateFutureLetterReply(letterInput);
+            
+            if (savedToServer && savedLetterResult) {
+                console.log('Step 3: Updating letter with AI reply (Background)...');
+                const updatedLetter = {
+                    ...savedLetterResult,
+                    aiReply: aiResponse
+                };
+
+                if (onUpdateLetter) {
+                    onUpdateLetter(updatedLetter);
+                } else {
+                    // Fallback
+                     const baseUrl = import.meta.env.VITE_API_URL || '';
+                     await fetch(`${baseUrl}/api/letters`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': `Bearer ${token}` 
+                        },
+                        body: JSON.stringify(updatedLetter)
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Background AI generation/update failed:", error);
+            // We don't alert the user here as they might have moved on.
+            // The letter is already saved (Step 1), just without AI reply.
+        }
+    })();
   };
 
   const toggleWishStatus = () => {
@@ -753,19 +1022,6 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
           onDeleteWish(id);
           setSelectedWish(null);
       }
-  };
-
-  const getWishPhase = (wish: Wish) => {
-      if (wish.status === 'manifested') return { 
-          name: '★ 已显化 Manifested', 
-          className: 'bg-green-500/10 text-green-400 border-green-500/20',
-          border: 'border-emerald-500/30' 
-      };
-      return { 
-          name: '● 进行中 In Progress', 
-          className: 'bg-lucid-glow/10 text-lucid-glow border-lucid-glow/20',
-          border: 'border-lucid-glow/30' 
-      };
   };
 
   // --- Sub-components ---
@@ -1231,54 +1487,33 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
             {/* 3. WISHES LIST */}
             {tab === 'wishes' && (
-                <div className="space-y-6 pt-4 animate-fade-in">
-                    {wishes.length === 0 ? (
-                         <div className="flex flex-col items-center justify-center text-stone-500 py-32 space-y-4">
-                            <div className="p-6 bg-white/5 rounded-full">
-                                <Archive className="w-8 h-8 opacity-50" />
+                <div className="relative w-full">
+                    <motion.div 
+                        ref={constraintsRef} 
+                        className="w-full min-h-[150vh] relative block"
+                    >
+                        {wishes.length === 0 ? (
+                             <div className="flex flex-col items-center justify-center text-stone-500 py-32 space-y-4 w-full absolute top-20 left-0 right-0">
+                                <div className="p-6 bg-white/5 rounded-full">
+                                    <Archive className="w-8 h-8 opacity-50" />
+                                </div>
+                                <p className="font-serif text-base">暂无显化记录</p>
                             </div>
-                            <p className="font-serif text-base">暂无显化记录</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
-                            {wishes.map(wish => {
-                                const phase = getWishPhase(wish);
-                                const days = Math.floor((Date.now() - wish.createdAt) / (1000 * 60 * 60 * 24));
-                                return (
-                                    <div 
-                                        key={wish.id}
-                                        onClick={() => setSelectedWish(wish)}
-                                        className={`group relative bg-white/[0.02] hover:bg-white/[0.05] border ${phase.border} rounded-3xl p-6 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-lucid-glow/5`}
-                                    >
-                                        <div className="flex justify-between items-start mb-4">
-                                            <span className={`text-[10px] font-sans tracking-wider px-2 py-1 rounded-full border ${phase.className}`}>
-                                                {phase.name}
-                                            </span>
-                                            <div className="flex items-center gap-2 relative z-20">
-                                                <span className="text-xs text-lucid-dim font-serif">Started {days}d ago</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <h3 className="text-lg font-serif text-white mb-2 line-clamp-2 leading-relaxed group-hover:text-lucid-glow transition-colors">
-                                            {wish.content}
-                                        </h3>
-                                        
-                                        <div className="flex flex-wrap gap-2 mt-4">
-                                            {wish.tags?.emotional?.slice(0, 3).map((tag, i) => (
-                                                <span key={i} className="text-xs text-stone-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                                                    #{typeof tag === 'object' ? 'Tag' : tag}
-                                                </span>
-                                            ))}
-                                        </div>
-
-                                        <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                            <ArrowRight className="w-5 h-5 text-lucid-glow" />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                        ) : (
+                            wishes.map((wish, index) => (
+                                <WishStickyNote 
+                                    key={wish.id}
+                                    wish={wish}
+                                    constraintsRef={constraintsRef}
+                                    bringToFront={bringToFront}
+                                    setSelectedWish={setSelectedWish}
+                                    zIndex={zIndices[wish.id] || 1}
+                                    position={wishPositions[wish.id]}
+                                    onPositionChange={handleWishPositionChange}
+                                />
+                            ))
+                        )}
+                    </motion.div>
                 </div>
             )}
 
@@ -1577,103 +1812,134 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       />
 
       {/* 3. Wish Detail Modal */}
-      <Modal 
-         isOpen={!!selectedWish} 
-         onClose={() => setSelectedWish(null)}
-         title="显化蓝图 · Blueprint"
-      >
-          {selectedWish && (
-              <div className="space-y-8 pb-10">
-                  <div className="flex flex-wrap justify-between items-center border-b border-white/10 pb-4 gap-2">
-                      <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-sans tracking-wider border ${selectedWish.status === 'active' ? 'bg-lucid-glow/10 text-lucid-glow border-lucid-glow/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
-                              {selectedWish.status === 'active' ? '● 进行中 In Progress' : '★ 已显化 Manifested'}
-                          </span>
-                      </div>
-                      <div className="flex items-center gap-3 ml-auto">
-                          <span className="text-xs text-stone-500 font-serif mr-2">{new Date(selectedWish.createdAt).toLocaleString()}</span>
-                          <button 
-                              onClick={toggleWishStatus}
-                              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedWish.status === 'active' ? 'border-green-500/30 text-green-400 hover:bg-green-500/10' : 'border-stone-500/30 text-stone-400 hover:bg-white/5'}`}
-                          >
-                             {selectedWish.status === 'active' ? '标记为已实现' : '标记为进行中'}
-                          </button>
-                          
-                          <div className="w-[1px] h-4 bg-white/10 mx-1 hidden md:block"></div>
-                          
-                          <button 
-                              type="button"
-                              onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteWishClick(selectedWish.id);
-                              }}
-                              className="text-xs px-3 py-1.5 rounded-full border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                              <Trash2 className="w-3 h-3" /> 删除
-                          </button>
-                      </div>
-                  </div>
+      {(() => {
+          if (!selectedWish) return null;
+          const wishStyle = STICKY_STYLES[Math.abs(getStableRandom(selectedWish.id + 'v2')) % STICKY_STYLES.length];
+          
+          // Force override default modal styles with !important
+          const bgOverride = wishStyle.bg.split(' ').map(c => `!${c}`).join(' ');
+          const textOverride = wishStyle.text.split(' ').map(c => `!${c}`).join(' ');
 
-                  <div>
-                      <h3 className="text-2xl font-serif text-white leading-relaxed mb-2">{selectedWish.content}</h3>
-                      <p className="text-lucid-dim font-serif italic">新身份: {typeof selectedWish.beliefs.newIdentity === 'object' ? (selectedWish.beliefs.newIdentity as any).name || (selectedWish.beliefs.newIdentity as any).text || JSON.stringify(selectedWish.beliefs.newIdentity) : selectedWish.beliefs.newIdentity}</p>
-                  </div>
-                  
-                  {/* NEW: Supportive Beliefs (Inner Strengths) Section */}
-                  {selectedWish.beliefs.supportiveBeliefs && selectedWish.beliefs.supportiveBeliefs.length > 0 && (
-                    <div className="bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10 relative overflow-hidden">
-                         <div className="absolute top-0 right-0 p-4 opacity-5">
-                            <Zap className="w-24 h-24" />
+          return (
+            <Modal 
+                isOpen={!!selectedWish} 
+                onClose={() => setSelectedWish(null)}
+                title="显化蓝图 · Blueprint"
+                className={`${bgOverride} ${textOverride} !rounded-sm !border-stone-900/10 !shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)]`}
+            >
+                {/* Paper Texture Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.6] to-transparent pointer-events-none mix-blend-soft-light"></div>
+                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/60 opacity-50 pointer-events-none"></div>
+
+                {selectedWish && (
+                    <div className="space-y-8 pb-10 relative z-10">
+                        <div className="flex flex-wrap justify-between items-center border-b border-stone-900/5 pb-4 gap-2">
+                            <div className="flex items-center gap-3">
+                                <span className={`px-3 py-1 rounded-sm text-xs font-sans tracking-wider border ${selectedWish.status === 'active' ? 'bg-stone-900/5 text-stone-600 border-stone-900/10' : 'bg-emerald-800/5 text-emerald-700 border-emerald-800/10'}`}>
+                                    {selectedWish.status === 'active' ? '● 进行中 In Progress' : '★ 已显化 Manifested'}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3 ml-auto">
+                                <span className={`text-xs ${wishStyle.metaText} font-serif mr-2`}>{new Date(selectedWish.createdAt).toLocaleString()}</span>
+                                <button 
+                                    onClick={toggleWishStatus}
+                                    className={`text-xs px-3 py-1.5 rounded-sm border transition-colors ${selectedWish.status === 'active' ? 'border-stone-900/10 text-stone-600 hover:bg-stone-900/5' : 'border-stone-900/10 text-stone-400 hover:bg-stone-900/5'}`}
+                                >
+                                   {selectedWish.status === 'active' ? '标记为已实现' : '标记为进行中'}
+                                </button>
+                                
+                                <div className="w-[1px] h-4 bg-stone-900/10 mx-1 hidden md:block"></div>
+                                
+                                <button 
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteWishClick(selectedWish.id);
+                                    }}
+                                    className="text-xs px-3 py-1.5 rounded-sm border border-rose-900/10 text-rose-700/70 hover:bg-rose-900/5 transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Trash2 className="w-3 h-3" /> 删除
+                                </button>
+                            </div>
                         </div>
-                        <h4 className="text-sm text-indigo-300 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Zap className="w-4 h-4" /> 现有优势 & 正确思路 Inner Strengths
-                        </h4>
-                        <div className="grid grid-cols-1 gap-3">
-                            {selectedWish.beliefs.supportiveBeliefs.map((b, i) => (
-                                <div key={i} className="flex items-start gap-3">
-                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0"></span>
-                                    <p className="text-indigo-100/80 text-sm font-serif leading-relaxed">
-                                        {typeof b === 'object' ? (b as any).text || String(b) : b}
-                                    </p>
+
+                        <div>
+                            <h3 className={`text-2xl font-serif ${wishStyle.text} leading-tight mb-3`}>{selectedWish.content}</h3>
+                            <div className="flex items-center gap-2 opacity-70">
+                                <div className="w-8 h-[1px] bg-current"></div>
+                                <p className="font-serif italic text-base">New Identity: {typeof selectedWish.beliefs.newIdentity === 'object' ? (selectedWish.beliefs.newIdentity as any).name || (selectedWish.beliefs.newIdentity as any).text || JSON.stringify(selectedWish.beliefs.newIdentity) : selectedWish.beliefs.newIdentity}</p>
+                            </div>
+                        </div>
+                        
+                        {/* Inner Strengths */}
+                        {selectedWish.beliefs.supportiveBeliefs && selectedWish.beliefs.supportiveBeliefs.length > 0 && (
+                          <div className="bg-white/40 rounded-sm p-6 border border-stone-900/5 relative overflow-hidden shadow-sm">
+                               <div className="absolute top-0 right-0 p-4 opacity-[0.03]">
+                                  <Zap className="w-24 h-24" />
+                              </div>
+                              <h4 className={`text-sm ${wishStyle.tagText} uppercase tracking-widest mb-4 flex items-center gap-2`}>
+                                  <Zap className="w-4 h-4" /> 现有优势 & 正确思路 Inner Strengths
+                              </h4>
+                              <div className="grid grid-cols-1 gap-3">
+                                  {selectedWish.beliefs.supportiveBeliefs.map((b, i) => (
+                                      <div key={i} className="flex items-start gap-3">
+                                          <span className={`mt-2 w-1.5 h-1.5 rounded-full ${wishStyle.tagBg.replace('/10', '')} flex-shrink-0 opacity-50`}></span>
+                                          <p className={`${wishStyle.text} opacity-80 text-base font-serif leading-relaxed`}>
+                                              {typeof b === 'object' ? (b as any).text || String(b) : b}
+                                          </p>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                        )}
+
+                        {/* Core Shifts */}
+                        <div className="bg-stone-900/[0.03] rounded-sm p-6 border border-stone-900/5">
+                            <h4 className="text-sm opacity-50 uppercase tracking-widest mb-6">Core Shifts</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <span className="text-xs text-rose-700/60 block mb-3 font-bold tracking-wider">RELEASING BLOCKS</span>
+                                    <ul className="space-y-3">
+                                        {selectedWish.beliefs.emotionalBlocks.map((b,i) => (
+                                            <li key={i} className="flex gap-3 text-sm opacity-70 leading-relaxed font-serif">
+                                                <span className="text-rose-400 select-none">-</span>
+                                                {typeof b === 'object' ? (b as any).text || String(b) : b}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
-                            ))}
+                                <div>
+                                    <span className="text-xs text-emerald-700/60 block mb-3 font-bold tracking-wider">IMPRINTING BELIEFS</span>
+                                    <ul className="space-y-3">
+                                        {selectedWish.beliefs.limitingBeliefs.map((b,i) => (
+                                            <li key={i} className="flex gap-3 text-sm opacity-70 leading-relaxed font-serif">
+                                                <span className="text-emerald-400 select-none">+</span>
+                                                {typeof b === 'object' ? (b as any).text || String(b) : b}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Affirmations */}
+                        <div className="flex flex-col gap-4">
+                             <div className="w-full bg-white/60 rounded-sm border border-stone-900/5 p-6 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
+                                 <span className="text-[10px] opacity-40 uppercase block mb-4 tracking-[0.2em]">Affirmations ({selectedWish.affirmations.length})</span>
+                                 <div className="space-y-4">
+                                     {selectedWish.affirmations.map((a,i) => (
+                                         <div key={i} className="pl-4 border-l-2 border-stone-900/10 py-1">
+                                              <p className="text-lg font-serif leading-relaxed opacity-90 italic">"{a.text}"</p>
+                                         </div>
+                                     ))}
+                                 </div>
+                             </div>
                         </div>
                     </div>
-                  )}
-
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
-                      <h4 className="text-sm text-stone-400 uppercase tracking-widest mb-4">Core Shifts</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                              <span className="text-xs text-rose-300 block mb-2">需要释放的阻碍</span>
-                              <ul className="list-disc list-inside text-stone-400 text-sm space-y-1">
-                                  {selectedWish.beliefs.emotionalBlocks.map((b,i) => <li key={i}>{typeof b === 'object' ? (b as any).text || String(b) : b}</li>)}
-                              </ul>
-                          </div>
-                          <div>
-                              <span className="text-xs text-emerald-300 block mb-2">需要重塑的信念</span>
-                              <ul className="list-disc list-inside text-stone-400 text-sm space-y-1">
-                                  {selectedWish.beliefs.limitingBeliefs.map((b,i) => <li key={i}>{typeof b === 'object' ? (b as any).text || String(b) : b}</li>)}
-                              </ul>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                       <div className="w-full bg-white/5 rounded-xl border border-white/5 p-4 overflow-y-auto max-h-[300px] custom-scrollbar">
-                           <span className="text-[10px] text-stone-500 uppercase block mb-3">Affirmations ({selectedWish.affirmations.length})</span>
-                           <div className="space-y-2">
-                               {selectedWish.affirmations.map((a,i) => (
-                                   <div key={i} className="pl-3 border-l-2 border-white/10 py-1">
-                                        <p className="text-xs md:text-sm text-stone-200 font-serif leading-relaxed">{a.text}</p>
-                                   </div>
-                               ))}
-                           </div>
-                       </div>
-                  </div>
-              </div>
-          )}
-      </Modal>
+                )}
+            </Modal>
+          );
+      })()}
 
       {/* 3. Time Capsule Detail Modal */}
       <Modal

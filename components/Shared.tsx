@@ -83,7 +83,7 @@ export const TabNav: React.FC<{
   </div>
 );
 
-export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: React.ReactNode; title?: string; bodyClassName?: string; bodyRef?: React.RefObject<HTMLDivElement> }> = ({ isOpen, onClose, children, title, bodyClassName, bodyRef }) => {
+export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: React.ReactNode; title?: string; bodyClassName?: string; bodyRef?: React.RefObject<HTMLDivElement>; className?: string }> = ({ isOpen, onClose, children, title, bodyClassName, bodyRef, className }) => {
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
@@ -103,11 +103,11 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: R
             ></div>
             
             {/* Content */}
-            <div className="relative bg-[#1C1917] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col animate-fade-in">
+            <div className={`relative bg-[#1C1917] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col animate-fade-in ${className || ''}`}>
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/5 bg-white/[0.02]">
-                    <h3 className="text-xl font-serif text-white tracking-wide">{title}</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors text-lucid-dim hover:text-white">
+                <div className="flex items-center justify-between p-4 md:p-6 border-b border-black/5 bg-black/[0.02]">
+                    <h3 className="text-xl font-serif tracking-wide opacity-90">{title}</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-full transition-colors opacity-50 hover:opacity-100">
                         <X className="w-5 h-5" />
                     </button>
                 </div>

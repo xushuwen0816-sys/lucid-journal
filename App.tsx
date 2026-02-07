@@ -723,11 +723,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen text-lucid-text font-serif selection:bg-lucid-glow/30 selection:text-white overflow-hidden relative bg-lucid-bg">
+    <div className="min-h-screen text-lucid-text font-serif selection:bg-lucid-glow/30 selection:text-white overflow-hidden relative bg-gradient-to-br from-[#3c2a20] via-[#2a201c] to-[#1a1614]">
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-         <div className="absolute top-[-10%] left-[-10%] w-[80%] h-[80%] bg-[#3F2E26] rounded-full blur-[120px] opacity-40 animate-pulse-slow"></div>
-         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#4C3A35] rounded-full blur-[100px] opacity-30 animate-float" style={{ animationDuration: '25s' }}></div>
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] bg-lucid-glow/5 rounded-full blur-[150px]"></div>
+         <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-orange-800/30 rounded-full blur-[150px]"></div>
+         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-rose-800/30 rounded-full blur-[120px]"></div>
       </div>
 
       <main className="relative z-10 h-screen flex flex-col md:flex-row">
