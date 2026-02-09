@@ -11,7 +11,7 @@
 | **邮件服务** | Resend | 🟢 已验证 | HTTP API (端口 443) |
 | **前端** | Vercel | 🟢 已部署 | React / Vite |
 | **AI 服务** | Google Gemini | 🟢 已优化 | Cloudflare Proxy + Retry Logic |
-| **代码仓库** | GitHub | 🟢 已同步 | **主仓库**: [lucid-journal](https://github.com/xushuwen0816-sys/lucid-journal)<br>**备份仓库**: [lucid-journal-backup](https://github.com/xushuwen0816-sys/lucid-journal-backup) |
+| **代码仓库** | GitHub | 🟢 已同步 | [lucid-journal](https://github.com/xushuwen0816-sys/lucid-journal) |
 
 ## 💻 技术栈 (Tech Stack)
 
