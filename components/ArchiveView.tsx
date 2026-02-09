@@ -677,7 +677,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LUCID 灵魂档案 | ${userName}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&display=swap');
+  @import url('https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@300;400;600&display=swap');
   body { 
     background-color: #1C1917; 
     color: #E7E5E4; 

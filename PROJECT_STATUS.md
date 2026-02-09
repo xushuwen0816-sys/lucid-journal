@@ -13,6 +13,44 @@
 | **AI 服务** | Google Gemini | 🟢 已优化 | Cloudflare Proxy + Retry Logic |
 | **代码仓库** | GitHub | 🟢 已同步 | **主仓库**: [lucid-journal](https://github.com/xushuwen0816-sys/lucid-journal)<br>**备份仓库**: [lucid-journal-backup](https://github.com/xushuwen0816-sys/lucid-journal-backup) |
 
+## 💻 技术栈 (Tech Stack)
+
+### 前端 (Frontend)
+- **核心框架**: React 19, TypeScript, Vite
+- **UI/样式**: Tailwind CSS (CDN Config), Lucide React (Icons), Framer Motion (Animations)
+- **数据展示**: Recharts (图表)
+- **AI 集成**: Google GenAI SDK (`@google/genai`)
+
+### 后端 (Backend)
+- **运行时**: Node.js v22+, Express
+- **数据库 ORM**: Prisma (PostgreSQL)
+- **身份验证**: JWT, bcryptjs
+- **任务调度**: node-cron (定时任务)
+- **邮件服务**: Resend, Nodemailer
+
+## 🗄️ 数据架构 (Data Architecture)
+
+### 核心模型 (Prisma Models)
+- **User**: 用户身份核心，包含 API Key 和 Proxy 配置。
+- **JournalEntry**: 日记记录，包含 AI 分析字段。
+- **Wish**: 愿望/意图，包含标签、信念和 AI 生成的肯定语。
+- **RitualArchiveEntry**: 仪式记录，存储塔罗/神谕卡读取和每日练习 (JSON 格式存储)。
+- **FutureLetter**: 给未来的信，支持 AI 回复和锁定机制。
+
+### 数据同步 (Sync Strategy)
+- **策略**: 登录时从后端全量拉取，本地操作实时同步至后端。
+- **离线支持**: 使用 LocalStorage 作为本地缓存 (`lucid_wishes`, `lucid_all_journals` 等)。
+
+## 🎨 布局与设计规范 (Layout & Design)
+
+### 页面结构 (Page Structure)
+- **单页应用 (SPA)**: 基于状态 (`currentView`) 切换视图，非路由跳转。
+- **主要视图**:
+  - **Energy**: 能量检查
+  - **Intent**: 意图设定
+  - **Journal**: 日记书写
+  - **Archive**: 档案回顾 (里程碑、信件、愿望、藏书阁)
+
 ## 🔑 关键配置 (Key Configuration)
 
 ### 环境变量 (Railway - Backend)

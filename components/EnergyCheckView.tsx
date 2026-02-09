@@ -342,29 +342,28 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                 {/* Initial State: Prompt Shuffle */}
                 {!hasShuffled && !loading && !reading && (
                     <div className="flex flex-col items-center justify-center space-y-6 flex-1 animate-fade-in min-h-[400px]">
-                        <div className="relative group cursor-pointer" onClick={handleShuffle}>
-                            <div className={`w-48 h-72 bg-gradient-to-br ${activeTab === 'oracle' ? 'from-stone-800 to-stone-900' : 'from-stone-800 to-stone-900'} border border-white/20 rounded-2xl flex items-center justify-center shadow-2xl relative z-10 transition-transform duration-500 group-hover:-translate-y-2`}>
+                        <div className={`relative group ${isShuffling ? 'cursor-wait' : 'cursor-pointer'}`} onClick={isShuffling ? undefined : handleShuffle}>
+                            <div className={`w-48 h-72 bg-gradient-to-br ${activeTab === 'oracle' ? 'from-stone-800 to-stone-900' : 'from-stone-800 to-stone-900'} border border-white/20 rounded-2xl flex items-center justify-center shadow-2xl relative z-10 transition-all duration-500 ${!isShuffling && 'group-hover:-translate-y-2'} ${isShuffling ? 'animate-pulse shadow-[0_0_30px_rgba(253,186,116,0.3)] border-lucid-glow/50' : ''}`}>
                                 <div className="text-center">
-                                    <Shuffle className={`w-10 h-10 text-lucid-glow mx-auto mb-3 ${isShuffling ? 'animate-spin' : ''}`} />
-                                    <h3 className="text-xl font-serif text-white tracking-widest">一键洗牌</h3>
+                                    <Shuffle className={`w-10 h-10 text-lucid-glow mx-auto mb-3 ${isShuffling ? 'animate-spin duration-700' : ''}`} />
+                                    <h3 className="text-xl font-serif text-white tracking-widest">
+                                        {isShuffling ? '正在洗牌...' : '一键洗牌'}
+                                    </h3>
                                     <p className="text-xs text-lucid-dim mt-2 tracking-wider opacity-60">
                                         {activeTab === 'oracle' ? '52 Cards Deck' : '78 Cards Deck'}
                                     </p>
                                 </div>
                             </div>
-                            <div className="absolute top-2 left-2 w-48 h-72 bg-stone-800/50 rounded-2xl border border-white/10 -z-10"></div>
-                            <div className="absolute top-4 left-4 w-48 h-72 bg-stone-800/30 rounded-2xl border border-white/5 -z-20"></div>
+                            {/* Stacked cards effect */}
+                            <div className={`absolute top-2 left-2 w-48 h-72 bg-stone-800/50 rounded-2xl border border-white/10 -z-10 transition-transform duration-300 ${isShuffling ? 'translate-x-1 translate-y-1' : ''}`}></div>
+                            <div className={`absolute top-4 left-4 w-48 h-72 bg-stone-800/30 rounded-2xl border border-white/5 -z-20 transition-transform duration-300 ${isShuffling ? 'translate-x-2 translate-y-2' : ''}`}></div>
                         </div>
-                        <p className="text-stone-400 font-serif italic text-sm">
-                            {activeTab === 'oracle' ? '点击洗牌，连接宇宙神谕...' : '点击洗牌，注入你的能量...'}
+                        <p className="text-stone-400 font-serif italic text-sm animate-pulse">
+                            {isShuffling 
+                                ? (activeTab === 'oracle' ? '连接宇宙意识...' : '正在注入能量...') 
+                                : (activeTab === 'oracle' ? '点击洗牌，连接宇宙神谕...' : '点击洗牌，注入你的能量...')
+                            }
                         </p>
-                    </div>
-                )}
-
-
-                {isShuffling && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-3xl">
-                        <LoadingSpinner />
                     </div>
                 )}
 
@@ -383,8 +382,8 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                             </div>
                         </div>
                         
-                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 pl-32 pr-8 min-h-[500px]">
-                            <div className="flex items-end min-w-max h-40 relative mx-auto" style={{ marginLeft: '-1rem' }}> 
+                        <div ref={deckScrollRef} className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-32 pt-48 px-16 min-h-[500px]">
+                            <div className="flex items-end min-w-max h-40 relative mx-auto justify-center pl-8"> 
                                 {deck.map((card, idx) => {
                                     const isSelected = selectedIndices.includes(idx);
                                     const selectedOrder = selectedIndices.indexOf(idx); 
@@ -392,10 +391,13 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                     const centerIndex = Math.floor(deck.length / 2);
                                     const distFromCenter = idx - centerIndex;
                                     
-                                    const arcLift = 80;
-                                    const yDrop = Math.pow(Math.abs(distFromCenter), 2) / 12;
+                                    // Adjust arcLift based on deck size to keep arc consistent
+                                    const isOracle = activeTab === 'oracle';
+                                    const arcLift = isOracle ? 120 : 80;
+                                    // Flatten the arc slightly for better centering appearance
+                                    const yDrop = Math.pow(Math.abs(distFromCenter), 2) / (isOracle ? 18 : 12);
                                     const normalTranslateY = -1 * arcLift + yDrop;
-                                    const normalRotate = distFromCenter * 1.1;
+                                    const normalRotate = distFromCenter * (isOracle ? 0.8 : 1.1);
 
                                     let style: React.CSSProperties = {};
 
@@ -462,6 +464,10 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                         </div>
                                     );
                                 })}
+                                {/* Spacer for even numbered decks to center the middle card perfectly */}
+                                {deck.length % 2 === 0 && (
+                                    <div className="w-[2.2rem] md:w-[4.2rem] flex-shrink-0 h-1" aria-hidden="true" />
+                                )}
                             </div>
                         </div>
 
