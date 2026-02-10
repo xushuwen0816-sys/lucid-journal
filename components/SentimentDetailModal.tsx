@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Modal } from './Shared';
 import SentimentTrendChart, { SentimentDataPoint } from './SentimentTrendChart';
 import { JournalEntry } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SentimentDetailModalProps {
   isOpen: boolean;
@@ -94,6 +95,7 @@ const SentimentDetailModal: React.FC<SentimentDetailModalProps> = ({
   onDateSelect
 }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const { isLightMode } = useTheme();
 
   const chartData = useMemo(() => {
       let days = 30;
@@ -110,7 +112,7 @@ const SentimentDetailModal: React.FC<SentimentDetailModalProps> = ({
       <div className="space-y-6">
         {/* Filter Controls */}
         <div className="flex justify-center">
-            <div className="bg-white/5 p-1 rounded-xl flex gap-1">
+            <div className={`p-1 rounded-xl flex gap-1 ${isLightMode ? 'bg-stone-100' : 'bg-white/5'}`}>
                 {(['30d', '3mo', '1y', 'all'] as TimeRange[]).map((range) => (
                     <button
                         key={range}
@@ -118,8 +120,8 @@ const SentimentDetailModal: React.FC<SentimentDetailModalProps> = ({
                         className={`
                             px-4 py-1.5 rounded-lg text-xs font-serif transition-all
                             ${timeRange === range 
-                                ? 'bg-lucid-glow text-stone-900 shadow-lg shadow-lucid-glow/20 font-bold' 
-                                : 'text-stone-400 hover:text-stone-200 hover:bg-white/5'}
+                                ? (isLightMode ? 'bg-white text-orange-600 shadow-sm font-bold border border-stone-200' : 'bg-lucid-glow text-stone-900 shadow-lg shadow-lucid-glow/20 font-bold') 
+                                : (isLightMode ? 'text-stone-500 hover:text-stone-800 hover:bg-white/50' : 'text-stone-400 hover:text-stone-200 hover:bg-white/5')}
                         `}
                     >
                         {range === '30d' ? '30天' : range === '3mo' ? '3个月' : range === '1y' ? '1年' : '全部'}
@@ -129,17 +131,18 @@ const SentimentDetailModal: React.FC<SentimentDetailModalProps> = ({
         </div>
 
         {/* Chart */}
-        <div className="h-[300px] w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+        <div className={`h-[300px] w-full border rounded-2xl p-4 ${isLightMode ? 'bg-white/40 border-stone-200' : 'bg-white/[0.02] border-white/5'}`}>
              <SentimentTrendChart 
                 data={chartData} 
                 onPointClick={(point) => {
                     onDateSelect(new Date(point.timestamp));
                 }}
+                lineColor={isLightMode ? '#F97316' : '#FDBA74'}
              />
         </div>
         
         <div className="text-center">
-            <p className="text-xs text-stone-500 font-serif italic">
+            <p className={`text-xs font-serif italic ${isLightMode ? 'text-stone-400' : 'text-stone-500'}`}>
                 * 点击折线图上的节点可跳转至当天的日记详情
             </p>
         </div>

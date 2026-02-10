@@ -11,6 +11,7 @@ import SentimentDetailModal, { processSentimentData } from './SentimentDetailMod
 import SentimentTrendChart from './SentimentTrendChart';
 import JournalCalendar from './JournalCalendar';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ArchiveViewProps {
   wishes: Wish[];
@@ -64,12 +65,12 @@ const sortAndSlice = (map: Record<string, number>, limit: number = 10) => {
 };
 
 const STICKY_STYLES = [
-    { bg: 'bg-[#F2EFE9]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-stone-800/5', tagText: 'text-stone-600', metaText: 'text-stone-400' }, // Classic Cream
-    { bg: 'bg-[#E8DCC4]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#C9A66B]/10', tagText: 'text-[#8C734B]', metaText: 'text-[#8C734B]/70' }, // Warm Beige
-    { bg: 'bg-[#E0D2C7]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#BF8C7E]/10', tagText: 'text-[#8C6056]', metaText: 'text-[#8C6056]/70' }, // Dusty Roseish
-    { bg: 'bg-[#CED9D0]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#7E9C84]/10', tagText: 'text-[#566B5A]', metaText: 'text-[#566B5A]/70' }, // Sage
-    { bg: 'bg-[#CBD4DB]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#7E8C9C]/10', tagText: 'text-[#56606B]', metaText: 'text-[#56606B]/70' }, // Blue Grey
-    { bg: 'bg-gradient-to-br from-[#F2EFE9] to-[#E6D4CE]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#D68C70]/10', tagText: 'text-[#9C604B]', metaText: 'text-[#9C604B]/70' }, // Gradient Orange-ish
+    { bg: 'bg-[#F2EFE9]', lightBg: 'bg-[#fafaf9]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-stone-800/5', tagText: 'text-stone-600', metaText: 'text-stone-400' }, // Classic Cream -> Stone-50
+    { bg: 'bg-[#E8DCC4]', lightBg: 'bg-[#fff7ed]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#C9A66B]/10', tagText: 'text-[#8C734B]', metaText: 'text-[#8C734B]/70' }, // Warm Beige -> Orange-50
+    { bg: 'bg-[#E0D2C7]', lightBg: 'bg-[#fff1f2]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#BF8C7E]/10', tagText: 'text-[#8C6056]', metaText: 'text-[#8C6056]/70' }, // Dusty Roseish -> Rose-50
+    { bg: 'bg-[#CED9D0]', lightBg: 'bg-[#ecfdf5]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#7E9C84]/10', tagText: 'text-[#566B5A]', metaText: 'text-[#566B5A]/70' }, // Sage -> Emerald-50
+    { bg: 'bg-[#CBD4DB]', lightBg: 'bg-[#f8fafc]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#7E8C9C]/10', tagText: 'text-[#56606B]', metaText: 'text-[#56606B]/70' }, // Blue Grey -> Slate-50
+    { bg: 'bg-[#E6D4CE]', lightBg: 'bg-[#fff7ed]', text: 'text-stone-800', border: 'border-stone-900/5', tagBg: 'bg-[#D68C70]/10', tagText: 'text-[#9C604B]', metaText: 'text-[#9C604B]/70' }, // Solid Warm
 ];
 
 const getStableRandom = (seed: string) => {
@@ -126,6 +127,9 @@ const WishStickyNote: React.FC<{
     const styleIndex = Math.abs(seed) % STICKY_STYLES.length;
     const style = STICKY_STYLES[styleIndex];
 
+    // Check for light mode in component or pass as prop
+    const { isLightMode } = useTheme();
+
     // Only render if we have a valid position (prevent jumping from 0,0)
     if (!position) return null;
 
@@ -168,13 +172,17 @@ const WishStickyNote: React.FC<{
                 y,
                 touchAction: 'none'
             }}
-            className={`relative w-64 ${style.bg} border ${style.border} rounded-sm p-5 cursor-grab
-                shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col backdrop-blur-sm
-                group transition-all duration-500 hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.6)]`}
+            className={`relative w-64 ${isLightMode && style.lightBg ? style.lightBg : style.bg} border rounded-sm p-5 cursor-grab
+                flex flex-col backdrop-blur-sm
+                group transition-all duration-500 
+                ${isLightMode 
+                    ? 'shadow-[0_8px_30px_-6px_rgba(0,0,0,0.15)] hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] border-stone-200' 
+                    : 'shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.6)] border-stone-900/5'
+                }`}
         >
             {/* Paper Texture/Highlight */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.4] to-transparent pointer-events-none rounded-sm mix-blend-soft-light"></div>
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-white/40 opacity-50"></div>
+            <div className={`absolute inset-0 bg-gradient-to-b from-white/[0.4] to-transparent pointer-events-none rounded-sm mix-blend-soft-light ${isLightMode ? 'hidden' : ''}`}></div>
+            <div className={`absolute top-0 left-0 w-full h-[1px] bg-white/40 opacity-50 ${isLightMode ? 'hidden' : ''}`}></div>
             
             <div className="relative z-10 flex-1 pointer-events-none flex flex-col">
                 <div className="flex justify-between items-start mb-2">
@@ -283,6 +291,9 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
   const [selectedLetter, setSelectedLetter] = useState<FutureLetter | null>(null);
   const [confirmDeleteLetterId, setConfirmDeleteLetterId] = useState<string | null>(null);
   
+  // Get theme state
+  const { isLightMode } = useTheme();
+
   const { token } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
   const constraintsRef = useRef(null);
@@ -1056,50 +1067,29 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
         </div>
       </div>
 
-      <div ref={mainContainerRef} className="flex-1 overflow-y-auto px-4 custom-scrollbar animate-fade-in pb-20">
+      <div ref={mainContainerRef} className={`flex-1 overflow-y-auto px-4 animate-fade-in pb-20 no-scrollbar`}>
         <div className="max-w-5xl mx-auto w-full">
             
             {/* 1. INSIGHTS DASHBOARD */}
             {tab === 'milestones' && (
                 <div className="space-y-6 animate-fade-in pt-4">
                     
-                    {/* TOP STATS GRID (4 Columns) */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                        <Card onClick={() => setDetailsModal('journals')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-orange-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
-                            <span className="text-2xl md:text-3xl font-serif text-white mb-1 group-hover:scale-110 transition-transform">{stats.totalEntries}</span>
-                            <span className="text-[10px] md:text-xs text-lucid-dim uppercase tracking-widest flex items-center gap-1">觉察日记 Journals</span>
-                        </Card>
-                        
-                        <Card onClick={() => setDetailsModal('wishes')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-emerald-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
-                            <span className="text-2xl md:text-3xl font-serif text-emerald-100 mb-1 group-hover:scale-110 transition-transform">{stats.manifestedWishes}</span>
-                            <span className="text-[10px] md:text-xs text-emerald-500/70 uppercase tracking-widest flex items-center gap-1">已显化 Manifested</span>
-                        </Card>
 
-                        <Card onClick={() => setDetailsModal('blocks')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-red-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
-                            <span className="text-2xl md:text-3xl font-serif text-red-100 mb-1 group-hover:scale-110 transition-transform">{stats.uniqueBlocks.length}</span>
-                            <span className="text-[10px] md:text-xs text-red-500/70 uppercase tracking-widest flex items-center gap-1">清理信念 Cleared</span>
-                        </Card>
-                        
-                        <Card onClick={() => setDetailsModal('traits')} className="flex flex-col items-center justify-center py-6 bg-gradient-to-br from-indigo-900/10 to-transparent cursor-pointer hover:bg-white/5 group border-white/5">
-                            <span className="text-2xl md:text-3xl font-serif text-indigo-100 mb-1 group-hover:scale-110 transition-transform">{stats.uniqueTraits.length}</span>
-                            <span className="text-[10px] md:text-xs text-indigo-400/70 uppercase tracking-widest flex items-center gap-1">高我特质 Traits</span>
-                        </Card>
-                    </div>
 
                     {/* AI Weekly Report */}
-                    <Card className="relative overflow-hidden border-lucid-glow/20 bg-white/[0.03]">
-                         <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+                    <Card className={`relative overflow-hidden ${isLightMode ? 'bg-white/60 border-stone-200' : 'bg-white/[0.03] border-lucid-glow/20'}`}>
+                         <div className={`flex justify-between items-start mb-6 border-b pb-4 ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
                              <div className="flex flex-col">
                                  <div className="flex items-center gap-2">
-                                     <Zap className="w-5 h-5 text-lucid-glow" />
-                                     <h3 className="text-lg font-serif text-white">LUCID 能量报告</h3>
+                                     <Zap className={`w-5 h-5 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
+                                     <h3 className={`text-lg font-serif ${isLightMode ? 'text-stone-800' : 'text-white'}`}>LUCID 能量报告</h3>
                                  </div>
                                  <p className="text-[10px] text-stone-500 mt-2 font-sans flex items-center gap-1">
                                      <Clock className="w-3 h-3" /> 每周日 20:00 自动生成
                                  </p>
                              </div>
                              {aiReport && (
-                                 <span className="text-[10px] text-stone-500 uppercase tracking-widest border border-stone-800 px-2 py-1 rounded bg-black/20">
+                                 <span className={`text-[10px] uppercase tracking-widest border px-2 py-1 rounded ${isLightMode ? 'text-stone-600 border-stone-200 bg-stone-100' : 'text-stone-500 border-stone-800 bg-black/20'}`}>
                                      Weekly Insight
                                  </span>
                              )}
@@ -1108,17 +1098,17 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                          {!aiReport ? (
                              <div className="flex flex-col items-center justify-center py-10 space-y-4">
                                  <p className="text-stone-400 text-sm">持续记录日记，系统将自动为您生成深度能量周报。</p>
-                                 <Button onClick={handleGenerateReport} disabled={reportLoading} variant="glass" className="rounded-full px-8 text-sm">
+                                 <Button onClick={handleGenerateReport} disabled={reportLoading} variant="glass" className={`rounded-full px-8 text-sm ${isLightMode ? 'bg-orange-100 text-orange-700 border-orange-200' : ''}`}>
                                     {reportLoading ? <LoadingSpinner/> : '立即手动生成'}
                                  </Button>
                              </div>
                          ) : (
                              <div className="space-y-6">
-                                <div className="px-2">
+                                <div className={`px-2 ${isLightMode ? 'text-stone-700' : 'text-stone-300'}`}>
                                     <SimpleMarkdown content={aiReport} />
                                 </div>
-                                <div className="flex justify-center pt-4 border-t border-white/5 mt-4">
-                                    <Button onClick={handleGenerateReport} disabled={reportLoading} variant="ghost" className="text-xs text-lucid-dim hover:text-white">
+                                <div className={`flex justify-center pt-4 border-t mt-4 ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
+                                    <Button onClick={handleGenerateReport} disabled={reportLoading} variant="ghost" className={`text-xs ${isLightMode ? 'text-stone-500 hover:text-stone-800' : 'text-lucid-dim hover:text-white'}`}>
                                         <RefreshCw className={`w-3 h-3 mr-2 ${reportLoading ? 'animate-spin' : ''}`} /> 重新生成报告
                                     </Button>
                                 </div>
@@ -1225,15 +1215,15 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                     </div>
 
                     {/* JOURNAL CALENDAR MODULE */}
-                    <Card className="border-stone-800 bg-stone-900/30 h-[500px] flex flex-col overflow-hidden relative">
+                    <Card className={`h-[500px] flex flex-col overflow-hidden relative ${isLightMode ? 'bg-white/40 border-stone-200' : 'bg-stone-900/30 border-stone-800'}`}>
                          <div className="flex items-center justify-between mb-4 p-6 pb-0 z-10 pointer-events-none">
                              <div className="flex items-center gap-4 pointer-events-auto">
-                                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                                     <CalendarIcon className="w-5 h-5 text-stone-400" />
+                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLightMode ? 'bg-stone-100' : 'bg-white/5'}`}>
+                                     <CalendarIcon className={`w-5 h-5 ${isLightMode ? 'text-stone-600' : 'text-stone-400'}`} />
                                  </div>
                                  <div>
-                                     <h4 className="text-sm font-serif text-stone-300">觉察记录 Calendar</h4>
-                                     <p className="text-xs text-stone-600 mt-1">Timeline of your journey.</p>
+                                     <h4 className={`text-sm font-serif ${isLightMode ? 'text-stone-800' : 'text-stone-300'}`}>觉察记录 Calendar</h4>
+                                     <p className={`text-xs mt-1 ${isLightMode ? 'text-stone-500' : 'text-stone-600'}`}>Timeline of your journey.</p>
                                  </div>
                              </div>
                          </div>
@@ -1251,40 +1241,63 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                          </div>
                     </Card>
 
+                    {/* TOP STATS GRID (MOVED) */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        <Card onClick={() => setDetailsModal('journals')} className={`flex flex-col items-center justify-center py-6 bg-gradient-to-br cursor-pointer group transition-colors ${isLightMode ? 'from-orange-50 to-white border-orange-200 hover:bg-orange-50/50' : 'from-orange-900/10 to-transparent hover:bg-white/5 border-white/5'}`}>
+                            <span className={`text-2xl md:text-3xl font-serif mb-1 group-hover:scale-110 transition-transform ${isLightMode ? 'text-stone-800' : 'text-white'}`}>{stats.totalEntries}</span>
+                            <span className={`text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-1 ${isLightMode ? 'text-stone-500' : 'text-lucid-dim'}`}>觉察日记 Journals</span>
+                        </Card>
+                        
+                        <Card onClick={() => setDetailsModal('wishes')} className={`flex flex-col items-center justify-center py-6 bg-gradient-to-br cursor-pointer group transition-colors ${isLightMode ? 'from-emerald-50 to-white border-emerald-200 hover:bg-emerald-50/50' : 'from-emerald-900/10 to-transparent hover:bg-white/5 border-white/5'}`}>
+                            <span className={`text-2xl md:text-3xl font-serif mb-1 group-hover:scale-110 transition-transform ${isLightMode ? 'text-emerald-700' : 'text-emerald-100'}`}>{stats.manifestedWishes}</span>
+                            <span className={`text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-1 ${isLightMode ? 'text-emerald-600/70' : 'text-emerald-500/70'}`}>已显化 Manifested</span>
+                        </Card>
+
+                        <Card onClick={() => setDetailsModal('blocks')} className={`flex flex-col items-center justify-center py-6 bg-gradient-to-br cursor-pointer group transition-colors ${isLightMode ? 'from-red-50 to-white border-red-200 hover:bg-red-50/50' : 'from-red-900/10 to-transparent hover:bg-white/5 border-white/5'}`}>
+                            <span className={`text-2xl md:text-3xl font-serif mb-1 group-hover:scale-110 transition-transform ${isLightMode ? 'text-red-700' : 'text-red-100'}`}>{stats.uniqueBlocks.length}</span>
+                            <span className={`text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-1 ${isLightMode ? 'text-red-600/70' : 'text-red-500/70'}`}>清理信念 Cleared</span>
+                        </Card>
+                        
+                        <Card onClick={() => setDetailsModal('traits')} className={`flex flex-col items-center justify-center py-6 bg-gradient-to-br cursor-pointer group transition-colors ${isLightMode ? 'from-indigo-50 to-white border-indigo-200 hover:bg-indigo-50/50' : 'from-indigo-900/10 to-transparent hover:bg-white/5 border-white/5'}`}>
+                            <span className={`text-2xl md:text-3xl font-serif mb-1 group-hover:scale-110 transition-transform ${isLightMode ? 'text-indigo-700' : 'text-indigo-100'}`}>{stats.uniqueTraits.length}</span>
+                            <span className={`text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-1 ${isLightMode ? 'text-indigo-600/70' : 'text-indigo-400/70'}`}>高我特质 Traits</span>
+                        </Card>
+                    </div>
+
                     {/* DATA BACKUP & SAFETY */}
-                    <Card className="border-stone-800 bg-stone-900/30">
+                    <Card className={`${isLightMode ? 'bg-white/40 border-stone-200' : 'bg-stone-900/30 border-stone-800'}`}>
                          <div className="flex items-start justify-between mb-6">
                              <div className="flex items-center gap-4">
-                                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                                     <ShieldCheck className="w-5 h-5 text-stone-400" />
+                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLightMode ? 'bg-stone-100' : 'bg-white/5'}`}>
+                                     <ShieldCheck className={`w-5 h-5 ${isLightMode ? 'text-stone-600' : 'text-stone-400'}`} />
                                  </div>
                                  <div>
-                                     <h4 className="text-sm font-serif text-stone-300">数据安全备份</h4>
-                                     <p className="text-xs text-stone-600 mt-1">本地数据存储，请定期备份。</p>
+                                     <h4 className={`text-sm font-serif ${isLightMode ? 'text-stone-800' : 'text-stone-300'}`}>数据安全备份</h4>
+                                     <p className={`text-xs mt-1 ${isLightMode ? 'text-stone-500' : 'text-stone-600'}`}>本地数据存储，请定期备份。</p>
                                  </div>
                              </div>
                          </div>
                          
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                             <Button onClick={handleExportJSON} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white justify-center">
-                                 <Download className="w-4 h-4 mr-2" /> 导出备份 (JSON)
-                             </Button>
-                             
-                             <Button onClick={handleExportHTML} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white hover:border-lucid-glow/30 justify-center">
-                                 <FileText className="w-4 h-4 mr-2" /> 导出报告 (HTML)
-                             </Button>
+                            <Button onClick={handleExportJSON} variant="outline" className={`text-xs justify-center ${isLightMode ? 'border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-100' : 'border-white/10 text-stone-400 hover:text-white'}`}>
+                                <Download className="w-4 h-4 mr-2" /> 导出备份 (JSON)
+                            </Button>
+                            
+                            <Button onClick={handleExportHTML} variant="outline" className={`text-xs justify-center ${isLightMode ? 'border-stone-200 text-stone-500 hover:text-stone-800 hover:border-orange-500/30 hover:bg-stone-100' : 'border-white/10 text-stone-400 hover:text-white hover:border-lucid-glow/30'}`}>
+                                <FileText className="w-4 h-4 mr-2" /> 导出报告 (HTML)
+                            </Button>
 
-                             <Button onClick={handleImportClick} variant="outline" className="text-xs border-white/10 text-stone-400 hover:text-white hover:bg-white/5 justify-center">
-                                 <Upload className="w-4 h-4 mr-2" /> 导入数据 (同步)
-                             </Button>
-                             <input 
-                                 type="file" 
-                                 ref={fileInputRef} 
-                                 onChange={handleFileChange} 
-                                 className="hidden" 
-                                 accept=".json"
-                             />
-                         </div>
+                            <Button onClick={handleImportClick} variant="outline" className={`text-xs justify-center ${isLightMode ? 'border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-100' : 'border-white/10 text-stone-400 hover:text-white hover:bg-white/5'}`}>
+                                <Upload className="w-4 h-4 mr-2" /> 导入数据 (同步)
+                            </Button>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                className="hidden" 
+                                accept=".json"
+                            />
+                        </div>
                     </Card>
                 </div>
             )}
@@ -1306,22 +1319,22 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                className="relative group w-full max-w-sm h-48 transition-all duration-500 hover:scale-[1.02] active:scale-95"
                             >
                                {/* Stacked Paper Effect */}
-                               <div className="absolute inset-0 bg-white border border-stone-200 rounded-sm shadow-sm rotate-3 transform origin-bottom-right"></div>
-                               <div className="absolute inset-0 bg-[#Fdfbf7] border border-stone-200 rounded-sm shadow-sm -rotate-2 transform origin-bottom-left"></div>
+                               <div className={`absolute inset-0 border rounded-sm shadow-sm rotate-3 transform origin-bottom-right ${isLightMode ? 'bg-white border-stone-200' : 'bg-white/5 border-white/10'}`}></div>
+                               <div className={`absolute inset-0 border rounded-sm shadow-sm -rotate-2 transform origin-bottom-left ${isLightMode ? 'bg-[#Fdfbf7] border-stone-200' : 'bg-white/5 border-white/10'}`}></div>
                                
                                {/* Main Card */}
-                               <div className="absolute inset-0 bg-[#F2EFE9] border border-[#E6E1D6] rounded-sm shadow-[2px_4px_16px_rgba(0,0,0,0.08)] flex flex-col items-center justify-center gap-4 group-hover:shadow-[4px_8px_24px_rgba(0,0,0,0.12)] transition-all duration-500">
+                               <div className={`absolute inset-0 border rounded-sm shadow-[2px_4px_16px_rgba(0,0,0,0.08)] flex flex-col items-center justify-center gap-4 group-hover:shadow-[4px_8px_24px_rgba(0,0,0,0.12)] transition-all duration-500 ${isLightMode ? 'bg-[#FFFAF5] border-[#E6E1D6]' : 'bg-white/10 border-white/10'}`}>
                                    
                                    {/* Tape */}
-                                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-rose-100/50 backdrop-blur-[1px] -rotate-1 shadow-sm border-l-2 border-r-2 border-white/40"></div>
+                                   <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 backdrop-blur-[1px] -rotate-1 shadow-sm border-l-2 border-r-2 ${isLightMode ? 'bg-orange-100/50 border-white/40' : 'bg-white/10 border-white/20'}`}></div>
                                    
-                                   <div className="w-12 h-12 rounded-full bg-white/60 border border-stone-200 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-inner">
-                                      <Mail className="w-5 h-5 text-stone-600 group-hover:text-rose-500 transition-colors" />
+                                   <div className={`w-12 h-12 rounded-full border flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-inner ${isLightMode ? 'bg-white/60 border-stone-200' : 'bg-white/10 border-white/10'}`}>
+                                      <Mail className={`w-5 h-5 transition-colors ${isLightMode ? 'text-stone-600 group-hover:text-orange-500' : 'text-white/70 group-hover:text-white'}`} />
                                    </div>
                                    
                                    <div className="text-center">
-                                       <span className="block font-serif text-stone-800 tracking-widest text-lg mb-1 group-hover:text-rose-600 transition-colors">写给未来的自己</span>
-                                       <span className="block text-[10px] text-stone-500 uppercase tracking-[0.2em]">Time Capsule</span>
+                                       <span className={`block font-serif tracking-widest text-lg mb-1 transition-colors ${isLightMode ? 'text-stone-800 group-hover:text-orange-600' : 'text-white/90 group-hover:text-white'}`}>写给未来的自己</span>
+                                       <span className={`block text-[10px] uppercase tracking-[0.2em] ${isLightMode ? 'text-stone-500' : 'text-white/50'}`}>Time Capsule</span>
                                    </div>
                                </div>
                             </button>
@@ -1351,31 +1364,33 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                     transform: letterInput ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
                                     willChange: 'transform',
                                 } as React.CSSProperties}
-                                className={`border-stone-200 !bg-[#F2EFE9] !p-0 overflow-hidden flex flex-col min-h-[60vh] relative group transition-all duration-200 ease-out shadow-2xl rounded-sm ${
-                                    !letterInput ? 'hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)]' : ''
+                                className={`!p-0 overflow-hidden flex flex-col min-h-[60vh] relative group transition-all duration-200 ease-out shadow-2xl rounded-sm ${
+                                    isLightMode 
+                                        ? 'border-stone-200 !bg-[#FFFAF5] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)]' 
+                                        : 'border-stone-800 !bg-stone-900 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)]'
                                 }`}
                             >
                                 {/* Header */}
-                                <div className="flex items-center justify-between p-6 border-b border-stone-900/5 bg-stone-900/[0.02]">
-                                    <div className="flex items-center gap-2 text-stone-600">
+                                <div className={`flex items-center justify-between p-6 border-b ${isLightMode ? 'border-stone-900/5 bg-stone-900/[0.02]' : 'border-white/10 bg-white/5'}`}>
+                                    <div className={`flex items-center gap-2 ${isLightMode ? 'text-stone-600' : 'text-stone-400'}`}>
                                         <Mail className="w-4 h-4" />
                                         <span className="text-xs font-serif tracking-widest">致未来的信 To Future Self</span>
                                     </div>
-                                    <button onClick={() => setShowLetterInput(false)} className="text-stone-400 hover:text-stone-800 transition-colors p-1">
+                                    <button onClick={() => setShowLetterInput(false)} className={`transition-colors p-1 ${isLightMode ? 'text-stone-400 hover:text-stone-800' : 'text-stone-500 hover:text-stone-200'}`}>
                                          <X className="w-4 h-4"/> 
                                     </button>
                                 </div>
 
                                 {/* Textarea */}
-                                <div className="relative flex-1 w-full bg-[#F2EFE9]">
+                                <div className={`relative flex-1 w-full ${isLightMode ? 'bg-[#F2EFE9]' : 'bg-stone-900'}`}>
                                      {/* Subtle Noise Texture */}
-                                     <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply" 
+                                     <div className={`absolute inset-0 pointer-events-none ${isLightMode ? 'opacity-30 mix-blend-multiply' : 'opacity-10 mix-blend-overlay'}`}
                                           style={{ 
                                               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E")`,
                                           }}>
                                      </div>
                                      <textarea 
-                                        className="relative z-10 w-full h-full bg-transparent p-8 md:p-10 text-lg md:text-xl font-serif focus:outline-none text-stone-800 placeholder-stone-400 resize-none transition-all leading-relaxed custom-scrollbar"
+                                        className={`relative z-10 w-full h-full bg-transparent p-8 md:p-10 text-lg md:text-xl font-serif focus:outline-none resize-none transition-all leading-relaxed custom-scrollbar ${isLightMode ? 'text-stone-800 placeholder-stone-400' : 'text-stone-200 placeholder-stone-700'}`}
                                         placeholder="亲爱的未来自己，希望此刻的你..."
                                         value={letterInput}
                                         onChange={(e) => setLetterInput(e.target.value)}
@@ -1384,20 +1399,20 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                 </div>
                                 
                                 {/* Footer Controls */}
-                                <div className="p-4 border-t border-stone-900/5 bg-stone-900/[0.02] flex flex-wrap items-center justify-between gap-4">
-                                     <div className="flex items-center gap-3 bg-white/50 px-3 py-1.5 rounded-lg border border-stone-200 shadow-sm">
-                                        <Clock className="w-4 h-4 text-stone-500" />
-                                        <span className="text-xs text-stone-500 font-serif">送达时间:</span>
+                                <div className={`p-4 border-t flex flex-wrap items-center justify-between gap-4 ${isLightMode ? 'border-stone-900/5 bg-stone-900/[0.02]' : 'border-white/10 bg-white/5'}`}>
+                                     <div className={`flex items-center gap-3 px-3 py-1.5 rounded-lg border shadow-sm ${isLightMode ? 'bg-white/50 border-stone-200' : 'bg-white/5 border-white/10'}`}>
+                                        <Clock className={`w-4 h-4 ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`} />
+                                        <span className={`text-xs font-serif ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`}>送达时间:</span>
                                         <select 
                                             value={letterDelay} 
                                             onChange={(e) => setLetterDelay(Number(e.target.value))}
-                                            className="bg-transparent text-sm text-stone-800 focus:outline-none cursor-pointer font-serif min-w-[80px]"
+                                            className={`bg-transparent text-sm focus:outline-none cursor-pointer font-serif min-w-[80px] ${isLightMode ? 'text-stone-800' : 'text-stone-200'}`}
                                         >
-                                            <option value={0} className="bg-[#F2EFE9]">10秒后 (测试)</option>
-                                            <option value={7} className="bg-[#F2EFE9]">1周后</option>
-                                            <option value={30} className="bg-[#F2EFE9]">1个月后</option>
-                                            <option value={180} className="bg-[#F2EFE9]">6个月后</option>
-                                            <option value={365} className="bg-[#F2EFE9]">1年后</option>
+                                            <option value={0} className={isLightMode ? "bg-[#F2EFE9]" : "bg-stone-800"}>10秒后 (测试)</option>
+                                            <option value={7} className={isLightMode ? "bg-[#F2EFE9]" : "bg-stone-800"}>1周后</option>
+                                            <option value={30} className={isLightMode ? "bg-[#F2EFE9]" : "bg-stone-800"}>1个月后</option>
+                                            <option value={180} className={isLightMode ? "bg-[#F2EFE9]" : "bg-stone-800"}>6个月后</option>
+                                            <option value={365} className={isLightMode ? "bg-[#F2EFE9]" : "bg-stone-800"}>1年后</option>
                                         </select>
                                     </div>
 
@@ -1417,11 +1432,16 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                 const rotation = (seed % 4) - 2; // Reduced rotation
                                 
                                 // Envelope Colors Palette
-                                const ENVELOPE_COLORS = [
+                                const ENVELOPE_COLORS = isLightMode ? [
                                     { bg: 'bg-[#F2EFE9]', text: 'text-stone-700', border: 'border-stone-900/5' }, // Cream
                                     { bg: 'bg-[#E6E0D4]', text: 'text-stone-800', border: 'border-stone-900/5' }, // Kraft Light
                                     { bg: 'bg-[#D6CFC4]', text: 'text-stone-800', border: 'border-stone-900/10' }, // Kraft Dark
                                     { bg: 'bg-[#E8E8E8]', text: 'text-stone-700', border: 'border-stone-900/5' }, // Grey White
+                                ] : [
+                                    { bg: 'bg-stone-800', text: 'text-stone-300', border: 'border-white/10' }, // Dark Stone
+                                    { bg: 'bg-stone-900', text: 'text-stone-400', border: 'border-white/10' }, // Darker
+                                    { bg: 'bg-[#2a2a2a]', text: 'text-stone-300', border: 'border-white/5' }, // Charcoal
+                                    { bg: 'bg-[#1c1917]', text: 'text-stone-400', border: 'border-white/10' }, // Warm Dark
                                 ];
                                 
                                 const styleIndex = Math.abs(seed) % ENVELOPE_COLORS.length;
@@ -1584,23 +1604,23 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
             {/* 4. AFFIRMATION LIBRARY */}
             {tab === 'library' && (
                 <div className="space-y-6 pt-4 animate-fade-in">
-                     <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
+                     <div className={`flex justify-between items-center mb-4 border-b pb-4 ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
                          <div className="flex items-center gap-2">
-                            <Type className="w-4 h-4 text-lucid-glow" />
-                            <h3 className="text-white font-serif text-base">肯定语库 Library</h3>
+                            <Type className={`w-4 h-4 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
+                            <h3 className={`font-serif text-base ${isLightMode ? 'text-stone-800' : 'text-white'}`}>肯定语库 Library</h3>
                          </div>
                          
                          {/* View Mode Toggle */}
-                         <div className="bg-white/5 rounded-lg p-1 flex text-xs">
+                         <div className={`rounded-lg p-1 flex text-xs ${isLightMode ? 'bg-stone-200' : 'bg-white/5'}`}>
                             <button 
                                 onClick={() => setAffirmationViewMode('all')} 
-                                className={`px-3 py-1 rounded-md transition-all ${affirmationViewMode === 'all' ? 'bg-white/10 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
+                                className={`px-3 py-1 rounded-md transition-all ${affirmationViewMode === 'all' ? (isLightMode ? 'bg-white text-stone-800 shadow-sm' : 'bg-white/10 text-white shadow-sm') : 'text-stone-500 hover:text-stone-300'}`}
                             >
                                 全部
                             </button>
                             <button 
                                 onClick={() => setAffirmationViewMode('single')} 
-                                className={`px-3 py-1 rounded-md transition-all ${affirmationViewMode === 'single' ? 'bg-white/10 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
+                                className={`px-3 py-1 rounded-md transition-all ${affirmationViewMode === 'single' ? (isLightMode ? 'bg-white text-stone-800 shadow-sm' : 'bg-white/10 text-white shadow-sm') : 'text-stone-500 hover:text-stone-300'}`}
                             >
                                 筛选
                             </button>
@@ -1608,13 +1628,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                      </div>
                      
                      {affirmationViewMode === 'single' && (
-                         <div className="text-xs text-stone-500 mb-2 flex items-center gap-1 bg-white/5 p-2 rounded-lg">
+                         <div className={`text-xs text-stone-500 mb-2 flex items-center gap-1 p-2 rounded-lg ${isLightMode ? 'bg-stone-100' : 'bg-white/5'}`}>
                              <Filter className="w-3 h-3" /> 
                              <span className="opacity-70">筛选对象:</span>
                              <select 
                                  value={selectedWishId}
                                  onChange={(e) => setSelectedWishId(e.target.value)}
-                                 className="bg-transparent text-lucid-glow border-none focus:ring-0 text-xs font-serif cursor-pointer outline-none"
+                                 className={`bg-transparent border-none focus:ring-0 text-xs font-serif cursor-pointer outline-none ${isLightMode ? 'text-stone-800' : 'text-lucid-glow'}`}
                              >
                                  {wishes.map(w => <option key={w.id} value={w.id}>{w.content.slice(0, 15)}...</option>)}
                              </select>
@@ -1626,20 +1646,20 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                             <div key={w.id} className="animate-fade-in">
                                 {affirmationViewMode === 'all' && (
                                     <div className="flex items-center gap-2 mb-3 pl-1 mt-6 first:mt-0">
-                                        <div className="w-1 h-3 bg-lucid-glow/50 rounded-full"></div>
-                                        <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest truncate max-w-[80%]">{w.content}</h4>
+                                        <div className={`w-1 h-3 rounded-full ${isLightMode ? 'bg-orange-400' : 'bg-lucid-glow/50'}`}></div>
+                                        <h4 className={`text-xs font-bold uppercase tracking-widest truncate max-w-[80%] ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`}>{w.content}</h4>
                                     </div>
                                 )}
                                 <div className="grid gap-3">
                                     {w.affirmations.map((aff, i) => (
-                                        <Card key={`${w.id}-${i}`} className="flex gap-4 items-start group hover:bg-white/5 transition-colors p-4 border-white/5">
+                                        <Card key={`${w.id}-${i}`} className={`flex gap-4 items-start group transition-colors p-4 ${isLightMode ? 'bg-white/60 hover:bg-white border-stone-200' : 'hover:bg-white/5 border-white/5'}`}>
                                             <div className="flex-1">
                                                 <span className={`text-[9px] uppercase tracking-widest block mb-1.5 font-sans ${
-                                                    aff.type === 'conscious' ? 'text-orange-300/80' : aff.type === 'subconscious' ? 'text-rose-300/80' : 'text-emerald-300/80'
+                                                    aff.type === 'conscious' ? (isLightMode ? 'text-orange-600' : 'text-orange-300/80') : aff.type === 'subconscious' ? (isLightMode ? 'text-rose-600' : 'text-rose-300/80') : (isLightMode ? 'text-emerald-600' : 'text-emerald-300/80')
                                                 }`}>
                                                     {aff.type === 'conscious' ? '显意识 Conscious' : aff.type === 'subconscious' ? '潜意识 Subconscious' : '未来 Future Self'}
                                                 </span>
-                                                <p className="text-stone-200 font-serif leading-relaxed text-sm">"{aff.text}"</p>
+                                                <p className={`font-serif leading-relaxed text-sm ${isLightMode ? 'text-stone-700' : 'text-stone-200'}`}>"{aff.text}"</p>
                                             </div>
                                         </Card>
                                     ))}
@@ -1672,8 +1692,8 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
       >
           <div className="space-y-4 h-full flex flex-col">
               {detailsModal === 'wishes' && wishes.map(w => (
-                  <div key={w.id} className="p-4 bg-white/5 rounded-xl border border-white/5">
-                      <p className="text-white font-serif">{w.content}</p>
+                  <div key={w.id} className={`p-4 rounded-xl border ${isLightMode ? 'bg-white/50 border-stone-200' : 'bg-white/5 border-white/5'}`}>
+                      <p className={`font-serif ${isLightMode ? 'text-stone-800' : 'text-white'}`}>{w.content}</p>
                       <div className="flex justify-between mt-2">
                         <span className="text-xs text-stone-500">{new Date(w.createdAt).toLocaleDateString()}</span>
                         <span className="text-xs text-lucid-glow">{w.status}</span>
@@ -1684,12 +1704,12 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
               {detailsModal === 'journals' && (
                   selectedJournalEntry ? (
                     <div className="space-y-6 h-full flex flex-col animate-fade-in">
-                        <div className="flex items-center gap-3 border-b border-white/5 pb-4 shrink-0">
-                            <button onClick={() => setSelectedJournalEntry(null)} className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors text-stone-400 hover:text-white">
+                        <div className={`flex items-center gap-3 border-b pb-4 shrink-0 ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
+                            <button onClick={() => setSelectedJournalEntry(null)} className={`p-2 -ml-2 rounded-full transition-colors ${isLightMode ? 'text-stone-500 hover:bg-stone-100 hover:text-stone-800' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}>
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                             <div>
-                                 <span className="text-sm font-serif text-white block">
+                                 <span className={`text-sm font-serif block ${isLightMode ? 'text-stone-800' : 'text-white'}`}>
                                     {new Date(selectedJournalEntry.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                  </span>
                                  <span className="text-xs text-stone-500 font-sans">
@@ -1720,7 +1740,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                     ).map((mood: any, idx: number) => {
                                         const moodText = typeof mood === 'object' ? mood.text || mood.title : mood;
                                         return (
-                                            <span key={idx} className="text-xs px-3 py-1 rounded-full bg-white/5 text-stone-300 border border-white/10">
+                                            <span key={idx} className={`text-xs px-3 py-1 rounded-full border ${isLightMode ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-white/5 text-stone-300 border-white/10'}`}>
                                                 {moodText}
                                             </span>
                                         );
@@ -1728,17 +1748,17 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                 </div>
                             )}
 
-                            <div className="text-stone-200 font-serif leading-loose whitespace-pre-wrap text-base">
+                            <div className={`font-serif leading-loose whitespace-pre-wrap text-base ${isLightMode ? 'text-stone-800' : 'text-stone-200'}`}>
                                 {selectedJournalEntry.content}
                             </div>
 
                             {selectedJournalEntry.aiAnalysis?.summary && (
-                                 <div className="bg-gradient-to-br from-lucid-glow/5 to-transparent p-5 rounded-2xl border border-lucid-glow/10 relative overflow-hidden">
+                                 <div className={`p-5 rounded-2xl border relative overflow-hidden ${isLightMode ? 'bg-gradient-to-br from-orange-50 to-white border-orange-200' : 'bg-gradient-to-br from-lucid-glow/5 to-transparent border-lucid-glow/10'}`}>
                                       <div className="flex items-start gap-3 relative z-10">
-                                          <Sparkles className="w-5 h-5 text-lucid-glow mt-0.5 flex-shrink-0" />
+                                          <Sparkles className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
                                           <div className="space-y-2">
-                                              <span className="text-xs font-bold text-lucid-glow uppercase tracking-widest">LUCID Insight</span>
-                                              <p className="text-sm text-stone-300 italic leading-relaxed">
+                                              <span className={`text-xs font-bold uppercase tracking-widest ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`}>LUCID Insight</span>
+                                              <p className={`text-sm italic leading-relaxed ${isLightMode ? 'text-stone-600' : 'text-stone-300'}`}>
                                                   {selectedJournalEntry.aiAnalysis.summary}
                                               </p>
                                           </div>
@@ -1751,13 +1771,13 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                   <div className="space-y-4 h-full flex flex-col">
                       <div className="relative shrink-0 space-y-2">
                           <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isLightMode ? 'text-stone-400' : 'text-stone-500'}`} />
                               <input 
                                  type="text"
                                  placeholder="搜索日记内容、心情..."
                                  value={journalSearch}
                                  onChange={(e) => setJournalSearch(e.target.value)}
-                                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-stone-200 focus:outline-none focus:border-lucid-glow/30 transition-colors"
+                                 className={`w-full rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none transition-colors ${isLightMode ? 'bg-white/50 border border-stone-200 text-stone-800 focus:border-orange-300 placeholder-stone-400' : 'bg-white/5 border border-white/10 text-stone-200 focus:border-lucid-glow/30'}`}
                               />
                           </div>
                           
@@ -1792,11 +1812,11 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                       if (modalBodyRef.current) savedJournalScrollTop.current = modalBodyRef.current.scrollTop;
                                       setSelectedJournalEntry(entry);
                                   }} 
-                                  className="group relative bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-2xl p-5 transition-all duration-300 cursor-pointer"
+                                  className={`group relative border rounded-2xl p-5 transition-all duration-300 cursor-pointer ${isLightMode ? 'bg-white/50 hover:bg-white/80 border-stone-200 hover:border-orange-200' : 'bg-white/[0.02] hover:bg-white/[0.04] border-white/5'}`}
                               >
                                   <div className="flex justify-between items-start mb-3">
                                       <div className="flex flex-col">
-                                          <span className="text-sm font-serif text-white/90">
+                                          <span className={`text-sm font-serif ${isLightMode ? 'text-stone-800' : 'text-white/90'}`}>
                                               {new Date(entry.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
                                           </span>
                                           <span className="text-xs text-stone-500 font-sans mt-0.5">
@@ -1812,7 +1832,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                               ).slice(0, 3).map((mood: any, idx: number) => {
                                                   const moodText = typeof mood === 'object' ? mood.text || mood.title : mood;
                                                   return (
-                                                      <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-stone-400 border border-white/5 whitespace-nowrap">
+                                                      <span key={idx} className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${isLightMode ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-white/5 text-stone-400 border-white/5'}`}>
                                                           {moodText}
                                                       </span>
                                                   );
@@ -1821,7 +1841,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                       )}
                                   </div>
 
-                                  <div className="text-stone-300 font-serif leading-relaxed text-sm whitespace-pre-wrap line-clamp-4 transition-all duration-300">
+                                  <div className={`font-serif leading-relaxed text-sm whitespace-pre-wrap line-clamp-4 transition-all duration-300 ${isLightMode ? 'text-stone-600' : 'text-stone-300'}`}>
                                       {entry.content}
                                   </div>
                               </div>
@@ -1890,6 +1910,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                 onClose={() => setSelectedWish(null)}
                 title="显化蓝图 · Blueprint"
                 className={`${bgOverride} ${textOverride} !rounded-sm !border-stone-900/10 !shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)]`}
+                titleClassName={textOverride}
             >
                 {/* Paper Texture Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-white/[0.6] to-transparent pointer-events-none mix-blend-soft-light"></div>
@@ -1958,7 +1979,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                         )}
 
                         {/* Core Shifts */}
-                        <div className="bg-stone-900/[0.03] rounded-sm p-6 border border-stone-900/5">
+                        <div className={`${isLightMode ? 'bg-stone-900/[0.03] border-stone-900/5' : 'bg-white/5 border-white/10'} rounded-sm p-6 border`}>
                             <h4 className="text-sm opacity-50 uppercase tracking-widest mb-6">Core Shifts</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div>
@@ -2010,10 +2031,10 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
         isOpen={!!selectedLetter}
         onClose={() => setSelectedLetter(null)}
         title="时间信箱 · Time Capsule"
-        className="!bg-[#f4f1ea] !text-stone-800 !rounded-sm !border-stone-900/5 !shadow-2xl !max-w-2xl overflow-hidden"
+        className={`!rounded-sm !shadow-2xl !max-w-2xl overflow-hidden ${isLightMode ? '!bg-[#f4f1ea] !text-stone-800 !border-stone-900/5' : '!bg-stone-900 !text-stone-200 !border-white/10'}`}
       >
           {/* Paper Texture */}
-          <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply" 
+          <div className={`absolute inset-0 pointer-events-none ${isLightMode ? 'opacity-30 mix-blend-multiply' : 'opacity-10 mix-blend-overlay'}`}
                style={{ 
                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E")`,
                }}>
@@ -2022,14 +2043,14 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
           {selectedLetter && (
               <div className="relative z-10 space-y-8 pb-4">
                   {/* Header Info */}
-                  <div className="flex items-center justify-between border-b border-stone-900/10 pb-4">
+                  <div className={`flex items-center justify-between border-b pb-4 ${isLightMode ? 'border-stone-900/10' : 'border-white/10'}`}>
                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center border border-stone-900/5">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${isLightMode ? 'bg-stone-200 text-stone-600 border-stone-900/5' : 'bg-white/10 text-stone-300 border-white/10'}`}>
                               <Archive className="w-5 h-5" />
                           </div>
                           <div>
                               <span className="text-xs uppercase text-stone-500 tracking-widest block font-bold">来自过去</span>
-                              <span className="text-sm text-stone-800 font-serif italic">
+                              <span className={`text-sm font-serif italic ${isLightMode ? 'text-stone-800' : 'text-stone-300'}`}>
                                   写于 {new Date(selectedLetter.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                               </span>
                           </div>
@@ -2071,21 +2092,21 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                   {/* Letter Content */}
                   <div className="min-h-[200px]">
                        {Date.now() < selectedLetter.sendDate ? (
-                           <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center border-2 border-dashed border-stone-900/10 rounded-xl bg-stone-900/5 mx-4">
-                               <div className="w-16 h-16 rounded-full bg-stone-200 flex items-center justify-center mb-2">
-                                   <Lock className="w-8 h-8 text-stone-500" />
+                           <div className={`flex flex-col items-center justify-center py-12 space-y-4 text-center border-2 border-dashed rounded-xl mx-4 ${isLightMode ? 'border-stone-900/10 bg-stone-900/5' : 'border-white/10 bg-white/5'}`}>
+                               <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 ${isLightMode ? 'bg-stone-200' : 'bg-white/10'}`}>
+                                   <Lock className={`w-8 h-8 ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`} />
                                </div>
-                               <h3 className="text-xl font-serif text-stone-700">时间胶囊已封存</h3>
-                               <p className="text-stone-500 font-serif italic max-w-xs">
+                               <h3 className={`text-xl font-serif ${isLightMode ? 'text-stone-700' : 'text-stone-200'}`}>时间胶囊已封存</h3>
+                               <p className={`font-serif italic max-w-xs ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`}>
                                    这封信正在时间长河中漫游，静待未来开启。
                                </p>
-                               <span className="inline-block mt-4 text-xs font-bold tracking-widest text-stone-600 border border-stone-300 px-3 py-1.5 rounded-full bg-white/50">
+                               <span className={`inline-block mt-4 text-xs font-bold tracking-widest border px-3 py-1.5 rounded-full ${isLightMode ? 'text-stone-600 border-stone-300 bg-white/50' : 'text-stone-300 border-white/20 bg-white/10'}`}>
                                    开启时间 {new Date(selectedLetter.sendDate).toLocaleDateString()}
                                </span>
                            </div>
                        ) : (
-                           <div className="prose prose-stone max-w-none">
-                               <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-wrap pl-4 border-l-2 border-stone-900/10">
+                           <div className={`prose max-w-none ${isLightMode ? 'prose-stone' : 'prose-invert'}`}>
+                               <div className={`font-serif text-lg leading-loose whitespace-pre-wrap pl-4 border-l-2 ${isLightMode ? 'text-stone-800 border-stone-900/10' : 'text-stone-200 border-white/20'}`}>
                                    <SimpleMarkdown content={
                                        selectedLetter.content && typeof selectedLetter.content === 'object' 
                                        ? ((selectedLetter.content as any).text || (selectedLetter.content as any).content || JSON.stringify(selectedLetter.content)) 
@@ -2099,18 +2120,18 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                   {/* AI Reply Section (if exists and unlocked) */}
                   {selectedLetter.aiReply && (
                       <div className="mt-8 relative">
-                          <div className="absolute -inset-2 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 rounded-lg -z-10 transform -rotate-1"></div>
-                          <div className="bg-white/60 p-6 rounded-md border border-indigo-900/10 shadow-sm relative overflow-hidden">
-                              <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-900">
+                          <div className={`absolute -inset-2 bg-gradient-to-br rounded-lg -z-10 transform -rotate-1 ${isLightMode ? 'from-indigo-50/50 to-purple-50/50' : 'from-indigo-900/20 to-purple-900/20'}`}></div>
+                          <div className={`p-6 rounded-md border shadow-sm relative overflow-hidden ${isLightMode ? 'bg-white/60 border-indigo-900/10' : 'bg-white/5 border-white/10'}`}>
+                              <div className={`absolute top-0 right-0 p-4 opacity-5 ${isLightMode ? 'text-indigo-900' : 'text-indigo-200'}`}>
                                   <Sparkles className="w-20 h-20" />
                               </div>
                               
-                              <div className="flex items-center gap-2 mb-4 border-b border-indigo-900/5 pb-3">
-                                  <Sparkles className="w-4 h-4 text-indigo-500" />
-                                  <span className="text-xs uppercase text-indigo-900/60 tracking-widest font-bold">Future Self Resonance</span>
+                              <div className={`flex items-center gap-2 mb-4 border-b pb-3 ${isLightMode ? 'border-indigo-900/5' : 'border-white/10'}`}>
+                                  <Sparkles className={`w-4 h-4 ${isLightMode ? 'text-indigo-500' : 'text-indigo-400'}`} />
+                                  <span className={`text-xs uppercase tracking-widest font-bold ${isLightMode ? 'text-indigo-900/60' : 'text-indigo-200/60'}`}>Future Self Resonance</span>
                               </div>
                               
-                              <div className="text-stone-700 font-serif leading-relaxed text-base italic">
+                              <div className={`font-serif leading-relaxed text-base italic ${isLightMode ? 'text-stone-700' : 'text-stone-300'}`}>
                                   <SimpleMarkdown content={
                                     selectedLetter.aiReply && typeof selectedLetter.aiReply === 'object' 
                                     ? ((selectedLetter.aiReply as any).text || (selectedLetter.aiReply as any).content || JSON.stringify(selectedLetter.aiReply)) 

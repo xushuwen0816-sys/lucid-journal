@@ -37,6 +37,7 @@
                 dim: '#A8A29E', // Stone 400
               }
             },
+            darkMode: 'class', // Enable class-based dark mode
             animation: {
               'float': 'float 8s ease-in-out infinite',
               'pulse-slow': 'pulse 4s ease-in-out infinite',
@@ -69,7 +70,37 @@
         font-family: 'Noto Serif SC', serif;
         min-height: 100vh;
         overflow-x: hidden;
+        transition: background 0.5s ease, color 0.5s ease;
       }
+      
+      /* Light mode styles */
+      html.light body {
+        background: linear-gradient(180deg, #FFF7ED 0%, #FFEDD5 50%, #FFF7ED 100%);
+        color: #3C2A20;
+      }
+      
+      html.light .glass-panel {
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(60, 42, 32, 0.08);
+      }
+      
+      /* Light mode specific text overrides */
+      html.light .text-lucid-text {
+        color: #3C2A20 !important;
+      }
+      
+      html.light .text-lucid-dim {
+        color: #57534E !important; /* Stone 600 */
+      }
+      
+      html.light .border-white\/10 {
+        border-color: rgba(60, 42, 32, 0.1) !important;
+      }
+      
+      html.light .bg-white\/5 {
+        background-color: rgba(60, 42, 32, 0.05) !important;
+      }
+
       ::-webkit-scrollbar {
         width: 6px;
       }

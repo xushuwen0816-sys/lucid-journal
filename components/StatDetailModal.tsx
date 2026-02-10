@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Modal } from './Shared';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface StatDetailModalProps {
   isOpen: boolean;
@@ -11,12 +12,13 @@ interface StatDetailModalProps {
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
+  const { isLightMode } = useTheme();
   if (active && payload && payload.length) {
     return (
-      <div className="bg-stone-900/95 border border-white/10 p-3 rounded-xl shadow-xl backdrop-blur-md z-50">
-        <p className="text-stone-200 font-serif text-sm mb-1">{label}</p>
-        <p className="text-xs text-stone-400">
-          频次: <span className="text-white font-bold">{payload[0].value}</span>
+      <div className={`border p-3 rounded-xl shadow-xl backdrop-blur-md z-50 ${isLightMode ? 'bg-white/90 border-stone-200' : 'bg-stone-900/95 border-white/10'}`}>
+        <p className={`font-serif text-sm mb-1 ${isLightMode ? 'text-stone-800' : 'text-stone-200'}`}>{label}</p>
+        <p className={`text-xs ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`}>
+          频次: <span className={`font-bold ${isLightMode ? 'text-orange-600' : 'text-white'}`}>{payload[0].value}</span>
         </p>
       </div>
     );
@@ -38,11 +40,13 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
   // Ensure minimum height to fit container or let it scroll if content is larger
   const chartHeight = Math.max(260, sortedData.length * 40);
 
+  const { isLightMode } = useTheme();
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="w-full h-[400px] overflow-y-auto custom-scrollbar bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+      <div className={`w-full h-[400px] overflow-y-auto custom-scrollbar border rounded-2xl p-4 ${isLightMode ? 'bg-white/40 border-stone-200' : 'bg-white/[0.02] border-white/5'}`}>
         {sortedData.length === 0 ? (
-          <p className="text-center text-stone-500 py-10">暂无数据记录</p>
+          <p className={`text-center py-10 ${isLightMode ? 'text-stone-400' : 'text-stone-500'}`}>暂无数据记录</p>
         ) : (
           <div style={{ height: chartHeight, width: '100%' }}>
             <style>{`
@@ -63,11 +67,11 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
                 data={sortedData}
                 margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isLightMode ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.05)"} />
                 <XAxis 
                   type="number" 
-                  stroke="#78716C" 
-                  tick={{ fontSize: 10 }} 
+                  stroke={isLightMode ? "#78716C" : "#78716C"} 
+                  tick={{ fontSize: 10, fill: isLightMode ? "#57534E" : "#A8A29E" }} 
                   allowDecimals={false}
                   domain={[0, 'auto']}
                 />
@@ -75,11 +79,15 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
                   dataKey="name" 
                   type="category" 
                   width={100} 
-                  stroke="#78716C" 
-                  tick={{ fontSize: 11, fill: '#A8A29E' }}
+                  stroke={isLightMode ? "#78716C" : "#78716C"} 
+                  tick={{ fontSize: 11, fill: isLightMode ? "#57534E" : "#A8A29E" }}
                   interval={0}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} isAnimationActive={false} />
+                <Tooltip 
+                    content={<CustomTooltip />} 
+                    cursor={{ fill: isLightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)' }} 
+                    isAnimationActive={false} 
+                />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
                   {sortedData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={color} fillOpacity={0.8 - (index * 0.01)} />

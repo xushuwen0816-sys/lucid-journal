@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { generateTarotReading, generateDailyPractice, generateOracleReading } from '../services/geminiService';
 import { TarotReading, DailyPractice, Wish } from '../types';
 import { Button, Card, SectionTitle, LoadingSpinner, TabNav } from './Shared';
+import { useTheme } from '../contexts/ThemeContext';
 import { CreditCard, Sun, Shuffle, RotateCcw, MoveHorizontal, Sparkles } from 'lucide-react';
 import { ORACLE_DECK } from './OracleDeckData';
 
@@ -61,6 +62,7 @@ const generateOracleDeckState = () => {
 };
 
 const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRitual }) => {
+  const { isLightMode } = useTheme();
   const [activeTab, setActiveTab] = useState<'tarot' | 'oracle' | 'practice'>('tarot');
   const [loading, setLoading] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -343,22 +345,22 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                 {!hasShuffled && !loading && !reading && (
                     <div className="flex flex-col items-center justify-center space-y-6 flex-1 animate-fade-in min-h-[400px]">
                         <div className={`relative group ${isShuffling ? 'cursor-wait' : 'cursor-pointer'}`} onClick={isShuffling ? undefined : handleShuffle}>
-                            <div className={`w-48 h-72 bg-gradient-to-br ${activeTab === 'oracle' ? 'from-stone-800 to-stone-900' : 'from-stone-800 to-stone-900'} border border-white/20 rounded-2xl flex items-center justify-center shadow-2xl relative z-10 transition-all duration-500 ${!isShuffling && 'group-hover:-translate-y-2'} ${isShuffling ? 'animate-pulse shadow-[0_0_30px_rgba(253,186,116,0.3)] border-lucid-glow/50' : ''}`}>
+                            <div className={`w-48 h-72 bg-gradient-to-br ${isLightMode ? 'from-orange-50 to-white border-orange-200 shadow-orange-100' : (activeTab === 'oracle' ? 'from-stone-800 to-stone-900 border-white/20' : 'from-stone-800 to-stone-900 border-white/20')} border rounded-2xl flex items-center justify-center shadow-2xl relative z-10 transition-all duration-500 ${!isShuffling && 'group-hover:-translate-y-2'} ${isShuffling ? 'animate-pulse shadow-[0_0_30px_rgba(253,186,116,0.3)] border-lucid-glow/50' : ''}`}>
                                 <div className="text-center">
-                                    <Shuffle className={`w-10 h-10 text-lucid-glow mx-auto mb-3 ${isShuffling ? 'animate-spin duration-700' : ''}`} />
-                                    <h3 className="text-xl font-serif text-white tracking-widest">
+                                    <Shuffle className={`w-10 h-10 mx-auto mb-3 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'} ${isShuffling ? 'animate-spin duration-700' : ''}`} />
+                                    <h3 className={`text-xl font-serif tracking-widest ${isLightMode ? 'text-stone-800' : 'text-white'}`}>
                                         {isShuffling ? '正在洗牌...' : '一键洗牌'}
                                     </h3>
-                                    <p className="text-xs text-lucid-dim mt-2 tracking-wider opacity-60">
+                                    <p className={`text-xs mt-2 tracking-wider opacity-60 ${isLightMode ? 'text-stone-500' : 'text-lucid-dim'}`}>
                                         {activeTab === 'oracle' ? '52 Cards Deck' : '78 Cards Deck'}
                                     </p>
                                 </div>
                             </div>
                             {/* Stacked cards effect */}
-                            <div className={`absolute top-2 left-2 w-48 h-72 bg-stone-800/50 rounded-2xl border border-white/10 -z-10 transition-transform duration-300 ${isShuffling ? 'translate-x-1 translate-y-1' : ''}`}></div>
-                            <div className={`absolute top-4 left-4 w-48 h-72 bg-stone-800/30 rounded-2xl border border-white/5 -z-20 transition-transform duration-300 ${isShuffling ? 'translate-x-2 translate-y-2' : ''}`}></div>
+                            <div className={`absolute top-2 left-2 w-48 h-72 rounded-2xl border -z-10 transition-transform duration-300 ${isShuffling ? 'translate-x-1 translate-y-1' : ''} ${isLightMode ? 'bg-orange-50 border-orange-100' : 'bg-stone-800/50 border-white/10'}`}></div>
+                            <div className={`absolute top-4 left-4 w-48 h-72 rounded-2xl border -z-20 transition-transform duration-300 ${isShuffling ? 'translate-x-2 translate-y-2' : ''} ${isLightMode ? 'bg-orange-50/50 border-orange-100/50' : 'bg-stone-800/30 border-white/5'}`}></div>
                         </div>
-                        <p className="text-stone-400 font-serif italic text-sm animate-pulse">
+                        <p className={`font-serif italic text-sm animate-pulse ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`}>
                             {isShuffling 
                                 ? (activeTab === 'oracle' ? '连接宇宙意识...' : '正在注入能量...') 
                                 : (activeTab === 'oracle' ? '点击洗牌，连接宇宙神谕...' : '点击洗牌，注入你的能量...')
@@ -371,8 +373,8 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                     <div className="w-full animate-fade-in mt-4 flex flex-col items-center relative">
                         
                         <div className={`text-center mb-4 transition-opacity duration-500 ${isRevealing ? 'opacity-0' : 'opacity-100'}`}>
-                            <h3 className="text-xl font-serif text-white">请凭直觉抽取{activeTab === 'oracle' ? '一张' : '三张'}牌</h3>
-                            <p className="text-lucid-dim text-sm mt-1">{selectedIndices.length} / {activeTab === 'oracle' ? 1 : 3} 已选择</p>
+                            <h3 className={`text-xl font-serif ${isLightMode ? 'text-stone-800' : 'text-white'}`}>请凭直觉抽取{activeTab === 'oracle' ? '一张' : '三张'}牌</h3>
+                            <p className={`${isLightMode ? 'text-stone-500' : 'text-lucid-dim'} text-sm mt-1`}>{selectedIndices.length} / {activeTab === 'oracle' ? 1 : 3} 已选择</p>
                             <div className="flex items-center justify-center gap-2 mt-2 opacity-50">
                                 <MoveHorizontal className="w-3 h-3 text-stone-400 animate-pulse" />
                                 <p className="text-stone-400 text-[10px] font-sans tracking-widest">
@@ -446,19 +448,19 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                             className={`
                                                 w-16 h-28 md:w-24 md:h-36 rounded-xl border border-white/20 cursor-pointer shadow-xl transition-all duration-300 origin-bottom
                                                 ${!isRevealing && !isSelected ? 'hover:z-[99] hover:-translate-y-16 hover:scale-110 hover:shadow-[0_0_30px_rgba(253,186,116,0.5)] hover:bg-stone-700/80 hover:border-lucid-glow/50' : ''}
-                                                ${activeTab === 'oracle' ? 'bg-stone-800' : 'bg-stone-800'} 
+                                                ${isLightMode ? 'bg-white border-orange-200' : (activeTab === 'oracle' ? 'bg-stone-800' : 'bg-stone-800')} 
                                                 flex-shrink-0 relative overflow-hidden
-                                                ${isSelected ? 'ring-2 ring-lucid-glow shadow-[0_0_20px_rgba(253,186,116,0.3)] bg-stone-700' : ''}
+                                                ${isSelected ? `ring-2 ring-lucid-glow shadow-[0_0_20px_rgba(253,186,116,0.3)] ${isLightMode ? 'bg-orange-50' : 'bg-stone-700'}` : ''}
                                             `}
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
-                                            <div className={`w-full h-full opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] ${activeTab === 'oracle' ? 'from-orange-900 to-black' : 'from-orange-900 to-black'}`}></div>
-                                            <div className="absolute inset-2 border border-white/5 rounded-md opacity-50"></div>
+                                            <div className={`w-full h-full opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] ${isLightMode ? 'from-orange-200 to-orange-50' : (activeTab === 'oracle' ? 'from-orange-900 to-black' : 'from-orange-900 to-black')}`}></div>
+                                            <div className={`absolute inset-2 border rounded-md opacity-50 ${isLightMode ? 'border-orange-200/50' : 'border-white/5'}`}></div>
                                             
                                             {/* Oracle Card Label on Back (Optional) */}
                                             {activeTab === 'oracle' && !isRevealing && (
                                                 <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                                                    <Sparkles className="w-4 h-4 text-white" />
+                                                    <Sparkles className={`w-4 h-4 ${isLightMode ? 'text-orange-400' : 'text-white'}`} />
                                                 </div>
                                             )}
                                         </div>
@@ -474,7 +476,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                         {loading && (
                             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 translate-y-24 z-[1001] flex flex-col items-center pointer-events-none w-full">
                                 <LoadingSpinner />
-                                <p className="text-lucid-dim font-serif mt-3 text-sm tracking-widest animate-pulse drop-shadow-md bg-black/40 px-4 py-1 rounded-full backdrop-blur-sm">
+                                <p className={`font-serif mt-3 text-sm tracking-widest animate-pulse drop-shadow-md px-4 py-1 rounded-full backdrop-blur-sm ${isLightMode ? 'text-stone-600 bg-white/40' : 'text-lucid-dim bg-black/40'}`}>
                                     连接潜意识频率...
                                 </p>
                             </div>
@@ -487,18 +489,18 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                         <div className="flex flex-col md:flex-row justify-center gap-6 mt-4">
                             {reading.cards.map((card, idx) => (
                                 <div key={idx} className={`relative w-full ${activeTab === 'oracle' ? 'md:w-80 h-[32rem]' : 'md:w-56 h-[26rem]'} group perspective-1000 animate-fade-in`} style={{animationDelay: `${idx * 0.2}s`}}>
-                                    <div className={`relative w-full h-full bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-5 flex flex-col items-center shadow-2xl transition-all duration-700 ${card.isReversed ? 'rotate-180' : ''}`}>
+                                    <div className={`relative w-full h-full backdrop-blur-xl border rounded-2xl p-5 flex flex-col items-center shadow-2xl transition-all duration-700 ${card.isReversed ? 'rotate-180' : ''} ${isLightMode ? 'bg-white/60 border-stone-200' : 'bg-white/5 border-white/20'}`}>
                                         
                                         <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-30 mix-blend-overlay">
-                                            <div className={`w-full h-full bg-gradient-to-b ${activeTab === 'oracle' ? 'from-stone-700 to-black' : 'from-stone-700 to-black'}`}></div>
+                                            <div className={`w-full h-full bg-gradient-to-b ${isLightMode ? 'from-stone-200 to-white' : (activeTab === 'oracle' ? 'from-stone-700 to-black' : 'from-stone-700 to-black')}`}></div>
                                         </div>
                                         
                                         <div className={`${card.isReversed ? 'rotate-180' : ''} flex flex-col items-center z-10 relative h-full w-full justify-start`}>
-                                            <span className="text-xs uppercase tracking-[0.2em] text-lucid-glow opacity-80 border border-lucid-glow/30 px-3 py-1 rounded-full bg-black/20 flex-shrink-0">
+                                            <span className={`text-xs uppercase tracking-[0.2em] opacity-80 border px-3 py-1 rounded-full flex-shrink-0 ${isLightMode ? 'text-orange-600 border-orange-200 bg-white/40' : 'text-lucid-glow border-lucid-glow/30 bg-black/20'}`}>
                                                 {card.position === 'oracle' ? 'Oracle Message' : card.position}
                                             </span>
                                             <div className="my-3 text-center flex-shrink-0">
-                                                <h4 className="text-xl font-serif text-white mb-2">
+                                                <h4 className={`text-xl font-serif mb-2 ${isLightMode ? 'text-stone-800' : 'text-white'}`}>
                                                     {activeTab === 'oracle' 
                                                         ? safeRender(card.name).split('(')[0].trim() 
                                                         : safeRender(card.name)
@@ -506,20 +508,20 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                                 </h4>
                                                 {activeTab === 'tarot' && (
                                                     card.isReversed ? (
-                                                        <span className="text-xs text-rose-300 uppercase tracking-widest font-sans opacity-90">逆位 Reversed</span>
+                                                        <span className="text-xs text-rose-400 uppercase tracking-widest font-sans opacity-90">逆位 Reversed</span>
                                                     ) : (
-                                                        <span className="text-xs text-emerald-300 uppercase tracking-widest font-sans opacity-90">正位 Upright</span>
+                                                        <span className="text-xs text-emerald-500 uppercase tracking-widest font-sans opacity-90">正位 Upright</span>
                                                     )
                                                 )}
                                                 {activeTab === 'oracle' && (
-                                                    <h4 className="text-xs text-purple-300 uppercase tracking-widest font-sans opacity-90">
+                                                    <h4 className="text-xs text-purple-400 uppercase tracking-widest font-sans opacity-90">
                                                         <Sparkles className="w-3 h-3 inline mr-1" />
                                                         {safeRender(card.name).match(/\((.*?)\)/)?.[1] || "Oracle Message"}
                                                     </h4>
                                                 )}
                                             </div>
                                             <div className="w-full flex-grow flex items-start mt-2 px-2">
-                                                <p className="text-sm text-stone-100 font-serif leading-relaxed text-justify">
+                                                <p className={`text-sm font-serif leading-relaxed text-justify ${isLightMode ? 'text-stone-600' : 'text-stone-100'}`}>
                                                     {safeRender(card.meaning)}
                                                 </p>
                                             </div>
@@ -530,19 +532,19 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                         </div>
 
                         <div className="max-w-2xl mx-auto space-y-4">
-                            <Card className="bg-gradient-to-b from-white/5 to-transparent border-t border-white/10">
-                                <h4 className="text-lg font-serif text-lucid-glow mb-4 text-center">✨ 宇宙讯息</h4>
-                                <p className="text-stone-200 font-serif leading-loose text-justify text-sm md:text-base">
+                            <Card className={`bg-gradient-to-b border-t ${isLightMode ? 'from-white/40 to-white/10 border-stone-200' : 'from-white/5 to-transparent border-white/10'}`}>
+                                <h4 className={`text-lg font-serif mb-4 text-center ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`}>✨ 宇宙讯息</h4>
+                                <p className={`font-serif leading-loose text-justify text-sm md:text-base ${isLightMode ? 'text-stone-700' : 'text-stone-200'}`}>
                                     {safeRender(reading.guidance)}
                                 </p>
-                                <div className="mt-6 pt-4 border-t border-white/5 flex flex-col items-center">
+                                <div className={`mt-6 pt-4 border-t flex flex-col items-center ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
                                     <span className="text-xs text-stone-500 uppercase tracking-widest mb-1">今日宜显化 · Focus Wish</span>
-                                    <p className="text-white font-serif text-base">{safeRender(reading.focusWishName) || "当下"}</p>
+                                    <p className={`font-serif text-base ${isLightMode ? 'text-stone-800' : 'text-white'}`}>{safeRender(reading.focusWishName) || "当下"}</p>
                                 </div>
                             </Card>
 
                             <div className="flex justify-center pt-2">
-                                <Button onClick={resetTarot} variant="ghost" className="text-sm text-stone-500 hover:text-white">
+                                <Button onClick={resetTarot} variant="ghost" className={`text-sm hover:text-white ${isLightMode ? 'text-stone-500 hover:text-stone-800' : 'text-stone-500'}`}>
                                     <RotateCcw className="w-4 h-4 mr-2" /> 开启新的解读
                                 </Button>
                             </div>
@@ -559,7 +561,7 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                     <div className="text-center space-y-8 pt-32 pb-16 flex flex-col items-center">
                         <Sun className="w-12 h-12 text-stone-600 opacity-50" />
                         <div>
-                            <h3 className="text-lg font-serif text-stone-300">今日能量未激活</h3>
+                            <h3 className={`text-lg font-serif ${isLightMode ? 'text-stone-600' : 'text-stone-300'}`}>今日能量未激活</h3>
                             <p className="text-stone-500 text-sm mt-4">请先进行“灵感塔罗”或“神谕指引”抽取，以获取专属指引。</p>
                         </div>
                         <Button onClick={() => setActiveTab('tarot')} variant="outline" className="rounded-full px-8 text-xs">
@@ -569,25 +571,25 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                 ) : (
                     <div className="space-y-4">
                         <Card className="text-center relative overflow-hidden group py-10">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-lucid-glow to-transparent opacity-50"></div>
+                            <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent to-transparent opacity-50 ${isLightMode ? 'via-orange-400' : 'via-lucid-glow'}`}></div>
                             <span className="text-xs font-sans tracking-widest text-stone-500 uppercase">今日能量场</span>
-                            <h2 className="text-3xl font-serif text-white mt-2 mb-6">{safeRender(practice.energyStatus)}</h2>
+                            <h2 className={`text-3xl font-serif mt-2 mb-6 ${isLightMode ? 'text-stone-800' : 'text-white'}`}>{safeRender(practice.energyStatus)}</h2>
                             
-                            <div className="w-12 h-[1px] bg-white/10 mx-auto mb-6"></div>
+                            <div className={`w-12 h-[1px] mx-auto mb-6 ${isLightMode ? 'bg-stone-300' : 'bg-white/10'}`}></div>
                             
-                            <span className="text-xs font-sans tracking-widest text-lucid-accent/80 uppercase block mb-2">今日肯定语</span>
-                            <p className="text-xl text-lucid-glow font-serif italic opacity-90 px-4">
+                            <span className={`text-xs font-sans tracking-widest uppercase block mb-2 ${isLightMode ? 'text-orange-600/80' : 'text-lucid-accent/80'}`}>今日肯定语</span>
+                            <p className={`text-xl font-serif italic opacity-90 px-4 ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`}>
                                 "{safeRender(practice.todaysAffirmation)}"
                             </p>
                         </Card>
 
                         <Card className="flex items-start gap-4">
-                            <div className="p-2 bg-emerald-900/20 rounded-full text-emerald-400 mt-1">
+                            <div className={`p-2 rounded-full mt-1 ${isLightMode ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-900/20 text-emerald-400'}`}>
                                 <Sun className="w-5 h-5" />
                             </div>
                             <div>
-                                <h4 className="text-base font-bold text-emerald-100 mb-1">今日微行动</h4>
-                                <p className="text-stone-300 font-serif leading-relaxed text-base">
+                                <h4 className={`text-base font-bold mb-1 ${isLightMode ? 'text-emerald-800' : 'text-emerald-100'}`}>今日微行动</h4>
+                                <p className={`font-serif leading-relaxed text-base ${isLightMode ? 'text-stone-600' : 'text-stone-300'}`}>
                                     {safeRender(practice.actionStep)}
                                 </p>
                             </div>

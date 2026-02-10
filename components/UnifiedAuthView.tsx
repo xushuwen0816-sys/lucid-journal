@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { Mail, Lock, User, Key, Globe, Server, ToggleLeft, ToggleRight, Sparkles, Settings, ArrowRight } from 'lucide-react';
 import { Button } from './Shared';
 
@@ -16,6 +17,7 @@ const DEFAULT_API_KEY = import.meta.env.VITE_DEFAULT_API_KEY || '';
 export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 'login', onBack, onSuccess }) => {
   const [isLogin, setIsLogin] = useState(initialView === 'login');
   const { login, user } = useAuth();
+  const { isLightMode } = useTheme();
 
   // --- Auth State ---
   const [email, setEmail] = useState('');
@@ -166,16 +168,16 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
   }, [user]);
 
   return (
-    <div className="min-h-screen text-lucid-text font-serif bg-lucid-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className={`min-h-screen font-serif flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500 ${isLightMode ? 'bg-[#FFFAF5] text-stone-800' : 'bg-lucid-bg text-lucid-text'}`}>
         {/* Background Elements */}
         <div className="absolute inset-0 pointer-events-none">
-             <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-[#3F2E26] rounded-full blur-[150px] opacity-30 animate-pulse-slow"></div>
-             <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-[#4C3A35] rounded-full blur-[120px] opacity-20"></div>
+             <div className={`absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full blur-[100px] opacity-30 animate-pulse-slow ${isLightMode ? 'bg-orange-200' : 'bg-[#3F2E26]'}`}></div>
+             <div className={`absolute bottom-[-20%] right-[-20%] w-[40%] h-[40%] rounded-full blur-[80px] opacity-20 ${isLightMode ? 'bg-orange-100' : 'bg-[#4C3A35]'}`}></div>
         </div>
 
         <button 
             onClick={onBack}
-            className="absolute top-6 left-6 text-stone-500 hover:text-white transition-colors z-50 flex items-center gap-2 text-sm tracking-widest"
+            className={`absolute top-6 left-6 transition-colors z-50 flex items-center gap-2 text-sm tracking-widest ${isLightMode ? 'text-stone-500 hover:text-stone-900' : 'text-stone-500 hover:text-white'}`}
         >
             <ArrowRight className="w-4 h-4 rotate-180" /> 返回 Back
         </button>
@@ -183,14 +185,14 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
         <div className="z-10 w-full max-w-5xl animate-fade-in flex flex-col md:flex-row gap-6 md:h-[600px]">
             
             {/* LEFT COLUMN: AUTH */}
-            <div className="flex-1 glass-panel rounded-[2rem] p-8 border border-white/10 bg-[#1C1917]/80 shadow-2xl flex flex-col justify-center relative overflow-hidden">
+            <div className={`flex-1 glass-panel rounded-[2rem] p-8 border shadow-2xl flex flex-col justify-center relative overflow-hidden transition-colors ${isLightMode ? 'bg-white/60 border-stone-200' : 'bg-[#1C1917]/80 border-white/10'}`}>
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500/50 to-rose-400/50"></div>
                 
                 <div className="mb-8 text-center">
-                    <h2 className="text-3xl font-serif text-white tracking-wide mb-2">
+                    <h2 className={`text-3xl font-serif tracking-wide mb-2 ${isLightMode ? 'text-stone-800' : 'text-white'}`}>
                         {isLogin ? '欢迎回来' : '开启旅程'}
                     </h2>
-                    <p className="text-stone-400 text-xs tracking-widest uppercase">
+                    <p className={`text-xs tracking-widest uppercase ${isLightMode ? 'text-stone-500' : 'text-stone-400'}`}>
                         {isLogin ? 'Login to Continue' : 'Create Your Account'}
                     </p>
                 </div>
@@ -205,38 +207,38 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
                 <form onSubmit={handleAuthSubmit} className="space-y-5 max-w-sm mx-auto w-full">
                     {!isLogin && (
                         <div className="relative group">
-                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-lucid-glow transition-colors" size={18} />
+                            <User className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLightMode ? 'text-stone-400 group-focus-within:text-orange-500' : 'text-white/30 group-focus-within:text-lucid-glow'}`} size={18} />
                             <input
                                 type="text"
                                 placeholder="您的名字 Name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-white/20 focus:outline-none focus:border-lucid-glow/50 focus:bg-white/10 transition-all font-sans tracking-wide"
+                                className={`w-full border rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none transition-all font-sans tracking-wide ${isLightMode ? 'bg-stone-50 border-stone-200 text-stone-800 placeholder-stone-400 focus:border-orange-500/50 focus:bg-white' : 'bg-white/5 border-white/10 text-white placeholder-white/20 focus:border-lucid-glow/50 focus:bg-white/10'}`}
                                 required={!isLogin}
                             />
                         </div>
                     )}
                     
                     <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-lucid-glow transition-colors" size={18} />
+                        <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLightMode ? 'text-stone-400 group-focus-within:text-orange-500' : 'text-white/30 group-focus-within:text-lucid-glow'}`} size={18} />
                         <input
                             type="email"
                             placeholder="邮箱地址 Email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-white/20 focus:outline-none focus:border-lucid-glow/50 focus:bg-white/10 transition-all font-sans tracking-wide"
+                            className={`w-full border rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none transition-all font-sans tracking-wide ${isLightMode ? 'bg-stone-50 border-stone-200 text-stone-800 placeholder-stone-400 focus:border-orange-500/50 focus:bg-white' : 'bg-white/5 border-white/10 text-white placeholder-white/20 focus:border-lucid-glow/50 focus:bg-white/10'}`}
                             required
                         />
                     </div>
                     
                     <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-lucid-glow transition-colors" size={18} />
+                        <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLightMode ? 'text-stone-400 group-focus-within:text-orange-500' : 'text-white/30 group-focus-within:text-lucid-glow'}`} size={18} />
                         <input
                             type="password"
                             placeholder="密码 Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-white/20 focus:outline-none focus:border-lucid-glow/50 focus:bg-white/10 transition-all font-sans tracking-wide"
+                            className={`w-full border rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none transition-all font-sans tracking-wide ${isLightMode ? 'bg-stone-50 border-stone-200 text-stone-800 placeholder-stone-400 focus:border-orange-500/50 focus:bg-white' : 'bg-white/5 border-white/10 text-white placeholder-white/20 focus:border-lucid-glow/50 focus:bg-white/10'}`}
                             required
                         />
                     </div>
@@ -256,7 +258,7 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
                             setIsLogin(!isLogin);
                             setAuthError('');
                         }}
-                        className="text-stone-500 hover:text-white text-xs tracking-wider transition-colors hover:underline"
+                        className={`text-xs tracking-wider transition-colors hover:underline ${isLightMode ? 'text-stone-500 hover:text-stone-800' : 'text-stone-500 hover:text-white'}`}
                     >
                         {isLogin ? "还没有账号？去注册 Create Account" : "已有账号？去登录 Login"}
                     </button>
@@ -264,30 +266,30 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
             </div>
 
             {/* RIGHT COLUMN: CONFIG */}
-            <div className="flex-1 glass-panel rounded-[2rem] p-8 border border-white/10 bg-[#1C1917]/60 shadow-2xl flex flex-col relative backdrop-blur-md">
+            <div className={`flex-1 glass-panel rounded-[2rem] p-8 border shadow-2xl flex flex-col relative backdrop-blur-md transition-colors ${isLightMode ? 'bg-white/40 border-stone-200' : 'bg-[#1C1917]/60 border-white/10'}`}>
                  <div className="flex items-center gap-3 mb-6 opacity-80">
-                    <div className="p-2 rounded-full bg-white/5 border border-white/10">
-                        <Settings className="w-4 h-4 text-lucid-glow" />
+                    <div className={`p-2 rounded-full border ${isLightMode ? 'bg-orange-100 border-orange-200' : 'bg-white/5 border-white/10'}`}>
+                        <Settings className={`w-4 h-4 ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`} />
                     </div>
-                    <h3 className="text-lg font-serif text-white tracking-wide">个人配置 Setup</h3>
+                    <h3 className={`text-lg font-serif tracking-wide ${isLightMode ? 'text-stone-800' : 'text-white'}`}>个人配置 Setup</h3>
                  </div>
 
                  <div className="space-y-6 overflow-y-auto custom-scrollbar pr-2 flex-1">
                      {/* Provider Selection */}
                      <div className="space-y-3">
-                         <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center gap-2">
+                         <label className={`text-xs uppercase tracking-wider font-bold flex items-center gap-2 ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`}>
                              <Server className="w-3 h-3" /> 模型服务商 Provider
                          </label>
-                         <div className="grid grid-cols-2 gap-2 bg-black/20 p-1 rounded-xl border border-white/5">
+                         <div className={`grid grid-cols-2 gap-2 p-1 rounded-xl border ${isLightMode ? 'bg-stone-100 border-stone-200' : 'bg-black/20 border-white/5'}`}>
                              <button
                                 onClick={() => setProvider('gemini')}
-                                className={`py-2.5 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'gemini' ? 'bg-lucid-glow text-black shadow-lg font-medium' : 'text-stone-400 hover:text-white hover:bg-white/5'}`}
+                                className={`py-2.5 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'gemini' ? (isLightMode ? 'bg-white text-orange-600 shadow-sm font-bold' : 'bg-lucid-glow text-black shadow-lg font-medium') : (isLightMode ? 'text-stone-400 hover:text-stone-800 hover:bg-stone-200' : 'text-stone-400 hover:text-white hover:bg-white/5')}`}
                              >
                                  Google Gemini
                              </button>
                              <button
                                 onClick={() => setProvider('siliconflow')}
-                                className={`py-2.5 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'siliconflow' ? 'bg-indigo-500 text-white shadow-lg font-medium' : 'text-stone-400 hover:text-white hover:bg-white/5'}`}
+                                className={`py-2.5 px-3 rounded-lg text-xs font-serif transition-all ${provider === 'siliconflow' ? 'bg-indigo-500 text-white shadow-lg font-medium' : (isLightMode ? 'text-stone-400 hover:text-stone-800 hover:bg-stone-200' : 'text-stone-400 hover:text-white hover:bg-white/5')}`}
                              >
                                  SiliconFlow
                              </button>
@@ -296,7 +298,7 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
 
                      {/* API Key */}
                      <div className="space-y-2">
-                         <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold flex items-center justify-between">
+                         <label className={`text-xs uppercase tracking-wider font-bold flex items-center justify-between ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`}>
                              <div className="flex items-center gap-2">
                                 <Key className="w-3 h-3" /> API 密钥 Key
                              </div>
@@ -310,11 +312,11 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
                                    ? "已使用默认配置 (安全隐藏)" 
                                    : (provider === 'gemini' ? "粘贴 AIzaSy... 密钥" : "粘贴 sk-... 密钥")
                            }
-                           className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide placeholder-white/20"
+                           className={`w-full border rounded-[1.5rem] px-5 py-3 focus:outline-none transition-all font-serif text-sm tracking-wide ${isLightMode ? 'bg-stone-50 border-stone-200 text-stone-800 placeholder-stone-400 focus:border-orange-500/50' : 'bg-black/20 border-white/10 text-white placeholder-white/20 focus:border-lucid-glow/50'}`}
                         />
-                         <p className="text-[10px] text-stone-500 leading-relaxed">
+                         <p className={`text-[10px] leading-relaxed ${isLightMode ? 'text-stone-400' : 'text-stone-500'}`}>
                              {provider === 'gemini' 
-                                ? <span>* <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-lucid-glow hover:underline">Get Gemini Key</a></span>
+                                ? <span>* <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className={isLightMode ? "text-orange-600 hover:underline" : "text-lucid-glow hover:underline"}>Get Gemini Key</a></span>
                                 : <span>* <a href="https://cloud.siliconflow.cn/" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">Get SiliconFlow Key</a></span>
                              }
                          </p>
@@ -328,18 +330,18 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
                         className={`
                             relative flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer group
                             ${provider === 'gemini' && useProxy 
-                                ? 'bg-gradient-to-r from-orange-900/10 to-rose-900/10 border-lucid-glow/30' 
-                                : 'bg-white/[0.03] border-white/5'
+                                ? (isLightMode ? 'bg-orange-50 border-orange-200' : 'bg-gradient-to-r from-orange-900/10 to-rose-900/10 border-lucid-glow/30') 
+                                : (isLightMode ? 'bg-stone-50 border-stone-200 hover:bg-stone-100' : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.05]')
                             }
-                            ${provider !== 'gemini' ? 'opacity-50 cursor-default' : 'hover:bg-white/[0.05]'}
+                            ${provider !== 'gemini' ? 'opacity-50 cursor-default' : ''}
                         `}
                      >
                          <div className="flex items-center gap-3">
-                             <div className={`p-2 rounded-full ${provider === 'gemini' && useProxy ? 'bg-lucid-glow text-black' : 'bg-white/10 text-stone-400'}`}>
+                             <div className={`p-2 rounded-full ${provider === 'gemini' && useProxy ? (isLightMode ? 'bg-orange-500 text-white' : 'bg-lucid-glow text-black') : (isLightMode ? 'bg-stone-200 text-stone-500' : 'bg-white/10 text-stone-400')}`}>
                                  <Globe className="w-4 h-4" />
                              </div>
                              <div className="flex flex-col">
-                                 <span className={`text-xs font-serif tracking-wide ${provider === 'gemini' && useProxy ? 'text-white' : 'text-stone-400'}`}>
+                                 <span className={`text-xs font-serif tracking-wide ${provider === 'gemini' && useProxy ? (isLightMode ? 'text-stone-800 font-bold' : 'text-white') : (isLightMode ? 'text-stone-500' : 'text-stone-400')}`}>
                                      {provider === 'siliconflow' ? '无需代理 (Direct)' : (useProxy ? '自定义代理 (Proxy On)' : '直连模式 (Proxy Off)')}
                                  </span>
                              </div>
@@ -348,7 +350,7 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
                          <div>
                              {provider === 'gemini' ? (
                                  useProxy ? (
-                                     <ToggleRight className="w-6 h-6 text-lucid-glow transition-all" />
+                                     <ToggleRight className={`w-6 h-6 transition-all ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
                                  ) : (
                                      <ToggleLeft className="w-6 h-6 text-stone-600 transition-all" />
                                  )
@@ -358,22 +360,26 @@ export const UnifiedAuthView: React.FC<UnifiedAuthViewProps> = ({ initialView = 
                      
                      {useProxy && provider === 'gemini' && (
                         <div className="animate-fade-in space-y-2">
-                             <label className="text-xs text-lucid-glow uppercase tracking-wider font-bold">代理地址 Proxy URL</label>
+                             <label className={`text-xs uppercase tracking-wider font-bold ${isLightMode ? 'text-orange-600' : 'text-lucid-glow'}`}>代理地址 Proxy URL</label>
                              <input 
                                 type="text"
                                 value={proxyUrlInput}
                                 onChange={(e) => handleProxyChange(e.target.value)}
-                                placeholder="https://..."
-                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lucid-glow/50 transition-all font-sans text-sm tracking-wide"
+                                placeholder={
+                                    proxyUrlInput === DEFAULT_PROXY || (proxyUrlInput === '' && DEFAULT_PROXY)
+                                        ? "默认代理已激活，点击右侧WIFI标测试连接性" 
+                                        : "https://..."
+                                }
+                                className={`w-full border rounded-[1.5rem] px-5 py-3 focus:outline-none transition-all font-sans text-sm tracking-wide ${isLightMode ? 'bg-stone-50 border-stone-200 text-stone-800 placeholder-stone-400 focus:border-orange-500/50' : 'bg-black/20 border-white/10 text-white placeholder-white/20 focus:border-lucid-glow/50'}`}
                              />
                         </div>
                      )}
                  </div>
 
-                 <div className="mt-6 pt-6 border-t border-white/5">
+                 <div className={`mt-6 pt-6 border-t ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
                      <Button 
                         onClick={onSuccess}
-                        className="w-full !rounded-xl !py-3 bg-white/10 hover:bg-white/20 !text-white border border-white/10"
+                        className={`w-full !rounded-xl !py-3 border ${isLightMode ? 'bg-stone-800 text-white hover:bg-stone-900 border-stone-800' : 'bg-white/10 hover:bg-white/20 !text-white border-white/10'}`}
                         variant="glass"
                      >
                         进入系统 Enter System <ArrowRight className="w-4 h-4 ml-2" />

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppView, Wish, IntentState, JournalEntry, RitualArchiveEntry, TarotReading, DailyPractice, FutureLetter } from './types';
-import { Feather, Sun, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight, Server, Settings, LogOut, ChevronUp, ChevronDown } from 'lucide-react';
+import { Feather, Sun, Moon, Hourglass, Sparkles, Key, ArrowRight, User, Zap, BookOpen, Wifi, AlertTriangle, CheckCircle, Globe, Link as LinkIcon, ToggleLeft, ToggleRight, Server, Settings, LogOut, ChevronUp, ChevronDown } from 'lucide-react';
 
 // Components
 import VariableProximity from './components/VariableProximity';
@@ -11,6 +11,7 @@ import JournalView from './components/JournalView';
 import ArchiveView from './components/ArchiveView';
 import { Button, LoadingSpinner } from './components/Shared';
 import { useAuth } from './contexts/AuthContext';
+import { useTheme } from './contexts/ThemeContext';
 import { AuthPage } from './components/AuthPage';
 
 // Services
@@ -93,6 +94,8 @@ const App: React.FC = () => {
   
   // Controls which tab inside ArchiveView is active. 
   const [archiveInitialTab, setArchiveInitialTab] = useState<'milestones' | 'letters' | 'wishes' | 'library'>('milestones');
+
+  const { isLightMode, toggleTheme } = useTheme();
 
   const [intentState, setIntentState] = useState<IntentState>({
     step: 'input',
@@ -632,26 +635,36 @@ const App: React.FC = () => {
   ];
 
   if (!isAuthorized) {
+    // Only show launch screen if no user is logged in
+    // If isAuthorized is false but user exists, it means we are in "Settings" mode (AuthPage)
+    // NOTE: When user is logged in (user != null), we still want to show AuthPage if isAuthorized is false.
+    // This allows "Logout" button to just unset isAuthorized but keep user state until fully logged out.
+    // However, the request is "Stay on AuthPage after logout".
+    // Logout function clears the user. So user will be null.
+    // If user is null and isAuthorized is false, we usually show Launch Screen.
+    // But if we want to stay on AuthPage, we need to know we are in "Auth Mode".
+    // We can use isAuthModalOpen for this.
+    
     if (!isAuthModalOpen && !user) {
       return (
-        <div className="min-h-screen text-lucid-text font-serif bg-gradient-to-br from-[#3c2a20] via-[#2a201c] to-[#1a1614] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className={`min-h-screen font-serif flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500 ${isLightMode ? 'bg-[#FFFAF5] text-stone-800' : 'bg-gradient-to-br from-[#3c2a20] via-[#2a201c] to-[#1a1614] text-lucid-text'}`}>
            <div className="absolute inset-0 pointer-events-none">
-               <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-orange-800/30 rounded-full blur-[150px] animate-pulse-slow"></div>
-               <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-rose-800/30 rounded-full blur-[120px]"></div>
+               <div className={`absolute top-[-10%] left-[-10%] w-[30%] h-[30%] rounded-full blur-[100px] animate-pulse-slow ${isLightMode ? 'bg-orange-200/30' : 'bg-orange-800/30'}`}></div>
+               <div className={`absolute bottom-[-10%] right-[-10%] w-[25%] h-[25%] rounded-full blur-[80px] ${isLightMode ? 'bg-orange-100/40' : 'bg-orange-700/30'}`}></div>
            </div>
 
-           <div className="z-10 w-full max-w-md space-y-12 text-center animate-fade-in -mt-12">
+           <div className="z-10 w-full max-w-2xl space-y-12 text-center animate-fade-in -mt-12">
                <div className="flex flex-row items-center justify-center gap-3 opacity-80">
-                   <div className="w-8 h-8 rounded-full bg-lucid-glow/10 flex items-center justify-center shadow-[0_0_15px_rgba(253,186,116,0.15)] border border-lucid-glow/20">
-                      <Sparkles className="w-4 h-4 text-lucid-glow" />
+                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(253,186,116,0.15)] border ${isLightMode ? 'bg-white border-orange-200' : 'bg-lucid-glow/10 border-lucid-glow/20'}`}>
+                      <Sparkles className={`w-4 h-4 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
                    </div>
-                   <h1 className="text-xl font-serif text-white tracking-widest">LUCID · 澄</h1>
+                   <h1 className={`text-xl font-serif tracking-widest ${isLightMode ? 'text-stone-800' : 'text-white'}`}>LUCID · 澄</h1>
                </div>
 
                <div ref={containerRef} className="py-2 space-y-4 pb-4" style={{ fontFamily: "'Source Serif 4', serif" }}>
-                   <h2 className="text-4xl md:text-5xl italic text-[#fffbf0] leading-[1.35] drop-shadow-sm py-1 cursor-default">
+                   <h2 className={`text-4xl md:text-5xl italic leading-[1.35] drop-shadow-sm py-1 cursor-default ${isLightMode ? 'text-stone-800' : 'text-[#fffbf0]'}`}>
                        <VariableProximity
-                           label="Dream It, Write It."
+                           label="Write It, See It."
                            className="block"
                            fromFontVariationSettings="'wght' 400, 'opsz' 9"
                            toFontVariationSettings="'wght' 900, 'opsz' 40"
@@ -669,8 +682,9 @@ const App: React.FC = () => {
                            falloff="linear"
                        />
                    </h2>
-                   <p className="text-stone-400/80 text-xs md:text-sm max-w-xs mx-auto leading-relaxed tracking-wide font-light font-serif">
-                       Capture your dreams and goals in the Lucid Journal and keep your motivation alive.
+                   <p className={`text-xs md:text-sm max-w-md mx-auto leading-relaxed tracking-wide font-light font-serif ${isLightMode ? 'text-stone-500' : 'text-stone-400/80'}`}>
+                       Capture your energy and reflections in Lucid Journal <br />
+                       and keep your inner peace alive.
                    </p>
                </div>
 
@@ -681,7 +695,7 @@ const App: React.FC = () => {
                             setIsAuthModalOpen(true);
                         }}
                         variant="primary" 
-                        className="w-full !rounded-full !py-2.5 border border-transparent text-sm tracking-widest shadow-lg shadow-lucid-glow/20"
+                        className={`w-full !rounded-full !py-2.5 border border-transparent text-sm tracking-widest shadow-lg ${isLightMode ? 'shadow-orange-200/50 !bg-none bg-orange-500 hover:bg-orange-600 text-white' : 'shadow-lucid-glow/20'}`}
                      >
                         登录 Login
                      </Button>
@@ -691,12 +705,19 @@ const App: React.FC = () => {
                             setAuthModalMode('register');
                             setIsAuthModalOpen(true);
                        }}
-                       className="w-full py-2.5 rounded-full border border-orange-400/30 bg-gradient-to-r from-orange-400/10 to-rose-400/10 hover:from-orange-400/20 hover:to-rose-400/20 text-orange-100 hover:text-white transition-all text-sm tracking-widest font-serif font-medium relative z-50 cursor-pointer shadow-lg shadow-orange-900/10 flex items-center justify-center"
+                       className={`w-full py-2.5 rounded-full border text-sm tracking-widest font-serif font-medium relative z-50 cursor-pointer shadow-lg flex items-center justify-center transition-all ${isLightMode ? 'bg-white border-orange-200 text-orange-600 hover:bg-orange-50 shadow-orange-100' : 'border-orange-400/30 bg-gradient-to-r from-orange-400/10 to-rose-400/10 hover:from-orange-400/20 hover:to-rose-400/20 text-orange-100 hover:text-white shadow-orange-900/10'}`}
                      >
                        注册 Register
                      </button>
                    </div>
            </div>
+           
+           <button
+             onClick={() => toggleTheme()}
+             className={`absolute top-6 right-6 p-3 rounded-full transition-all duration-300 z-50 ${isLightMode ? 'bg-white/50 hover:bg-white text-stone-600' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white'}`}
+           >
+             {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+           </button>
         </div>
       );
     }
@@ -704,7 +725,13 @@ const App: React.FC = () => {
     return (
       <AuthPage 
         initialView={authModalMode}
-        onBack={() => setIsAuthModalOpen(false)}
+        onBack={() => {
+            if (user) {
+                setIsAuthorized(true);
+            } else {
+                setIsAuthModalOpen(false);
+            }
+        }}
         onStartSystem={handleStartSystem}
         userName={userNameInput}
         setUserName={setUserNameInput}
@@ -723,34 +750,40 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen text-lucid-text font-serif selection:bg-lucid-glow/30 selection:text-white overflow-hidden relative bg-gradient-to-br from-[#3c2a20] via-[#2a201c] to-[#1a1614]">
+    <div className={`min-h-screen font-serif selection:bg-lucid-glow/30 selection:text-white overflow-hidden relative transition-colors duration-500 ${isLightMode ? 'bg-[#F2EFE9] text-stone-800' : 'text-lucid-text bg-gradient-to-br from-[#3c2a20] via-[#2a201c] to-[#1a1614]'}`}>
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-         <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-orange-800/30 rounded-full blur-[150px]"></div>
-         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-rose-800/30 rounded-full blur-[120px]"></div>
+         <div className={`absolute top-[-20%] left-[-20%] w-[50%] h-[50%] rounded-full blur-[150px] transition-colors duration-500 ${isLightMode ? 'bg-orange-200/40' : 'bg-orange-800/30'}`}></div>
+         <div className={`absolute bottom-[-20%] right-[-20%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-500 ${isLightMode ? 'bg-orange-100/40' : 'bg-orange-700/30'}`}></div>
       </div>
 
       <main className="relative z-10 h-screen flex flex-col md:flex-row">
         
-        <nav className="order-2 md:order-1 w-full md:w-24 flex md:flex-col items-center md:items-center justify-between md:justify-start py-4 md:py-8 z-50 transition-all duration-300 md:border-r border-white/5 bg-white/[0.01] backdrop-blur-md flex-shrink-0">
+        <nav className={`order-2 md:order-1 w-full md:w-24 flex md:flex-col items-center md:items-center justify-between md:justify-start py-4 md:py-8 z-50 transition-all duration-300 md:border-r flex-shrink-0 ${isLightMode ? 'border-stone-200 bg-white/50 backdrop-blur-md' : 'border-white/5 bg-white/[0.01] backdrop-blur-md'}`}>
            
            <div 
              className="hidden md:flex flex-col items-center mb-10 opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
-             onClick={() => setIsAuthorized(false)}
+             onClick={() => {
+                 setIsAuthorized(false);
+                 setIsAuthModalOpen(true);
+             }}
              title="点击修改设置"
            >
-             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-lucid-glow/20 to-transparent flex items-center justify-center mb-3">
-                 <Sparkles className="w-5 h-5 text-lucid-glow" />
+             <div className={`w-10 h-10 rounded-full bg-gradient-to-tr flex items-center justify-center mb-3 ${isLightMode ? 'from-orange-500/20 to-transparent' : 'from-lucid-glow/20 to-transparent'}`}>
+                 <Sparkles className={`w-5 h-5 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
              </div>
-             <span className="text-xs font-serif tracking-[0.3em] font-light text-white">LUCID</span>
+             <span className={`text-xs font-serif tracking-[0.3em] font-light ${isLightMode ? 'text-stone-600' : 'text-white'}`}>LUCID</span>
            </div>
            
            <div 
              className="md:hidden flex items-center gap-2 ml-6 cursor-pointer"
-             onClick={() => setIsAuthorized(false)}
+             onClick={() => {
+                 setIsAuthorized(false);
+                 setIsAuthModalOpen(true);
+             }}
              title="点击修改设置"
            >
-             <Sparkles className="w-5 h-5 text-lucid-glow" />
-             <span className="text-sm font-serif tracking-[0.2em] text-white">LUCID</span>
+             <Sparkles className={`w-5 h-5 ${isLightMode ? 'text-orange-500' : 'text-lucid-glow'}`} />
+             <span className={`text-sm font-serif tracking-[0.2em] ${isLightMode ? 'text-stone-600' : 'text-white'}`}>LUCID</span>
            </div>
 
            <div className="flex md:flex-col gap-3 md:gap-3 mr-9 md:mr-0 md:mt-16">
@@ -762,14 +795,14 @@ const App: React.FC = () => {
                      if (item.view === AppView.ARCHIVE) setArchiveInitialTab('milestones');
                  }}
                  className={`group flex flex-col items-center gap-1.5 relative transition-all duration-500 outline-none p-1 md:p-2 rounded-xl ${
-                   currentView === item.view ? 'opacity-100' : 'opacity-40 hover:opacity-70'
-                 }`}
-               >
-                 <div className={`p-3 md:p-3.5 rounded-2xl transition-all duration-500 ease-out ${currentView === item.view ? 'bg-lucid-glow text-lucid-bg scale-100 shadow-[0_0_20px_rgba(253,186,116,0.3)]' : 'bg-white/5 text-white scale-90'}`}>
-                   <item.icon className={`w-5 h-5 stroke-[1.5px]`} />
-                 </div>
-                 <span className="text-sm tracking-[0.1em] font-sans hidden md:block">{item.label}</span>
-               </button>
+                  currentView === item.view ? 'opacity-100' : 'opacity-40 hover:opacity-70'
+                }`}
+              >
+                <div className={`p-3 md:p-3.5 rounded-2xl transition-all duration-500 ease-out ${currentView === item.view ? (isLightMode ? 'bg-orange-500 text-white scale-100 shadow-[0_0_20px_rgba(249,115,22,0.4)]' : 'bg-lucid-glow text-lucid-bg scale-100 shadow-[0_0_20px_rgba(253,186,116,0.3)]') : isLightMode ? 'bg-stone-200 text-stone-500 scale-90' : 'bg-white/5 text-white scale-90'}`}>
+                  <item.icon className={`w-5 h-5 stroke-[1.5px]`} />
+                </div>
+                <span className={`text-sm tracking-[0.1em] font-sans hidden md:block ${isLightMode ? 'text-stone-600' : 'text-stone-400'}`}>{item.label}</span>
+              </button>
              ))}
            </div>
 
@@ -781,40 +814,48 @@ const App: React.FC = () => {
         <div className="order-1 md:order-2 flex-1 relative overflow-hidden flex flex-col">
            <div className="flex-1 w-full h-full p-2 md:p-6 max-w-6xl mx-auto flex flex-col">
               {currentView === AppView.INTENT && (
-                <IntentView state={intentState} setState={setIntentState} onComplete={handleWishCreated} />
+                <div className={`${isLightMode ? 'text-stone-800' : 'text-lucid-text'} h-full`}>
+                    <IntentView state={intentState} setState={setIntentState} onComplete={handleWishCreated} />
+                </div>
               )}
               
               {currentView === AppView.ENERGY && (
-                <EnergyCheckView 
-                    wishes={wishes} 
-                    onSaveRitual={handleSaveRitual}
-                />
+                <div className={`${isLightMode ? 'text-stone-800' : 'text-lucid-text'} h-full`}>
+                    <EnergyCheckView 
+                        wishes={wishes} 
+                        onSaveRitual={handleSaveRitual}
+                    />
+                </div>
               )}
               
               {currentView === AppView.JOURNAL && (
-                <JournalView 
-                    onAddJournalEntry={handleAddJournalEntry}
-                    onAddLetter={handleAddLetter}
-                />
+                <div className={`${isLightMode ? 'text-stone-800' : 'text-lucid-text'} h-full`}>
+                    <JournalView 
+                        onAddJournalEntry={handleAddJournalEntry}
+                        onAddLetter={handleAddLetter}
+                    />
+                </div>
               )}
               
               {currentView === AppView.ARCHIVE && (
-                <ArchiveView 
-                    wishes={wishes} 
-                    journalEntries={journalEntries} 
-                    ritualEntries={ritualEntries}
-                    letters={letters}
-                    onUpdateWish={handleWishUpdate}
-                    onDeleteWish={handleDeleteWish}
-                    onAddLetter={handleAddLetter}
-                    onDeleteLetter={handleDeleteLetter}
-          onDeleteRitual={handleDeleteRitual}
-          onImportData={handleImportData}
-                    onDeleteJournalEntry={handleDeleteJournalEntry}
-                    onUpdateJournalEntry={handleUpdateJournalEntry}
-                    initialTab={archiveInitialTab}
-                    onUpdateLetter={handleUpdateLetter}
-                />
+                <div className={`${isLightMode ? 'text-stone-800' : 'text-lucid-text'} h-full`}>
+                    <ArchiveView 
+                        wishes={wishes} 
+                        journalEntries={journalEntries} 
+                        ritualEntries={ritualEntries}
+                        letters={letters}
+                        onUpdateWish={handleWishUpdate}
+                        onDeleteWish={handleDeleteWish}
+                        onAddLetter={handleAddLetter}
+                        onDeleteLetter={handleDeleteLetter}
+                        onDeleteRitual={handleDeleteRitual}
+                        onImportData={handleImportData}
+                        onDeleteJournalEntry={handleDeleteJournalEntry}
+                        onUpdateJournalEntry={handleUpdateJournalEntry}
+                        initialTab={archiveInitialTab}
+                        onUpdateLetter={handleUpdateLetter}
+                    />
+                </div>
               )}
            </div>
         </div>

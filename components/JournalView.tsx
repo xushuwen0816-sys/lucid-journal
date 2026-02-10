@@ -5,6 +5,7 @@ import { JournalEntry, FutureLetter } from '../types';
 import { Button, Card, SectionTitle, LoadingSpinner, SimpleMarkdown } from './Shared';
 import { BookOpen, Send, Sparkles, RefreshCw, AlertCircle, Smile, Mail, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface JournalViewProps {
     onAddJournalEntry: (entry: JournalEntry) => void;
@@ -71,10 +72,12 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
   };
 
   // Persistence Key Helper
-  const getTodayKey = () => new Date().toLocaleDateString('zh-CN');
+    const getTodayKey = () => new Date().toLocaleDateString('zh-CN');
 
-  // Load from LocalStorage on mount
-  useEffect(() => {
+    const { isLightMode } = useTheme();
+
+    // Load from LocalStorage on mount
+    useEffect(() => {
       const savedJournal = localStorage.getItem(`lucid_journal_${getTodayKey()}`);
       if (savedJournal) {
           try {
@@ -228,7 +231,7 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
     <div className="w-full h-full flex flex-col">
         <SectionTitle title="觉察日记" subtitle="JOURNAL · 内在对话" />
 
-        <div className="flex-1 overflow-y-auto px-4 pb-20 custom-scrollbar animate-fade-in">
+        <div className="flex-1 overflow-y-auto px-4 pb-20 no-scrollbar animate-fade-in">
             <div className="max-w-4xl mx-auto space-y-6 pt-6">
                 <Card 
                     ref={cardRef}
@@ -242,12 +245,12 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                         transform: (mode === 'journal' ? journalInput : letterInput) ? 'none' : 'perspective(1000px) rotateX(var(--rotate-x)) rotateY(var(--rotate-y))',
                         willChange: 'transform',
                     } as React.CSSProperties}
-                    className={`border-white/10 bg-gradient-to-b from-stone-800/20 to-transparent !p-0 overflow-hidden relative group transition-all duration-200 ease-out ${
+                    className={`border-white/10 bg-gradient-to-b !p-0 overflow-hidden relative group transition-all duration-200 ease-out ${
                         (mode === 'journal' ? !journalInput : !letterInput) ? 'hover:shadow-[0_0_40px_-10px_rgba(255,255,255,0.05)]' : ''
-                    }`}
+                    } ${isLightMode ? 'from-white/40 to-white/10 border-stone-200 shadow-xl' : 'from-stone-800/20 to-transparent'}`}
                 >
                     {/* Card Header with Toggle */}
-                    <div className="flex items-center justify-between px-4 md:px-6 h-16 border-b border-white/5 bg-white/[0.02] text-lucid-dim">
+                    <div className={`flex items-center justify-between px-4 md:px-6 h-16 border-b ${isLightMode ? 'bg-white/60 border-stone-200 text-stone-600' : 'bg-white/[0.02] border-white/5 text-lucid-dim'}`}>
                         <div className="flex items-center gap-2">
                             {mode === 'journal' ? <BookOpen className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
                             <span className="text-xs font-serif tracking-widest">
@@ -257,7 +260,7 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                         <Button 
                             onClick={() => setMode(mode === 'journal' ? 'letter' : 'journal')}
                             variant="ghost" 
-                            className="text-xs hover:bg-white/5 px-3 py-1 h-8 rounded-full border border-white/10 text-stone-400 hover:text-stone-200 transition-colors"
+                            className={`text-xs px-3 py-1 h-8 rounded-full border transition-colors ${isLightMode ? 'hover:bg-orange-100/50 border-stone-300 text-stone-500 hover:text-stone-800' : 'hover:bg-white/5 border-white/10 text-stone-400 hover:text-stone-200'}`}
                         >
                             {mode === 'journal' ? '写信给未来' : '返回日记'}
                         </Button>
@@ -266,14 +269,14 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                     {/* Content Area */}
                     {mode === 'journal' ? (
                         <textarea
-                            className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
+                            className={`w-full p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] resize-none transition-all leading-loose tracking-wide ${isLightMode ? 'bg-white/40 text-stone-800 placeholder-stone-400/70' : 'bg-black/20 text-stone-200 placeholder-stone-700/50'}`}
                             placeholder="在此处深呼吸，记录当下的情绪、念头、梦境，或是任何浮现的直觉..."
                             value={journalInput}
                             onChange={(e) => setJournalInput(e.target.value)}
                         />
                     ) : (
                         <textarea
-                            className="w-full bg-black/20 p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] text-stone-200 placeholder-stone-700/50 resize-none transition-all leading-loose tracking-wide"
+                            className={`w-full p-6 md:p-8 text-lg font-serif focus:outline-none min-h-[50vh] resize-none transition-all leading-loose tracking-wide ${isLightMode ? 'bg-white/40 text-stone-800 placeholder-stone-400/70' : 'bg-black/20 text-stone-200 placeholder-stone-700/50'}`}
                             placeholder={`这封信将被封存，直到设定的时间开启...`}
                             value={letterInput}
                             onChange={(e) => setLetterInput(e.target.value)}
@@ -281,20 +284,20 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                     )}
 
                     {/* Footer / Actions */}
-                    <div className="px-4 md:px-6 h-16 border-t border-white/5 bg-white/[0.02] flex items-center justify-end">
+                    <div className={`px-4 md:px-6 h-16 border-t flex items-center justify-end ${isLightMode ? 'bg-white/60 border-stone-200' : 'bg-white/[0.02] border-white/5'}`}>
                         {mode === 'journal' ? (
-                            <Button onClick={handleJournalSubmit} disabled={loading || !journalInput.trim()} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
+                            <Button onClick={handleJournalSubmit} disabled={loading || !journalInput.trim()} variant="glass" className={`rounded-full px-6 py-2 text-sm shadow-lg ${isLightMode ? 'border-orange-200 hover:bg-orange-100/50 text-orange-600 shadow-orange-100' : 'border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lucid-glow/5'}`}>
                                 {loading ? <LoadingSpinner /> : <><Sparkles className="w-4 h-4 mr-2" /> AI 深度觉察</>}
                             </Button>
                         ) : (
                             <div className="flex items-center justify-between w-full">
-                                <div className="flex items-center gap-2 text-stone-500 text-xs">
+                                <div className={`flex items-center gap-2 text-xs ${isLightMode ? 'text-stone-500' : 'text-stone-500'}`}>
                                     <Clock className="w-3 h-3" />
                                     <span>寄送时间:</span>
                                     <select 
                                         value={letterDelay} 
                                         onChange={(e) => setLetterDelay(Number(e.target.value))}
-                                        className="bg-black/20 border border-white/10 rounded px-2 py-1 text-stone-300 focus:outline-none"
+                                        className={`border rounded px-2 py-1 focus:outline-none ${isLightMode ? 'bg-white/60 border-stone-200 text-stone-700' : 'bg-black/20 border-white/10 text-stone-300'}`}
                                     >
                                         <option value={0}>10秒后 (测试)</option>
                                         <option value={7}>7天后</option>
@@ -307,7 +310,7 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                                         <option value={3650}>10年后</option>
                                     </select>
                                 </div>
-                                <Button onClick={handleSendLetter} disabled={isSendingLetter || !letterInput.trim()} variant="glass" className="rounded-full px-6 py-2 text-sm border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lg shadow-lucid-glow/5">
+                                <Button onClick={handleSendLetter} disabled={isSendingLetter || !letterInput.trim()} variant="glass" className={`rounded-full px-6 py-2 text-sm shadow-lg ${isLightMode ? 'border-orange-200 hover:bg-orange-100/50 text-orange-600 shadow-orange-100' : 'border-lucid-glow/20 hover:bg-lucid-glow/10 text-lucid-glow shadow-lucid-glow/5'}`}>
                                     {isSendingLetter ? <LoadingSpinner /> : <><Send className="w-4 h-4 mr-2" /> 封存信件</>}
                                 </Button>
                             </div>
@@ -320,19 +323,19 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                         {/* 3-Column Grid for Core Analysis Stats - All Parallel */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* 1. Emotional State (Yellow) */}
-                            <div className="bg-white/5 rounded-2xl p-5 border border-white/5 hover:bg-white/10 transition-colors h-full">
+                            <div className={`rounded-2xl p-5 border transition-colors h-full ${isLightMode ? 'bg-white/60 border-stone-200 hover:bg-white/80' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                                 <span className="text-xs uppercase text-stone-500 tracking-wider mb-3 font-bold flex items-center gap-2">
                                     <Smile className="w-3 h-3" /> 情绪状态 Emotion
                                 </span>
                                 <div className="flex flex-wrap gap-2">
                                     {Array.isArray(journalAnalysis.emotionalState) ? (
                                         journalAnalysis.emotionalState.map((emotion, i) => (
-                                            <span key={i} className="inline-block px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-200 text-sm border border-yellow-500/20 font-serif">
+                                            <span key={i} className={`inline-block px-3 py-1 rounded-full text-sm border font-serif ${isLightMode ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-yellow-500/10 text-yellow-200 border-yellow-500/20'}`}>
                                                 {safeRender(emotion)}
                                             </span>
                                         ))
                                     ) : (
-                                        <span className="inline-block px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-200 text-sm border border-yellow-500/20 font-serif">
+                                        <span className={`inline-block px-3 py-1 rounded-full text-sm border font-serif ${isLightMode ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-yellow-500/10 text-yellow-200 border-yellow-500/20'}`}>
                                             {safeRender(journalAnalysis.emotionalState)}
                                         </span>
                                     )}
@@ -340,13 +343,13 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                             </div>
 
                             {/* 2. Identified Blocks (Red) */}
-                            <div className="bg-white/5 rounded-2xl p-5 border border-white/5 hover:bg-white/10 transition-colors h-full">
+                            <div className={`rounded-2xl p-5 border transition-colors h-full ${isLightMode ? 'bg-white/60 border-stone-200 hover:bg-white/80' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                                 <span className="text-xs uppercase text-stone-500 tracking-wider mb-3 font-bold flex items-center gap-2">
                                     <AlertCircle className="w-3 h-3" /> 识别信念 Beliefs
                                 </span>
                                 <div className="flex flex-wrap gap-2">
                                     {journalAnalysis.blocksIdentified?.map((b, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1 text-sm bg-red-500/10 text-red-300 px-3 py-1 rounded-full border border-red-500/20 font-serif">
+                                        <span key={i} className={`inline-flex items-center gap-1 text-sm px-3 py-1 rounded-full border font-serif ${isLightMode ? 'bg-red-100 text-red-700 border-red-200' : 'bg-red-500/10 text-red-300 border-red-500/20'}`}>
                                             {safeRender(b)}
                                         </span>
                                     ))}
@@ -354,14 +357,14 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                             </div>
 
                             {/* 3. High Self Traits (Indigo) */}
-                            <div className="bg-white/5 rounded-2xl p-5 border border-white/5 hover:bg-white/10 transition-colors h-full">
+                            <div className={`rounded-2xl p-5 border transition-colors h-full ${isLightMode ? 'bg-white/60 border-stone-200 hover:bg-white/80' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
                                  <span className="text-xs uppercase text-stone-500 tracking-wider mb-3 font-bold flex items-center gap-2">
                                      <Sparkles className="w-3 h-3" /> 高我特质 Traits
                                  </span>
                                  <div className="flex flex-wrap gap-2">
                                     {journalAnalysis.highSelfTraits && journalAnalysis.highSelfTraits.length > 0 ? (
                                         journalAnalysis.highSelfTraits.map((t, i) => (
-                                            <span key={i} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-sm text-indigo-300 font-serif">
+                                            <span key={i} className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border text-sm font-serif ${isLightMode ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'}`}>
                                             {safeRender(t)}
                                             </span>
                                         ))
@@ -373,24 +376,24 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
                         </div>
                         
                         {/* Summary */}
-                        <Card className="bg-lucid-glow/5 border-lucid-glow/10 p-6 relative overflow-hidden">
+                        <Card className={`p-6 relative overflow-hidden ${isLightMode ? 'bg-orange-50 border-orange-100' : 'bg-lucid-glow/5 border-lucid-glow/10'}`}>
                             <div className="absolute top-0 right-0 p-4 opacity-5">
                                 <Sparkles className="w-16 h-16" />
                             </div>
-                            <h4 className="text-sm font-serif text-lucid-glow mb-4 flex items-center gap-2 uppercase tracking-widest border-b border-lucid-glow/10 pb-2 inline-block">
+                            <h4 className={`text-sm font-serif mb-4 flex items-center gap-2 uppercase tracking-widest border-b pb-2 inline-block ${isLightMode ? 'text-orange-600 border-orange-200' : 'text-lucid-glow border-lucid-glow/10'}`}>
                                 <Sparkles className="w-4 h-4" /> LUCID 洞见
                             </h4>
-                            <div className="text-stone-300 font-serif text-lg leading-loose whitespace-pre-wrap">
+                            <div className={`font-serif text-lg leading-loose whitespace-pre-wrap ${isLightMode ? 'text-stone-700' : 'text-stone-300'}`}>
                                 <SimpleMarkdown content={safeRender(journalAnalysis.summary)} />
                             </div>
                         </Card>
 
                         {/* Advice */}
-                        <Card className="bg-emerald-900/10 border-emerald-500/10 p-6">
-                            <h4 className="text-sm font-serif text-emerald-300 mb-4 uppercase tracking-widest border-b border-emerald-500/10 pb-2 w-full block">
+                        <Card className={`p-6 ${isLightMode ? 'bg-emerald-50 border-emerald-100' : 'bg-emerald-900/10 border-emerald-500/10'}`}>
+                            <h4 className={`text-sm font-serif mb-4 uppercase tracking-widest border-b pb-2 w-full block ${isLightMode ? 'text-emerald-700 border-emerald-200' : 'text-emerald-300 border-emerald-500/10'}`}>
                                 明日建议 GUIDANCE
                             </h4>
-                            <div className="text-stone-300 font-serif text-lg leading-loose whitespace-pre-wrap">
+                            <div className={`font-serif text-lg leading-loose whitespace-pre-wrap ${isLightMode ? 'text-stone-700' : 'text-stone-300'}`}>
                                 <SimpleMarkdown content={safeRender(journalAnalysis.tomorrowsAdvice)} />
                             </div>
                         </Card>
