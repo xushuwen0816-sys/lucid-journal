@@ -1287,7 +1287,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                 <FileText className="w-4 h-4 mr-2" /> 导出报告 (HTML)
                             </Button>
 
-                            <Button onClick={handleImportClick} variant="outline" className={`text-xs justify-center ${isLightMode ? 'border-stone-200 text-stone-500 hover:text-stone-800 hover:bg-stone-100' : 'border-white/10 text-stone-400 hover:text-white hover:bg-white/5'}`}>
+                            <Button onClick={handleImportClick} variant="outline" className={`text-xs justify-center ${isLightMode ? 'border-stone-200 text-stone-600 hover:text-stone-800 hover:bg-stone-100' : 'border-stone-700/50 text-stone-300 hover:text-white hover:bg-stone-800/50'}`}>
                                 <Upload className="w-4 h-4 mr-2" /> 导入数据 (同步)
                             </Button>
                             <input 
@@ -1539,10 +1539,10 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
 
                                             <h4 className={`font-serif text-lg mb-3 truncate ${activeStyle.text} font-medium`}>{`来自${new Date(letter.createdAt).toLocaleDateString()}的信`}</h4>
                                             
-                                            <div className="text-sm text-stone-500 font-serif line-clamp-3 leading-relaxed min-h-[4.5em] bg-white/20 p-2 rounded-sm border border-stone-900/5">
+                                            <div className="text-sm text-stone-700 font-serif line-clamp-3 leading-relaxed min-h-[4.5em] bg-stone-100/50 p-2 rounded-sm border border-stone-300/30">
                                                 {isLocked ? (
-                                                    <span className="text-stone-500 italic flex items-center justify-center h-full gap-2">
-                                                        <Lock className="w-3 h-3 opacity-50" /> 内容已封存，{new Date(letter.sendDate).toLocaleDateString()}开启...
+                                                    <span className="text-stone-600 italic flex items-center justify-center h-full gap-2">
+                                                        <Lock className="w-3 h-3 opacity-70" /> 内容已封存，{new Date(letter.sendDate).toLocaleDateString()}开启...
                                                     </span>
                                                 ) : (
                                                     letter.aiReply ? (
@@ -1628,7 +1628,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                      </div>
                      
                      {affirmationViewMode === 'single' && (
-                         <div className={`text-xs text-stone-500 mb-2 flex items-center gap-1 p-2 rounded-lg ${isLightMode ? 'bg-stone-100' : 'bg-white/5'}`}>
+                         <div className={`text-xs text-stone-600 mb-2 flex items-center gap-1 p-2 rounded-lg ${isLightMode ? 'bg-stone-100' : 'bg-stone-800/30'}`}>
                              <Filter className="w-3 h-3" /> 
                              <span className="opacity-70">筛选对象:</span>
                              <select 
@@ -1705,7 +1705,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                   selectedJournalEntry ? (
                     <div className="space-y-6 h-full flex flex-col animate-fade-in">
                         <div className={`flex items-center gap-3 border-b pb-4 shrink-0 ${isLightMode ? 'border-stone-200' : 'border-white/5'}`}>
-                            <button onClick={() => setSelectedJournalEntry(null)} className={`p-2 -ml-2 rounded-full transition-colors ${isLightMode ? 'text-stone-500 hover:bg-stone-100 hover:text-stone-800' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}>
+                            <button onClick={() => setSelectedJournalEntry(null)} className={`p-2 -ml-2 rounded-full transition-colors ${isLightMode ? 'text-stone-600 hover:bg-stone-100 hover:text-stone-800' : 'text-stone-300 hover:bg-stone-800/50 hover:text-white'}`}>
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                             <div>
@@ -1832,7 +1832,7 @@ const ArchiveView: React.FC<ArchiveViewProps> = ({ wishes, journalEntries, ritua
                                               ).slice(0, 3).map((mood: any, idx: number) => {
                                                   const moodText = typeof mood === 'object' ? mood.text || mood.title : mood;
                                                   return (
-                                                      <span key={idx} className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${isLightMode ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-white/5 text-stone-400 border-white/5'}`}>
+                                                      <span key={idx} className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${isLightMode ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-stone-800/30 text-stone-300 border-stone-700/30'}`}>
                                                           {moodText}
                                                       </span>
                                                   );

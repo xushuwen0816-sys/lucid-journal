@@ -447,20 +447,20 @@ const EnergyCheckView: React.FC<EnergyCheckViewProps> = ({ wishes = [], onSaveRi
                                             }}
                                             className={`
                                                 w-16 h-28 md:w-24 md:h-36 rounded-xl border border-white/20 cursor-pointer shadow-xl transition-all duration-300 origin-bottom
-                                                ${!isRevealing && !isSelected ? 'hover:z-[99] hover:-translate-y-16 hover:scale-110 hover:shadow-[0_0_30px_rgba(253,186,116,0.5)] hover:bg-stone-700/80 hover:border-lucid-glow/50' : ''}
+                                                ${!isRevealing && !isSelected ? 'hover:z-[99] hover:-translate-y-16 hover:scale-110 hover:shadow-[0_0_30px_rgba(253,186,116,0.3)] ' + (isLightMode ? 'hover:bg-orange-50/80 hover:border-orange-300' : 'hover:bg-stone-700/80 hover:border-lucid-glow/50') : ''}
                                                 ${isLightMode ? 'bg-white border-orange-200' : (activeTab === 'oracle' ? 'bg-stone-800' : 'bg-stone-800')} 
                                                 flex-shrink-0 relative overflow-hidden
                                                 ${isSelected ? `ring-2 ring-lucid-glow shadow-[0_0_20px_rgba(253,186,116,0.3)] ${isLightMode ? 'bg-orange-50' : 'bg-stone-700'}` : ''}
                                             `}
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
-                                            <div className={`w-full h-full opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] ${isLightMode ? 'from-orange-200 to-orange-50' : (activeTab === 'oracle' ? 'from-orange-900 to-black' : 'from-orange-900 to-black')}`}></div>
-                                            <div className={`absolute inset-2 border rounded-md opacity-50 ${isLightMode ? 'border-orange-200/50' : 'border-white/5'}`}></div>
+                                            <div className={`w-full h-full opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] ${isLightMode ? 'from-orange-100 to-orange-200/50' : (activeTab === 'oracle' ? 'from-orange-900 to-black' : 'from-orange-900 to-black')}`}></div>
+                                            <div className={`absolute inset-2 border rounded-md opacity-50 ${isLightMode ? 'border-orange-300/50' : 'border-white/5'}`}></div>
                                             
                                             {/* Oracle Card Label on Back (Optional) */}
                                             {activeTab === 'oracle' && !isRevealing && (
                                                 <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                                                    <Sparkles className={`w-4 h-4 ${isLightMode ? 'text-orange-400' : 'text-white'}`} />
+                                                    <Sparkles className={`w-4 h-4 ${isLightMode ? 'text-orange-500' : 'text-white'}`} />
                                                 </div>
                                             )}
                                         </div>

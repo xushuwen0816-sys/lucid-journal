@@ -25,6 +25,20 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      // PWA配置 - 确保正确处理公共资源
+      publicDir: 'public',
+      // 构建配置
+      build: {
+        // 包含manifest.json和其他PWA文件
+        assetsInclude: ['**/*.json', '**/*.png', '**/*.jpg', '**/*.jpeg'],
+        // 确保Service Worker文件被正确处理
+        rollupOptions: {
+          input: {
+            main: path.resolve(__dirname, 'index.html'),
+            sw: path.resolve(__dirname, 'public/sw.js')
+          }
+        }
       }
     };
 });
