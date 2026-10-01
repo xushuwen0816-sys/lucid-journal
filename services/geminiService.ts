@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { BeliefMap, Affirmation, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage } from "../types";
+import { BeliefMap, Affirmation, WishTags, DailyPractice, JournalEntry, TarotReading, Wish, ChatMessage, AgentContext, AgentToolStep, DeepDiveOptions } from "../types";
 
 // Initialize Gemini Client Lazily
 let aiInstance: GoogleGenAI | null = null;
@@ -196,7 +196,143 @@ export const checkConnection = async (): Promise<{ success: boolean; message?: s
 
 // --- Text & Analysis ---
 
-export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]): Promise<string> => {
+// ============================================================================
+// PHASE 1: 流式对话 (Streaming)
+// PHASE 2: 最简易 Agent 编排 (Function Calling + 调用循环)
+// ----------------------------------------------------------------------------
+// 设计要点：
+//   - 文本既通过 onChunk 增量抛给 UI（打字机效果），也累积成完整文本返回入库
+//   - 声明 3 个工具给模型；模型返回 functionCall 时由前端本地执行，
+//     再把 functionResponse 追加回对话历史，进入下一轮，直到模型只回文本
+//   - 这个 "感知 → 决策 → 行动 → 观察" 的循环就是 Agent 的本质
+//   - 流程控制权在关键节点上从硬编码转移到模型（propose_belief_map）
+// ============================================================================
+
+/** 允许的最大 Agent 轮次，防止模型陷入工具调用死循环 */
+const MAX_AGENT_TURNS = 4;
+
+/** 工具声明：名称 / 用途描述 / 参数 JSON Schema */
+const LUCID_TOOLS = [
+  {
+    functionDeclarations: [
+      {
+        name: 'search_user_journals',
+        description:
+          '检索用户的历史觉察日记。当用户提到某个反复出现的情绪、事件或人物时调用，用来引用真实过往，避免每轮对话失忆。',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            query: {
+              type: Type.STRING,
+              description: '要检索的中文关键词或主题，例如：焦虑、工作、母亲、失眠',
+            },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'get_active_wishes',
+        description:
+          '读取用户当前所有进行中的愿望清单。用于避免重复提问、判断这个愿望与其他愿望之间的关联。',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {},
+        },
+      },
+      {
+        name: 'propose_belief_map',
+        description:
+          '当你判断 Why / Vision / Conflict / Fear 等关键方向已经挖掘充分、可以生成信念地图时调用。约束：至少已充分挖掘 Why（为什么这个愿望对你重要）与 Fear（无法实现时最害怕什么）之后才可调用，否则请继续提问。调用后系统会为本次深挖生成信念地图并进入下一阶段，你无需再继续提问。',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            reason: {
+              type: Type.STRING,
+              description: '用一句话说明你判断信息已经充分的理由',
+            },
+          },
+          required: ['reason'],
+        },
+      },
+    ],
+  },
+];
+
+/**
+ * 工具本地执行器：纯前端实现，数据来自已同步到前端的本地状态，
+ * 不产生额外网络请求，天然适配离线/弱网场景。
+ */
+const executeTool = (
+  name: string,
+  args: Record<string, any>,
+  ctx: AgentContext
+): { response: Record<string, unknown>; summary: string } => {
+  switch (name) {
+    case 'search_user_journals': {
+      const query = String(args?.query ?? '').trim();
+      const journals = ctx.journals || [];
+      const q = query.toLowerCase();
+      const hits = (
+        q ? journals.filter(j => (j.content || '').toLowerCase().includes(q)) : journals
+      ).slice(0, 3);
+
+      if (!hits.length) {
+        return {
+          response: { matched: 0, note: '未检索到相关日记，请不要虚构用户的历史。' },
+          summary: `检索「${query}」：无匹配日记`,
+        };
+      }
+      return {
+        response: {
+          matched: hits.length,
+          entries: hits.map(h => ({
+            date: new Date(h.date).toLocaleDateString('zh-CN'),
+            content: (h.content || '').slice(0, 200),
+          })),
+        },
+        summary: `检索「${query}」：命中 ${hits.length} 篇日记`,
+      };
+    }
+
+    case 'get_active_wishes': {
+      const active = (ctx.wishes || []).filter(w => w.status !== 'manifested');
+      return {
+        response: { count: active.length, wishes: active.map(w => w.content) },
+        summary: `读取在途愿望 ${active.length} 个`,
+      };
+    }
+
+    case 'propose_belief_map': {
+      const reason = String(args?.reason ?? '').slice(0, 60);
+      return {
+        response: { acknowledged: true, next: 'belief_map_generation_started' },
+        summary: `判定信息已充分：${reason || '未说明理由'}`,
+      };
+    }
+
+    default:
+      return {
+        response: { error: `unknown_tool:${name}` },
+        summary: `未知工具 ${name}`,
+      };
+  }
+};
+
+/**
+ * 愿望深挖对话 —— 流式 + Agent 编排。
+ *
+ * @param wish    用户的初始愿望文本
+ * @param history 结构化对话历史
+ * @param options 流式回调 / 工具回调 / 本地数据上下文
+ * @returns       累积后的完整回复文本（用于入库）
+ */
+export const analyzeWishDeepDive = async (
+  wish: string,
+  history: ChatMessage[],
+  options: DeepDiveOptions = {}
+): Promise<string> => {
+  const { ctx = {}, onChunk, onTool, onProposeBeliefMap } = options;
+
   const systemInstructionText = `
     你是一个名为“LUCID（澄）”的潜意识操作系统向导。
     你的角色：像一位温柔、神秘、充满智慧的灵性疗愈师。
@@ -216,32 +352,107 @@ export const analyzeWishDeepDive = async (wish: string, history: ChatMessage[]):
        - 你觉得内心有什么声音在阻碍你吗？(Conflict)
        - 如果无法实现，你最害怕的是什么？(Fear)
        - 愿望背后的核心情绪是什么？(Core Emotion)
+
+    你可以调用以下工具来辅助对话（在真正需要时调用，不要为了调用而调用）：
+       - search_user_journals(query): 当用户提到反复出现的情绪/事件/人物时，检索他真实的历史日记，让对话有记忆。
+       - get_active_wishes(): 读取用户其他在途愿望，避免重复提问、发现愿望间的关联。
+       - propose_belief_map(reason): 当你判断信息已经挖得足够充分时，调用它来进入"信念地图"阶段。
+         约束：至少已充分挖掘 Why 与 Fear 之后才可调用，信息不足时请继续提问、不要急于跳步。
+         请不要再依赖用户点按钮推进流程 —— 由你自己判断节奏。
   `;
 
-  try {
-      // Use gemini-2.0-flash as it is the current stable version
-      const model = "gemini-2.5-flash"; 
-      const contents = history.map((msg, index) => {
-        let text = msg.text;
-        if (index === 0 && msg.role === 'user') {
-          text = `${systemInstructionText}\n\n[User's Initial Input]: ${text}`;
-        }
-        return {
-          role: msg.role === 'model' ? 'model' : 'user',
-          parts: [{ text: text }]
-        };
-      });
+  // 构造 contents：沿用项目既有做法，把 system instruction 注入首条用户消息
+  // （这样不必改动 Cloudflare Worker 代理层，兼容性最稳）
+  const contents: any[] = history.map((msg, index) => {
+    let text = msg.text;
+    if (index === 0 && msg.role === 'user') {
+      text = `${systemInstructionText}\n\n[User's Initial Input]: ${text}`;
+    }
+    return {
+      role: msg.role === 'model' ? 'model' : 'user',
+      parts: [{ text }],
+    };
+  });
 
-      const response = await callGeminiWithRetry(() => getAi().models.generateContent({
-        model,
-        contents,
-      }));
-      return response.text || "正在连接你的潜意识频率...";
+  let fullText = '';
+  let beliefMapProposed = false;
+
+  try {
+    for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
+      // 一旦模型已提出生成信念地图，就撤下工具，让它安心收尾成文本
+      const tools = beliefMapProposed ? undefined : LUCID_TOOLS;
+
+      const response = await callGeminiWithRetry(() =>
+        getAi().models.generateContentStream({
+          model: 'gemini-2.5-flash',
+          contents,
+          config: tools ? { tools } : {},
+        })
+      );
+
+      // --- 消费流：文本增量 + 收集 functionCall ---
+      const functionCalls: any[] = [];
+      let turnText = ''; // 仅本轮产生的文本，用于原样写回历史
+      for await (const chunk of response) {
+        const delta = chunk.text;
+        if (delta) {
+          turnText += delta;
+          fullText += delta;
+          onChunk?.(delta);
+        }
+        if (chunk.functionCalls && chunk.functionCalls.length) {
+          functionCalls.push(...chunk.functionCalls);
+        }
+      }
+
+      // 没有工具调用 → 模型给出最终文本，Agent 循环结束
+      if (!functionCalls.length) break;
+
+      // --- 把模型这一轮的内容（文本 + 工具请求）写回历史 ---
+      const modelParts: any[] = [];
+      if (turnText) modelParts.push({ text: turnText });
+      for (const call of functionCalls) {
+        modelParts.push({
+          functionCall: { name: call.name, args: call.args || {} },
+        });
+      }
+      contents.push({ role: 'model', parts: modelParts });
+
+      // --- 本地执行工具，并回传 functionResponse ---
+      const responseParts: any[] = [];
+      for (const call of functionCalls) {
+        const { response: toolResponse, summary } = executeTool(
+          call.name,
+          call.args || {},
+          ctx
+        );
+
+        onTool?.({
+          tool: call.name,
+          args: (call.args || {}) as Record<string, unknown>,
+          summary,
+        });
+
+        if (call.name === 'propose_belief_map') {
+          beliefMapProposed = true;
+          onProposeBeliefMap?.(String((call.args || {}).reason || ''));
+        }
+
+        responseParts.push({
+          functionResponse: { name: call.name, response: toolResponse },
+        });
+      }
+      contents.push({ role: 'user', parts: responseParts });
+    }
+
+    return fullText.trim() || '正在连接你的潜意识频率...';
   } catch (error) {
-    console.error("Deep dive error:", error);
-    return "信号受到了干扰，请检查网络连接或API设置。";
+    console.error('Deep dive error:', error);
+    // 兜底：已流出的内容优先复用，避免用户看到的内容凭空消失
+    return fullText.trim() || '信号受到了干扰，请检查网络连接或API设置。';
   }
 };
+
 
 export const generateBeliefMapAndTags = async (wish: string, chatContext: string): Promise<{ beliefs: BeliefMap, tags: WishTags }> => {
   const prompt = `

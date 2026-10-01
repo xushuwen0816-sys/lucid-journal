@@ -43,6 +43,34 @@ export interface ChatMessage {
   text: string;
 }
 
+// --- Agent Orchestration (Phase 2) ---
+// 传给 Agent 的本地数据上下文。工具执行时从这里取数，无需额外网络请求。
+export interface AgentContext {
+  journals?: JournalEntry[];
+  wishes?: Wish[];
+}
+
+// 一次工具调用的可展示轨迹（用于 UI 显示 Agent 的"行动"过程）
+export interface AgentToolStep {
+  /** 工具名 */
+  tool: string;
+  /** 模型给出的调用参数 */
+  args: Record<string, unknown>;
+  /** 本地执行结果的简短中文摘要 */
+  summary: string;
+}
+
+// 流式回调 + 工具回调
+export interface DeepDiveOptions {
+  ctx?: AgentContext;
+  /** 每收到一段增量 token 触发一次 */
+  onChunk?: (delta: string) => void;
+  /** 模型请求调用某个工具、且本地已执行完成时触发 */
+  onTool?: (step: AgentToolStep) => void;
+  /** 模型自主判断深挖已充分、要求生成信念地图时触发 */
+  onProposeBeliefMap?: (reason: string) => void;
+}
+
 export interface BeliefMap {
   emotionalBlocks: string[];
   limitingBeliefs: string[];

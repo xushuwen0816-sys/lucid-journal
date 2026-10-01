@@ -815,7 +815,13 @@ const App: React.FC = () => {
            <div className="flex-1 w-full h-full p-2 md:p-6 max-w-6xl mx-auto flex flex-col">
               {currentView === AppView.INTENT && (
                 <div className={`${isLightMode ? 'text-stone-800' : 'text-lucid-text'} h-full`}>
-                    <IntentView state={intentState} setState={setIntentState} onComplete={handleWishCreated} />
+                    <IntentView
+                        state={intentState}
+                        setState={setIntentState}
+                        onComplete={handleWishCreated}
+                        journals={journalEntries}
+                        wishes={wishes}
+                    />
                 </div>
               )}
               

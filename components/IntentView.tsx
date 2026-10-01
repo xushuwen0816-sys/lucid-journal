@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Sparkles, Check, ArrowRight, AlertCircle, Fingerprint, Lock, ShieldAlert, ArrowDown, Zap } from 'lucide-react';
-import { Wish, ChatMessage, IntentState } from '../types';
+import { Send, Sparkles, Check, ArrowRight, AlertCircle, Fingerprint, Lock, ShieldAlert, ArrowDown, Zap, Search, ListChecks, Map } from 'lucide-react';
+import { Wish, ChatMessage, IntentState, JournalEntry, AgentToolStep } from '../types';
 import { analyzeWishDeepDive, generateBeliefMapAndTags, generateAffirmations } from '../services/geminiService';
 import { Button, Card, SectionTitle, LoadingSpinner } from './Shared';
 import { useTheme } from '../contexts/ThemeContext';
@@ -10,13 +10,21 @@ interface IntentViewProps {
   state: IntentState;
   setState: React.Dispatch<React.SetStateAction<IntentState>>;
   onComplete: (wish: Wish) => void;
-  onInteract?: () => void; 
+  onInteract?: () => void;
+  /** Agent 工具数据源：历史日记 */
+  journals?: JournalEntry[];
+  /** Agent 工具数据源：在途愿望 */
+  wishes?: Wish[];
 }
 
-const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, onInteract }) => {
+const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, onInteract, journals = [], wishes = [] }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputCardRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Agent 工具调用轨迹（UI 展示模型的"行动"过程）
+  const [agentTrace, setAgentTrace] = useState<AgentToolStep[]>([]);
+  // 本轮对话的工作副本：流式增量直接改它，避免依赖异步 state 快照
+  const workingRef = useRef<ChatMessage[]>([]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (inputCardRef.current) {
@@ -29,43 +37,93 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
   };
   
   // Auto-scroll for Chat
+  // 流式期间用 'auto' 避免每个 token 都触发平滑滚动动画造成抖动
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: state.isTyping ? 'auto' : 'smooth' });
   }, [state.messages, state.isTyping]);
 
   // 1. CHAT LOGIC
   const { isLightMode } = useTheme();
 
+  /**
+   * 把本轮"工作副本"以增量方式刷进 React state。
+   * 流式对话的核心：setState(prev => ... + delta)，而不是一次性 setText。
+   */
+  const flushWorking = () => {
+    setState(prev => {
+      const msgs = [...prev.messages];
+      const last = workingRef.current[workingRef.current.length - 1];
+      const i = msgs.length - 1;
+      if (last && i >= 0 && msgs[i].role === 'model') {
+        msgs[i] = { ...msgs[i], text: last.text };
+      }
+      return { ...prev, messages: msgs };
+    });
+  };
+
+  /**
+   * 统一的"发起一轮深挖"入口：流式增量渲染 + Agent 工具循环。
+   * @param historyBefore 本轮之前的完整对话历史（不含即将追加的模型占位气泡）
+   */
+  const runDeepDive = async (historyBefore: ChatMessage[]) => {
+    // 追加一个空的 model 气泡作为流式落点
+    const working: ChatMessage[] = [...historyBefore, { role: 'model', text: '' }];
+    workingRef.current = working;
+    setAgentTrace([]);
+    setState(prev => ({ ...prev, messages: working, isTyping: true }));
+
+    const userText = historyBefore[historyBefore.length - 1]?.text || '';
+
+    const full = await analyzeWishDeepDive(userText, historyBefore, {
+      ctx: { journals, wishes },
+      onChunk: (delta) => {
+        const last = workingRef.current[workingRef.current.length - 1];
+        if (!last) return;
+        last.text += delta;
+        flushWorking();
+      },
+      onTool: (step) => setAgentTrace(prev => [...prev, step]),
+      onProposeBeliefMap: () => {
+        // 模型自主判断深挖已充分 → 流程控制权从代码交给模型
+        void handleAnalyzeBlocks(workingRef.current);
+      },
+    });
+
+    // 收尾对账：以 SDK 累积的完整文本为准，避免流式过程丢字
+    const last = workingRef.current[workingRef.current.length - 1];
+    if (last && last.role === 'model') {
+      if (full) last.text = full;
+    }
+    flushWorking();
+    setState(prev => ({ ...prev, isTyping: false }));
+  };
+
   const handleStartDeepDive = async () => {
     if (!state.wishInput.trim()) return;
     const initialText = state.wishInput;
     const initialMessage: ChatMessage = { role: 'user', text: initialText };
-    setState(prev => ({ ...prev, step: 'deep-dive', wishInput: '', messages: [initialMessage], isTyping: true }));
-    // Pass structured history
-    const response = await analyzeWishDeepDive(initialText, [initialMessage]);
-    setState(prev => ({ ...prev, messages: [...prev.messages, { role: 'model', text: response }], isTyping: false }));
+    setState(prev => ({ ...prev, step: 'deep-dive', wishInput: '' }));
+    await runDeepDive([initialMessage]);
   };
 
   const handleSendMessage = async () => {
     if (!state.wishInput.trim()) return;
     const textToSend = state.wishInput;
     const newMessage: ChatMessage = { role: 'user', text: textToSend };
-    
-    setState(prev => ({ ...prev, wishInput: '', messages: [...prev.messages, newMessage], isTyping: true }));
-    
-    // Pass structured history
-    const history = [...state.messages, newMessage];
-    const response = await analyzeWishDeepDive(textToSend, history);
-    
-    setState(prev => ({ ...prev, messages: [...prev.messages, { role: 'model', text: response }], isTyping: false }));
+
+    setState(prev => ({ ...prev, wishInput: '' }));
+
+    await runDeepDive([...state.messages, newMessage]);
   };
 
   // 2. STAGE A: ANALYZE BLOCKS (Generates Belief Map only)
-  const handleAnalyzeBlocks = async () => {
+  const handleAnalyzeBlocks = async (messages?: ChatMessage[]) => {
+    const source = messages && messages.length ? messages : state.messages;
+    if (!source.length) return;
     setIsLoading(true);
     try {
-        const context = state.messages.map(m => `${m.role}: ${m.text}`).join('\n');
-        const coreWish = state.messages[0].text;
+        const context = source.map(m => `${m.role}: ${m.text}`).join('\n');
+        const coreWish = source[0].text;
         
         const { beliefs, tags } = await generateBeliefMapAndTags(coreWish, context);
         
@@ -144,6 +202,14 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
      }, 800);
   };
 
+  // Agent 工具 → 图标/中文标签（用于轨迹展示）
+  const toolMeta = (tool: string) => {
+    if (tool === 'search_user_journals') return { icon: Search, label: '检索历史日记' };
+    if (tool === 'get_active_wishes') return { icon: ListChecks, label: '读取在途愿望' };
+    if (tool === 'propose_belief_map') return { icon: Map, label: '生成信念地图' };
+    return { icon: Sparkles, label: tool };
+  };
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden font-serif">
       <div className="flex-shrink-0">
@@ -216,22 +282,60 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
             {state.step === 'deep-dive' && (
             <div className={`flex flex-col h-full rounded-[2rem] border relative overflow-hidden shadow-inner ${isLightMode ? 'bg-white/60 border-stone-200' : 'bg-white/[0.02] border-white/5'}`}>
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 no-scrollbar pb-64">
-                {state.messages.map((msg, idx) => (
+                {state.messages.map((msg, idx) => {
+                    const isLast = idx === state.messages.length - 1;
+                    const isStreamingHere = state.isTyping && isLast && msg.role === 'model';
+                    // 空白的模型占位气泡不渲染，改用下方"思考中"指示器
+                    if (msg.role === 'model' && !msg.text && isLast) return null;
+                    return (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
                     <div className={`max-w-[90%] md:max-w-[85%] p-4 md:p-5 rounded-2xl text-base font-serif leading-loose tracking-wide shadow-sm ${
                         msg.role === 'user' ? (isLightMode ? 'bg-orange-100 text-stone-800 rounded-br-sm border border-orange-200' : 'bg-lucid-glow/20 text-white rounded-br-sm backdrop-blur-sm border border-lucid-glow/10') : (isLightMode ? 'bg-white/80 text-stone-700 rounded-bl-sm border border-stone-200' : 'bg-white/5 text-lucid-text rounded-bl-sm')
                     }`}>
                         {msg.role === 'model' && <div className={`text-xs font-sans mb-2 uppercase tracking-widest opacity-80 ${isLightMode ? 'text-orange-500' : 'text-lucid-accent'}`}>LUCID</div>}
                         {msg.text}
+                        {/* 流式光标 */}
+                        {isStreamingHere && (
+                            <span className={`inline-block w-[2px] h-[1em] ml-0.5 align-text-bottom animate-pulse ${isLightMode ? 'bg-orange-500' : 'bg-lucid-glow'}`} />
+                        )}
                     </div>
                     </div>
-                ))}
-                {state.isTyping && <div className="pl-4"><LoadingSpinner /></div>}
+                    );
+                })}
+
+                {/* 思考中：仅在还没有任何 token 落地时显示 */}
+                {state.isTyping && !state.messages[state.messages.length - 1]?.text && (
+                    <div className={`flex items-center gap-3 pl-2 text-sm font-sans ${isLightMode ? 'text-stone-500' : 'text-lucid-dim'}`}>
+                        <LoadingSpinner />
+                        <span>{agentTrace.length ? '正在为你检索…' : 'LUCID 正在聆听…'}</span>
+                    </div>
+                )}
+
+                {/* Agent 工具调用轨迹 */}
+                {agentTrace.length > 0 && (
+                    <div className="flex flex-wrap justify-center gap-2 py-2 animate-fade-in">
+                        {agentTrace.map((step, i) => {
+                            const { icon: Icon, label } = toolMeta(step.tool);
+                            return (
+                                <div
+                                    key={i}
+                                    title={step.summary}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-sans tracking-wide ${isLightMode ? 'bg-white/70 border-stone-200 text-stone-500' : 'bg-white/[0.03] border-white/10 text-lucid-dim'}`}
+                                >
+                                    <Icon className="w-3.5 h-3.5 opacity-70" />
+                                    <span>{label}</span>
+                                    <span className="opacity-50">·</span>
+                                    <span className="opacity-70">{step.summary}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
                 
-                {state.messages.length > 1 && (
+                {state.messages.length > 1 && !state.isTyping && (
                     <div className="flex justify-center py-8 mb-40 animate-fade-in">
                         <Button 
-                            onClick={handleAnalyzeBlocks} 
+                            onClick={() => handleAnalyzeBlocks()} 
                             disabled={isLoading}
                             variant="glass" 
                             className={`rounded-full px-8 py-3 text-sm min-w-[240px] shadow-[0_0_20px_rgba(253,186,116,0.1)] ${isLightMode ? 'border-orange-200 text-orange-600 hover:bg-orange-50' : 'border-lucid-glow/30 text-lucid-glow hover:bg-lucid-glow/10'}`}
@@ -251,13 +355,14 @@ const IntentView: React.FC<IntentViewProps> = ({ state, setState, onComplete, on
                 <div className={`absolute bottom-0 left-0 right-0 p-3 md:p-5 backdrop-blur-2xl border-t z-20 ${isLightMode ? 'bg-white/80 border-stone-200' : 'bg-lucid-bg/95 border-white/5'}`}>
                 <div className="flex gap-3 relative items-end">
                     <textarea
-                    className={`flex-1 border rounded-2xl px-4 py-3 focus:outline-none font-serif resize-none h-14 text-base ${isLightMode ? 'bg-white border-stone-300 text-stone-800 focus:bg-white' : 'bg-white/5 border-white/10 text-white focus:bg-white/10'}`}
-                    placeholder="回复以继续挖掘..."
+                    className={`flex-1 border rounded-2xl px-4 py-3 focus:outline-none font-serif resize-none h-14 text-base disabled:opacity-60 ${isLightMode ? 'bg-white border-stone-300 text-stone-800 focus:bg-white' : 'bg-white/5 border-white/10 text-white focus:bg-white/10'}`}
+                    placeholder={state.isTyping ? 'LUCID 正在回应…' : '回复以继续挖掘...'}
                     value={state.wishInput}
+                    disabled={state.isTyping}
                     onChange={(e) => setState(prev => ({ ...prev, wishInput: e.target.value }))}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                     />
-                    <Button onClick={handleSendMessage} variant="primary" className="h-14 w-14 !p-0 rounded-full" disabled={!state.wishInput.trim()}>
+                    <Button onClick={handleSendMessage} variant="primary" className="h-14 w-14 !p-0 rounded-full" disabled={!state.wishInput.trim() || state.isTyping}>
                     <Send className="w-5 h-5" />
                     </Button>
                 </div>
