@@ -15,7 +15,7 @@ import { useTheme } from './contexts/ThemeContext';
 import { AuthPage } from './components/AuthPage';
 
 // Services
-import { setAiConfig, hasApiKey, checkConnection } from './services/geminiService';
+import { setAiConfig, hasApiKey, checkConnection, embedText } from './services/geminiService';
 
 const DEFAULT_PROXY = import.meta.env.VITE_DEFAULT_PROXY_URL || '';
 const DEFAULT_API_KEY = import.meta.env.VITE_DEFAULT_API_KEY || '';
@@ -417,6 +417,46 @@ const App: React.FC = () => {
         }).catch(console.error);
     }
   };
+
+  // --- 语义检索回填：登录同步/数据导入来的日记缺 embedding，后台补齐 ---
+  // 向量随时可由内容重算，只写本地不触发服务端 PUT。
+  // 设计要点：
+  //   1. 分批增量落盘（每 5 条一 flush）：中途失败/取消不丢已完成的成果；
+  //   2. 函数式 setState 合并到"最新"状态：journalEntries 变化导致的
+  //      effect 重启不会覆盖并发的增删/同步，也不会重复计算已补齐条目；
+  //   3. 取消时在途请求的结果照常落盘（只可能多算一次，不会丢也不会错）。
+  useEffect(() => {
+    const need = journalEntries.filter(j => !j.embedding);
+    if (!need.length) return;
+    let cancelled = false;
+    const done = new Map<string, number[]>();
+    const flush = () => {
+      if (!done.size) return;
+      const batch = new Map(done);
+      done.clear();
+      setJournalEntries(prev => {
+        let changed = false;
+        const next = prev.map(j => {
+          const emb = batch.get(j.id);
+          if (emb && !j.embedding) { changed = true; return { ...j, embedding: emb }; }
+          return j;
+        });
+        if (changed) localStorage.setItem('lucid_all_journals', JSON.stringify(next));
+        return changed ? next : prev;
+      });
+    };
+    (async () => {
+      for (const entry of need) {
+        const emb = await embedText(entry.content);
+        if (!emb) break; // embedding 接口不可用：先落盘已完成的，本会话不再尝试
+        done.set(entry.id, emb);
+        if (done.size >= 5) flush();
+        if (cancelled) break; // journalEntries 已变化，剩余条目交由新一轮 effect 接力
+      }
+      flush();
+    })();
+    return () => { cancelled = true; flush(); };
+  }, [journalEntries]);
 
   // 3. Ritual Entries
   const [ritualEntries, setRitualEntries] = useState<RitualArchiveEntry[]>(() => {

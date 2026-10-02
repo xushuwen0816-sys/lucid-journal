@@ -92,6 +92,8 @@ export const setAiConfig = (key: string, name: string, baseUrl?: string) => {
     localStorage.removeItem('lucid_provider');
   }
   aiInstance = null; // Reset instance to apply new config
+  // 用户重存配置（如换 Key/换代理）后，重新尝试语义检索，而不是整个会话封死
+  embeddingDisabledThisSession = false;
 };
 
 export const hasApiKey = () => {
@@ -211,6 +213,48 @@ export const checkConnection = async (): Promise<{ success: boolean; message?: s
 /** 允许的最大 Agent 轮次，防止模型陷入工具调用死循环 */
 const MAX_AGENT_TURNS = 4;
 
+// --- 语义向量：检索增强的最轻量实现 ---
+// 写入日记时顺手生成 embedding，检索时在内存里做余弦暴力计算。
+// 不引入向量库：日记量级在百篇以内，暴力扫描比任何索引都快，还省掉几百 KB 依赖。
+
+/** 中转层可能未代理 embeddings 路径，失败一次后本会话直接跳过，静默回退关键词检索 */
+let embeddingDisabledThisSession = false;
+
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+const EMBEDDING_DIM = 256; // 降维存储，控制 localStorage 体积
+
+export const embedText = async (text: string): Promise<number[] | null> => {
+  const clean = (text || '').trim().slice(0, 500);
+  if (!clean || embeddingDisabledThisSession || !hasApiKey()) return null;
+  try {
+    // 复用项目级重试：429/配额抖动自动退避重试，避免一次限流就永久关闭语义检索
+    const res = await callGeminiWithRetry(() => getAi().models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: clean,
+      config: { outputDimensionality: EMBEDDING_DIM },
+    }));
+    const values = res?.embeddings?.[0]?.values;
+    return Array.isArray(values) && values.length ? values : null;
+  } catch (e: any) {
+    console.warn('[LUCID] embedContent 不可用，本会话回退关键词检索:', e?.message || e);
+    embeddingDisabledThisSession = true;
+    return null;
+  }
+};
+
+const cosineSimilarity = (a: number[], b: number[]): number => {
+  // 维度不一致（模型换代/存量数据维度不同）时分数无意义，直接判 0，避免静默给出满分假命中
+  if (!a.length || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+};
+
+
 /** 工具声明：名称 / 用途描述 / 参数 JSON Schema */
 const LUCID_TOOLS = [
   {
@@ -218,7 +262,7 @@ const LUCID_TOOLS = [
       {
         name: 'search_user_journals',
         description:
-          '检索用户的历史觉察日记。当用户提到某个反复出现的情绪、事件或人物时调用，用来引用真实过往，避免每轮对话失忆。',
+          '检索用户的历史觉察日记（关键词与语义双路召回，可用近义表达）。当用户提到某个反复出现的情绪、事件或人物时调用，用来引用真实过往，避免每轮对话失忆。',
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -259,22 +303,52 @@ const LUCID_TOOLS = [
 ];
 
 /**
- * 工具本地执行器：纯前端实现，数据来自已同步到前端的本地状态，
- * 不产生额外网络请求，天然适配离线/弱网场景。
+ * 工具本地执行器：数据来自已同步到前端的本地状态。
+ * search_user_journals 做关键词 + 向量双路召回（向量路会对 query
+ * 发一次 embedContent 请求）；embedding 接口不可用时自动回退纯关键词。
  */
-const executeTool = (
+const executeTool = async (
   name: string,
   args: Record<string, any>,
   ctx: AgentContext
-): { response: Record<string, unknown>; summary: string } => {
+): Promise<{ response: Record<string, unknown>; summary: string }> => {
   switch (name) {
     case 'search_user_journals': {
       const query = String(args?.query ?? '').trim();
       const journals = ctx.journals || [];
       const q = query.toLowerCase();
-      const hits = (
-        q ? journals.filter(j => (j.content || '').toLowerCase().includes(q)) : journals
-      ).slice(0, 3);
+
+      // 关键词路：字面精确命中，优先级最高
+      const keywordHits = q
+        ? journals.filter(j => (j.content || '').toLowerCase().includes(q))
+        : journals.slice(0, 3);
+
+      // 向量路：语义相似命中（"焦虑"也能召回写"心很慌"的日记）
+      const vectorHits: JournalEntry[] = [];
+      const embedded = journals.filter(j => Array.isArray(j.embedding) && j.embedding.length);
+      if (q && embedded.length) {
+        const qv = await embedText(query);
+        if (qv) {
+          vectorHits.push(
+            ...embedded
+              .map(j => ({ j, score: cosineSimilarity(qv, j.embedding as number[]) }))
+              .filter(x => x.score >= 0.35)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 3)
+              .map(x => x.j)
+          );
+        }
+      }
+
+      // 两路合并去重，关键词优先，最多取 3 篇
+      const hits: JournalEntry[] = [];
+      const seen = new Set<string>();
+      for (const j of [...keywordHits, ...vectorHits]) {
+        if (seen.has(j.id)) continue;
+        seen.add(j.id);
+        hits.push(j);
+        if (hits.length >= 3) break;
+      }
 
       if (!hits.length) {
         return {
@@ -421,7 +495,7 @@ export const analyzeWishDeepDive = async (
       // --- 本地执行工具，并回传 functionResponse ---
       const responseParts: any[] = [];
       for (const call of functionCalls) {
-        const { response: toolResponse, summary } = executeTool(
+        const { response: toolResponse, summary } = await executeTool(
           call.name,
           call.args || {},
           ctx

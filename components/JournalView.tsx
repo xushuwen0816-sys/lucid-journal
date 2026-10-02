@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { analyzeJournalEntry } from '../services/geminiService';
+import { analyzeJournalEntry, embedText } from '../services/geminiService';
 import { JournalEntry, FutureLetter } from '../types';
 import { Button, Card, SectionTitle, LoadingSpinner, SimpleMarkdown } from './Shared';
 import { BookOpen, Send, Sparkles, RefreshCw, AlertCircle, Smile, Mail, Clock } from 'lucide-react';
@@ -116,7 +116,11 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
   const handleJournalSubmit = async () => {
     if (!journalInput) return;
     setLoading(true);
-    const analysis = await analyzeJournalEntry(journalInput);
+    // AI 分析与语义向量化并行请求，不增加整体等待时间
+    const [analysis, embedding] = await Promise.all([
+      analyzeJournalEntry(journalInput),
+      embedText(journalInput),
+    ]);
     if (analysis) {
         setJournalAnalysis(analysis);
         
@@ -132,7 +136,8 @@ const JournalView: React.FC<JournalViewProps> = ({ onAddJournalEntry, onAddLette
             id: crypto.randomUUID(),
             date: Date.now(),
             content: journalInput,
-            aiAnalysis: analysis
+            aiAnalysis: analysis,
+            embedding: embedding || undefined
         };
         onAddJournalEntry(newEntry);
     }

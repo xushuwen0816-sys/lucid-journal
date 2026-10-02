@@ -115,6 +115,8 @@ export interface JournalEntry {
     tomorrowsAdvice: string;
     highSelfTraits?: string[]; 
   };
+  /** 日记内容的语义向量，写入时生成，用于 Agent 检索的语义召回 */
+  embedding?: number[];
 }
 
 export interface RitualArchiveEntry {
